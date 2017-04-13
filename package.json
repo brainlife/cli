@@ -20,6 +20,7 @@
     "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
     "prompt": "^1.0.0",
-    "request": "^2.81.0"
+    "request": "^2.81.0",
+    "websocket": "^1.0.24"
   }
 }

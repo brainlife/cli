@@ -6,8 +6,13 @@ const config = require('./config');
 const fs = require('fs');
 const async = require('async');
 const spawn = require('child_process').spawn;
+const WebSocketClient = require('websocket').client;
+const jsonwebtoken = require('jsonwebtoken');
 
+if(!argv.tag) argv.tag = [];
 if(!Array.isArray(argv.tag)) argv.tag = [argv.tag];
+
+if(!argv.datatype_tag) argv.datatype_tag = [];
 if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 
 console.log("arguments");
@@ -19,13 +24,24 @@ if(!argv.desc) throw new Error("desc missing");
 if(!argv.project_id) throw new Error("project_id missing");
 if(!argv.subject) throw new Error("subject missing");
 
+var ws = new WebSocketClient();
+ws.on('connectFailed', function(err) {
+    throw err;
+});
+
+var jwt = null;
+var user = null;
+
 //check if user is logged in
 fs.stat(config.path.jwt, (err, stat)=>{
     if(err) {
         console.log("not logged in?");
         process.exit(1);
     }
-    var headers = { "Authorization": "Bearer "+fs.readFileSync(config.path.jwt) };
+    jwt = fs.readFileSync(config.path.jwt);
+    user = jsonwebtoken.decode(jwt);
+
+    var headers = { "Authorization": "Bearer "+jwt };
     var instance;
     get_instance(headers).then(_instance=>{
         console.log("using instance");
@@ -72,6 +88,36 @@ function get_resource(headers) {
             if(res.statusCode != 200) return reject(res.statusCode);
             if(!body.resource) return reject("no upload resource");
             resolve(body.resource);
+        });
+    });
+}
+
+function wait_for_finish(task, cb) {
+    console.log("connecting to ws");
+    ws.connect(config.api.event_ws+"/subscribe?jwt="+jwt);
+    ws.on('connect', function(conn) {
+        console.log("web socket connected. binding to instance", task._id);
+        conn.sendUTF(JSON.stringify({
+            bind: {
+                ex: "wf.task",
+                key: user.sub+"."+task.instance_id+".#",
+            }
+        }));
+        conn.on('message', function(raw) {
+            var data = JSON.parse(raw.utf8Data);
+            console.dir(data.msg);
+            
+            //TODO which task should we listen to?
+            if(data.msg._id == task._id) {
+                if(data.msg.status == "finished") {
+                    conn.close();
+                    cb();
+                }
+                if(data.msg.status == "failed") {
+                    conn.close();
+                    cb(data.msg.status_msg);
+                }
+            }
         });
     });
 }
@@ -131,25 +177,26 @@ function run(headers, instance, resource) {
                     console.log("done uploading");
 
                     //TODO - should I submit validation/normalization task?
+                    wait_for_finish(task, function(err) {
+                        console.log("service completed posting to warehouse");
+                        request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
+                            //info for dataset
+                            project: argv.project_id,
+                            name: argv.name,
+                            desc: argv.desc,
+                            datatype: datatype._id,
+                            datatype_tags: argv.datatype_tag,
+                            tags: argv.tag, 
 
-                    console.log("posting to warehouse");
-                    request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
-                        //info for dataset
-                        project: argv.project_id,
-                        name: argv.name,
-                        desc: argv.desc,
-                        datatype: datatype._id,
-                        datatype_tags: argv.datatype_tag,
-                        tags: argv.tag, 
+                            meta: {subject: argv.subject},
 
-                        meta: {subject: argv.subject},
-
-                        instance_id: instance._id,
-                        task_id: task._id, //we archive data from copy task
-                    }}, function(err, res, body) {
-                        if(err) throw err;
-                        console.log("dataset registgered");
-                        console.dir(body);
+                            instance_id: instance._id,
+                            task_id: task._id, //we archive data from copy task
+                        }}, function(err, res, body) {
+                            if(err) throw err;
+                            console.log("dataset registgered");
+                            console.dir(body);
+                        });
                     });
                 });
             });
