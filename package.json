@@ -1,0 +1,25 @@
+{
+  "name": "warehouse-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "login": "./login.js",
+    "import": "./import.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.3.0",
+    "colors": "^1.1.2",
+    "commander": "^2.9.0",
+    "jsonwebtoken": "^7.3.0",
+    "minimist": "^1.2.0",
+    "mkdirp": "^0.5.1",
+    "prompt": "^1.0.0",
+    "request": "^2.81.0"
+  }
+}
