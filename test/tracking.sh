@@ -8,11 +8,11 @@ project_id="58ef90c87446bb0021cd26d4"
 for subject in 158035
 do 
     echo $subject
-    type="neuro/freesurfer"
+    type="neuro/track_output"
     ../import.js \
-        --name "Freesurfer output for $subject" \
-        --desc "Freesurfer output for $subject" \
+        --name "Track output for $subject" \
+        --desc "Track output for $subject" \
         --project_id $project_id --tag "o3d" --type $type --subject $subject \
-        /mnt/auto/dc2/projects/o3d/o3d-workflow/freesurfer/$subject
+        /mnt/auto/dc2/projects/o3d/o3d-workflow/tracking/$subject
 
 done

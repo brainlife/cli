@@ -34,7 +34,6 @@ prompt.get(schema, function(err, results) {
 });
 
 function dorequest() {
-
     var url = config.api.auth;
     if(commander.l) url+="/ldap/auth";
     else url+="/local/auth";
@@ -45,7 +44,7 @@ function dorequest() {
         body: {username: commander.username, password: commander.password}
     }, function(err, res, body) {
         if(err) throw err;
-        if(res.statusCode != 200) return common.show_error(res, body);
+        if(res.statusCode != 200) return console.error(body);
 
         //make sure .sca/keys directory exists
         var dirname = path.dirname(config.path.jwt);
@@ -58,5 +57,6 @@ function dorequest() {
             console.dir(token);
         });
     });
-
 }
+
+

@@ -1,10 +1,15 @@
+
+//const host = "soichi7.ppa.iu.edu";
+const host = "brain-life.org";
+
 exports.api = {
-	auth: "https://soichi7.ppa.iu.edu/api/auth",
-	wf: "https://soichi7.ppa.iu.edu/api/wf",
-	event_ws: "wss://soichi7.ppa.iu.edu/api/event",
-	warehouse: "https://soichi7.ppa.iu.edu/api/warehouse",
+    auth: "https://"+host+"/api/auth",
+	wf: "https://"+host+"/api/wf",
+	event_ws: "wss://"+host+"/api/event",
+	warehouse: "https://"+host+"/api/warehouse",
 }
 
 exports.path = {
     jwt: process.env.HOME+"/.config/warehouse/.jwt",
 }
+

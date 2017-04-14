@@ -92,7 +92,20 @@ function get_resource(headers) {
     });
 }
 
-function wait_for_finish(task, cb) {
+function wait_for_finish(headers, task, cb) {
+    var find = {_id: task._id};
+    request.get({url: config.api.wf+"/task?find="+JSON.stringify(find), headers: headers, json: true}, function(err, res, body) {
+        if(err) return cb(err);
+        console.dir(body.tasks[0]);
+        if(body.tasks[0].status == "finished") return cb();
+        if(body.tasks[0].status == "failed") return cb(body.tasks[0].status_msg);
+        console.log("waiting for job to finish..");
+        setTimeout(function() {
+            wait_for_finish(headers, task, cb);
+        }, 1000);
+    });
+
+    /*
     console.log("connecting to ws");
     ws.connect(config.api.event_ws+"/subscribe?jwt="+jwt);
     ws.on('connect', function(conn) {
@@ -105,10 +118,8 @@ function wait_for_finish(task, cb) {
         }));
         conn.on('message', function(raw) {
             var data = JSON.parse(raw.utf8Data);
-            console.dir(data.msg);
-            
-            //TODO which task should we listen to?
             if(data.msg._id == task._id) {
+                console.dir(data.msg);
                 if(data.msg.status == "finished") {
                     conn.close();
                     cb();
@@ -120,6 +131,7 @@ function wait_for_finish(task, cb) {
             }
         });
     });
+    */
 }
 
 function run(headers, instance, resource) {
@@ -177,7 +189,7 @@ function run(headers, instance, resource) {
                     console.log("done uploading");
 
                     //TODO - should I submit validation/normalization task?
-                    wait_for_finish(task, function(err) {
+                    wait_for_finish(headers, task, function(err) {
                         console.log("service completed posting to warehouse");
                         request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
                             //info for dataset
