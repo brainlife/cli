@@ -23,6 +23,7 @@ if(!argv.name) throw new Error("name missing");
 if(!argv.desc) throw new Error("desc missing");
 if(!argv.project_id) throw new Error("project_id missing");
 if(!argv.subject) throw new Error("subject missing");
+//if(!argv.output_id) throw new Error("output_id missing");
 
 var ws = new WebSocketClient();
 ws.on('connectFailed', function(err) {
@@ -148,9 +149,9 @@ function run(headers, instance, resource) {
         var dir = argv._[0];
         
         //look for files we expect
-        var taropts = ['-cz'];
+        var taropts = ['-czh'];
         async.forEach(datatype.files, (file, next_file)=>{
-            console.log("looking for", file.filename||file.dirname);
+            console.log("looking for", dir+'/'+(file.filename||file.dirname));
             fs.stat(dir+"/"+file.filename, (err,stats)=>{
                 if(err) {
                     //try dirname
@@ -204,6 +205,7 @@ function run(headers, instance, resource) {
 
                             instance_id: instance._id,
                             task_id: task._id, //we archive data from copy task
+                            //output_id: argv.output_id,
                         }}, function(err, res, body) {
                             if(err) throw err;
                             console.log("dataset registgered");
