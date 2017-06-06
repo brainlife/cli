@@ -11,8 +11,8 @@ const jwt = require('jsonwebtoken');
 const config = require('./config');
 
 commander
-    .option('-u --username <username>', 'SCA username')
-    .option('-p --password <password>', 'SCA password')
+    .option('-u --username <username>', 'BrainLife username')
+    .option('-p --password <password>', 'BrainLife password')
     .option('-l --ldap', 'use LDAP')
     .parse(process.argv);
 

@@ -15,8 +15,8 @@ if(!Array.isArray(argv.tag)) argv.tag = [argv.tag];
 if(!argv.datatype_tag) argv.datatype_tag = [];
 if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 
-console.log("arguments");
-console.dir(argv);
+//console.log("arguments");
+//console.dir(argv);
 
 //TODO validate input arguments
 if(!argv.name) throw new Error("name missing");
