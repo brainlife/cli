@@ -23,7 +23,9 @@ If successful, you will see the content of your JWT token displayed.
 
 Import data from local directory to brain-life
 
-Let say you have t1.nii.gz stored inside `/home/userid/mydata/t1` directory. You can upload it by running something like following.
+For each datatype, you must have correct file names for each files. I normally setup directories just for importing purpose with symlinks to the actual data files on my file system. If you have a lot of datasets to upload, you should create a bash script which will create such symlink directories.
+
+Let say you have t1.nii.gz stored inside `/home/userid/mydata/12345/t1` directory. You can upload it by running something like following.
 
 ```
 $ brainlife import \
@@ -31,23 +33,21 @@ $ brainlife import \
     --type neuro/anat/t1w \
     --project_id xxxxxxxxxxxxxxxxxx \
     --subject 12345 \
-    /home/userid/mydata/t1
+    /home/userid/mydata/12345/t1
 ```
 
---type is where you specify the datatype that you are uploading. For now, it support following datatypes
+--type is where you specify the datatype that you are uploading. 
 
-`neuro/anat/t1w`
-`neuro/anat/t2w`
+`neuro/anat/t1w` `neuro/anat/t2w` should have .. `t1.nii.gz`
 
-Must have ..  `t1.nii.gz`
+`neuro/dwi` should have `dwi.nii.gz` `dwi.bvecs` `dwi.bvals`
 
-`neuro/dwi`
+`neuro/track` should have `track.tck
 
-Must have .. `dwi.nii.gz` `dwi.bvecs` `dwi.bvals`
 
 --project_id can be found by going to https://brain-life.org/warehouse/#/projects and clicking on the project. The project id can be found as part of the URL.
 
-Once imported, you should be able to find your datasets on brain-life.org.
+Once imported, you should be able to find your datasets on brain-life.org. If your dataset is incorrectly uploaded, you can remove them at brain-life.org.
 
 ###  Other Options
 
