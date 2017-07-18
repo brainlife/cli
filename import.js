@@ -19,7 +19,7 @@ if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 //console.dir(argv);
 
 //TODO validate input arguments
-if(!argv.name) throw new Error("name missing");
+//if(!argv.name) throw new Error("name missing");
 if(!argv.desc) throw new Error("desc missing");
 if(!argv.project_id) throw new Error("project_id missing");
 if(!argv.subject) throw new Error("subject missing");
@@ -195,7 +195,7 @@ function run(headers, instance, resource) {
                         request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
                             //info for dataset
                             project: argv.project_id,
-                            name: argv.name,
+                            //name: argv.name,
                             desc: argv.desc,
                             datatype: datatype._id,
                             datatype_tags: argv.datatype_tag,
