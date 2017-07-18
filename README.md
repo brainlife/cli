@@ -1,11 +1,19 @@
 # Brain-Life Command Line Interface
 
+## Dependency
+
+npm from https://www.npmjs.com/get-npm
+
+## Installation
+
+$ sudo npm install -g brainlife
+
 ## Login
 
 Generate temporary access token used by other command line.
 
 ```
-$ bl login 
+$ brainlife login 
 ```
 
 ## Import Dataset
@@ -13,7 +21,7 @@ $ bl login
 Import data from local directory to brain-life
 
 ```
-$ bl import \
+$ brainlife import \
     --name "name of dataset" \
     --desc "description of datset" \
     --type "neuro/anat" \
