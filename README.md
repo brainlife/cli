@@ -28,13 +28,26 @@ Let say you have t1.nii.gz stored inside `/home/userid/mydata/t1` directory. You
 ```
 $ brainlife import \
     --desc "description of datset" \
-    --type "neuro/anat" \
-    --project_id "58eeceaabb2e2e2bd70d4..." \
-    --subject "12345" \
+    --type neuro/anat/t1w \
+    --project_id xxxxxxxxxxxxxxxxxx \
+    --subject 12345 \
     /home/userid/mydata/t1
 ```
 
-project_id can be found by going to https://brain-life.org/warehouse/#/projects and clicking on the project. The project id can be found as part of the URL.
+--type is where you specify the datatype that you are uploading. For now, it support following datatypes
+
+`neuro/anat/t1w`
+`neuro/anat/t2w`
+
+Must have ..  `t1.nii.gz`
+
+`neuro/dwi`
+
+Must have .. `dwi.nii.gz` `dwi.bvecs` `dwi.bvals`
+
+--project_id can be found by going to https://brain-life.org/warehouse/#/projects and clicking on the project. The project id can be found as part of the URL.
+
+Once imported, you should be able to find your datasets on brain-life.org.
 
 ###  Other Options
 

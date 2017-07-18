@@ -146,7 +146,7 @@ function run(headers, instance, resource) {
 
         console.log("datatype");
         console.dir(datatype);  
-        var dir = argv._[0];
+        var dir = argv._[1];
         
         //look for files we expect
         var taropts = ['-czh'];
