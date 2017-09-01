@@ -15,23 +15,15 @@ if(!Array.isArray(argv.tag)) argv.tag = [argv.tag];
 if(!argv.datatype_tag) argv.datatype_tag = [];
 if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 
-//console.log("arguments");
-//console.dir(argv);
-
 //TODO validate input arguments
-//if(!argv.name) throw new Error("name missing");
 if(!argv.desc) throw new Error("desc missing");
 if(!argv.project_id) throw new Error("project_id missing");
 if(!argv.subject) throw new Error("subject missing");
-//if(!argv.output_id) throw new Error("output_id missing");
 
 var ws = new WebSocketClient();
 ws.on('connectFailed', function(err) {
     throw err;
 });
-
-var jwt = null;
-var user = null;
 
 //check if user is logged in
 fs.stat(config.path.jwt, (err, stat)=>{
@@ -39,9 +31,8 @@ fs.stat(config.path.jwt, (err, stat)=>{
         console.log("not logged in?");
         process.exit(1);
     }
-    jwt = fs.readFileSync(config.path.jwt);
-    user = jsonwebtoken.decode(jwt);
-
+    var jwt = fs.readFileSync(config.path.jwt);
+    var user = jsonwebtoken.decode(jwt);
     var headers = { "Authorization": "Bearer "+jwt };
     var instance;
     get_instance(headers).then(_instance=>{
@@ -105,34 +96,6 @@ function wait_for_finish(headers, task, cb) {
             wait_for_finish(headers, task, cb);
         }, 1000);
     });
-
-    /*
-    console.log("connecting to ws");
-    ws.connect(config.api.event_ws+"/subscribe?jwt="+jwt);
-    ws.on('connect', function(conn) {
-        console.log("web socket connected. binding to instance", task._id);
-        conn.sendUTF(JSON.stringify({
-            bind: {
-                ex: "wf.task",
-                key: user.sub+"."+task.instance_id+".#",
-            }
-        }));
-        conn.on('message', function(raw) {
-            var data = JSON.parse(raw.utf8Data);
-            if(data.msg._id == task._id) {
-                console.dir(data.msg);
-                if(data.msg.status == "finished") {
-                    conn.close();
-                    cb();
-                }
-                if(data.msg.status == "failed") {
-                    conn.close();
-                    cb(data.msg.status_msg);
-                }
-            }
-        });
-    });
-    */
 }
 
 function run(headers, instance, resource) {
@@ -214,7 +177,6 @@ function run(headers, instance, resource) {
                     });
                 });
             });
-            
         });
     });
 }

@@ -49,6 +49,17 @@ $ brainlife import \
 
 Once imported, you should be able to find your datasets on brain-life.org. If your dataset is incorrectly uploaded, you can remove them at brain-life.org.
 
+## Export Dataset
+
+Export dataset by dataset ID
+
+```
+$ brainlife export \
+    --id <datasetid>
+```
+
+It will create a directory on cwd and download and untar files for specified dataset
+
 ###  Other Options
 
 Sometime you need to set datatype tags like `--datatype_tag "acpc_aligned" \`  Different datatype has different set of datatype tags. If you are not sure, please consult through github issues.
