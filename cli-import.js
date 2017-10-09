@@ -142,19 +142,21 @@ function run(headers, instance, resource) {
             }}, function(err, res, body) {
                 if(err) throw err;
                 var task = body.task;
-                console.log("task submitted");
-                console.dir(body);
+                console.log("waiting for upload task to be ready", task._id);
+                //console.dir(body);
+                wait_for_finish(headers, task, function(err) {
+                    if(err) throw err;
 
-                console.log("uploading", task._id);
-                var path = new Buffer(instance._id+'/'+task._id+'/upload.tar.gz').toString('base64');
-                var req = request.post({url: config.api.wf+"/resource/upload/"+resource._id+"/"+path+"?untar=true", headers: headers});
-                var tar = spawn('/bin/tar', taropts, {cwd: dir});
-                tar.stdout.pipe(req).on('end', function() {
-                    console.log("done uploading");
+                    console.log("ready to upload");
+                    var path = new Buffer(instance._id+'/'+task._id+'/upload.tar.gz').toString('base64');
+                    var req = request.post({url: config.api.wf+"/resource/upload/"+resource._id+"/"+path+"?untar=true", headers: headers});
+                    var tar = spawn('/bin/tar', taropts, {cwd: dir});
+                    tar.stdout.pipe(req);
+                    req.on('response', res=>{
+                        console.log("done uploading", res.statusCode);
+                        if(res.statusCode != "200") throw new Error("failed to upload");
 
-                    //TODO - should I submit validation/normalization task?
-                    wait_for_finish(headers, task, function(err) {
-                        console.log("service completed posting to warehouse");
+                        console.log("registering dataset");
                         request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
                             //info for dataset
                             project: argv.project_id,
