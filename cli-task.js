@@ -1,38 +1,27 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
-const commander = require('commander');
 const request = require('request');
 const mkdirp = require('mkdirp');
 const path = require('path');
 const prompt = require('prompt');
 const colors = require('colors/safe');
 const jwt = require('jsonwebtoken');
+const program = require('commander');
+
+const pkg = require('./package');
 const config = require('./config');
 
-commander
-    .option('-u --username <username>', 'BrainLife username')
-    .option('-p --password <password>', 'BrainLife password')
-    .option('-l --ldap', 'use LDAP')
-    .parse(process.argv);
+console.dir(process.argv);
 
-var schema = {
-    properties: {
-        username: {required: true},
-        password: {required: true, hidden: true},
-    }
-};
-prompt.message = null;
-prompt.override = commander;
-prompt.start();
-prompt.get(schema, function(err, results) {
-    if(err) throw err; 
-    for(var k in results) {
-        commander[k] = results[k];
-    }
-    dorequest();
-});
+program
+  .version(pkg.version)
+  .command('rerun', 'rerun task')
+  .command('stop', 'stop a task')
+  .command('list', 'list tasks')
+  .parse(process.argv);
 
+/*
 function dorequest() {
     var url = config.api.auth;
     if(commander.l) url+="/ldap/auth";
@@ -58,5 +47,4 @@ function dorequest() {
         });
     });
 }
-
-
+*/

@@ -1,13 +1,13 @@
 {
   "name": "brainlife",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "brainlife": "./cli.js"
+    "bl": "./cli.js"
   },
   "author": "",
   "license": "ISC",
