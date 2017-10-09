@@ -14,7 +14,7 @@ $ sudo npm install -g brainlife
 Generate temporary access token used by brainlife command line.
 
 ```
-$ brainlife login 
+$ bl login 
 ```
 
 If successful, you will see the content of your JWT token displayed. 
@@ -28,7 +28,7 @@ For each datatype, you must have correct file names for each files. I normally s
 Let say you have t1.nii.gz stored inside `/home/userid/mydata/12345/t1` directory. You can upload it by running something like following.
 
 ```
-$ brainlife import \
+$ bl import \
     --desc "description of datset" \
     --type neuro/anat/t1w \
     --project_id xxxxxxxxxxxxxxxxxx \
@@ -44,6 +44,8 @@ $ brainlife import \
 
 `neuro/track` should have `track.tck
 
+`neuro/freesurfer` should have `output` directory containing freesufer output directories (like mri, label, etc..)
+
 
 --project_id can be found by going to https://brain-life.org/warehouse/#/projects and clicking on the project. The project id can be found as part of the URL.
 
@@ -54,7 +56,7 @@ Once imported, you should be able to find your datasets on brain-life.org. If yo
 Export dataset by dataset ID
 
 ```
-$ brainlife export \
+$ bl export \
     --id <datasetid>
 ```
 

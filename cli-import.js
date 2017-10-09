@@ -19,6 +19,7 @@ if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 if(!argv.desc) throw new Error("desc missing");
 if(!argv.project_id) throw new Error("project_id missing");
 if(!argv.subject) throw new Error("subject missing");
+const dir = argv._[0];
 
 var ws = new WebSocketClient();
 ws.on('connectFailed', function(err) {
@@ -36,14 +37,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
     var headers = { "Authorization": "Bearer "+jwt };
     var instance;
     get_instance(headers).then(_instance=>{
-        console.log("using instance");
-        console.dir(instance);
         instance = _instance;
-
+        console.log("using instance", instance);
         return get_resource(headers);
     }).then(resource=>{
-        console.log("resource to upload");
-        console.dir(resource);
         run(headers, instance, resource);
     }).catch(err=>{
         console.error(err);
@@ -88,7 +85,6 @@ function wait_for_finish(headers, task, cb) {
     var find = {_id: task._id};
     request.get({url: config.api.wf+"/task?find="+JSON.stringify(find), headers: headers, json: true}, function(err, res, body) {
         if(err) return cb(err);
-        console.dir(body.tasks[0]);
         if(body.tasks[0].status == "finished") return cb();
         if(body.tasks[0].status == "failed") return cb(body.tasks[0].status_msg);
         console.log("waiting for job to finish..");
@@ -109,7 +105,6 @@ function run(headers, instance, resource) {
 
         console.log("datatype");
         console.dir(datatype);  
-        var dir = argv._[1];
         
         //look for files we expect
         var taropts = ['-czh'];
@@ -117,13 +112,18 @@ function run(headers, instance, resource) {
             console.log("looking for", dir+'/'+(file.filename||file.dirname));
             fs.stat(dir+"/"+file.filename, (err,stats)=>{
                 if(err) {
-                    //try dirname
-                    fs.stat(dir+"/"+file.dirname, (err,stats)=>{
-                        if(err) throw err;
-                        console.dir([file, stats]);
-                        taropts.push(file.dirname);
-                        next_file();
-                    });
+                    //try dirname?
+                    if(file.dirname) {
+                        console.log(file);
+                        fs.stat(dir+"/"+file.dirname, (err,stats)=>{
+                            if(err) throw err;
+                            console.dir([file, stats]);
+                            taropts.push(file.dirname);
+                            next_file();
+                        });
+                    } else {
+                        throw err;
+                    }
                 } else {
                     console.dir([file, stats]);
                     taropts.push(file.filename);
