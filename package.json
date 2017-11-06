@@ -1,26 +1,26 @@
 {
   "name": "brainlife",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "bl": "./cli.js"
+    "bl": "./bl.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "async": "^2.3.0",
+    "async": "^2.5.0",
     "colors": "^1.1.2",
-    "commander": "^2.9.0",
-    "jsonwebtoken": "^7.3.0",
+    "commander": "^2.11.0",
+    "jsonwebtoken": "^7.4.3",
     "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
     "prompt": "^1.0.0",
-    "request": "^2.81.0",
-    "tar": "^4.0.1",
-    "websocket": "^1.0.24"
+    "request": "^2.83.0",
+    "tar": "^4.0.2",
+    "websocket": "^1.0.25"
   }
 }
