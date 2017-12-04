@@ -150,7 +150,7 @@ function run(headers, instance, resource) {
                     console.log("ready to upload");
                     var path = new Buffer(instance._id+'/'+task._id+'/upload.tar.gz').toString('base64');
                     var req = request.post({url: config.api.wf+"/resource/upload/"+resource._id+"/"+path+"?untar=true", headers: headers});
-                    var tar = spawn('/bin/tar', taropts, {cwd: dir});
+                    var tar = spawn('tar', taropts, {cwd: dir});
                     tar.stdout.pipe(req);
                     req.on('response', res=>{
                         console.log("done uploading", res.statusCode);
