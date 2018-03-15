@@ -21,24 +21,15 @@ fs.stat(config.path.jwt, (err, stat)=>{
     var jwt = fs.readFileSync(config.path.jwt);
     var user = jsonwebtoken.decode(jwt);
     if(!user) throw new Error("couldn't decode jwt");
-    //console.dir(user);
     var headers = { "Authorization": "Bearer "+jwt };
-
     fs.mkdir(argv.id, err=>{
-
         request.get({url: config.api.warehouse+"/dataset/download/"+argv.id, headers: headers})
-        /*
-        .on('error', err=>{
-            throw err;
-        })
-        */
         .on('response', res=>{
             if(res.statusCode != 200) {
                 console.dir(res);
                 throw new Error(res.statusMessage);
             }
         })
-        //.pipe(fs.createWriteStream('data.tar'))
         .pipe(
             tar.x({
                 //strip: 1,
