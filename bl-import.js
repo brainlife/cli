@@ -175,7 +175,7 @@ function run(headers, instance, resource) {
                             datatype_tags: argv.datatype_tag,
                             tags: argv.tag, 
 
-                            meta: Object.assign(metadata, {subject: argv.subject}),
+                            meta: Object.assign(metadata, {subject: argv.subject, session: argv.session}),
 
                             instance_id: instance._id,
                             task_id: task._id, 
