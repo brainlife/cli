@@ -1,15 +1,15 @@
 
-//const host = "soichi7.ppa.iu.edu";
-const host = "brain-life.org";
+const host = "brainlife.io";
 
 exports.api = {
     auth: "https://"+host+"/api/auth",
-	wf: "https://"+host+"/api/wf",
-	event_ws: "wss://"+host+"/api/event",
+	wf: "https://"+host+"/api/amaretti",
 	warehouse: "https://"+host+"/api/warehouse",
+
+	event_ws: "wss://"+host+"/api/event",
 }
 
 exports.path = {
-    jwt: process.env.HOME+"/.config/warehouse/.jwt",
+    jwt: process.env.HOME+"/.config/brainlife/.jwt",
 }
 
