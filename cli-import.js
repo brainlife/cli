@@ -16,9 +16,9 @@ if(!argv.datatype_tag) argv.datatype_tag = [];
 if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 
 //TODO validate input arguments
-if(!argv.desc) throw new Error("desc missing");
-if(!argv.project_id) throw new Error("project_id missing");
-if(!argv.subject) throw new Error("subject missing");
+if(argv.desc === undefined) throw new Error("desc missing");
+if(argv.project_id === undefined) throw new Error("project_id missing");
+if(argv.subject === undefined) throw new Error("subject missing");
 const dir = argv._[0];
 
 var ws = new WebSocketClient();
@@ -122,7 +122,11 @@ function run(headers, instance, resource) {
                             next_file();
                         });
                     } else {
-                        throw err;
+                        if(file.required) throw err;
+                        else {
+                            console.info("no",file);
+                            next_file();
+                        }
                     }
                 } else {
                     console.dir([file, stats]);
@@ -143,10 +147,8 @@ function run(headers, instance, resource) {
                 if(err) throw err;
                 var task = body.task;
                 console.log("waiting for upload task to be ready", task._id);
-                //console.dir(body);
                 wait_for_finish(headers, task, function(err) {
                     if(err) throw err;
-
                     console.log("ready to upload");
                     var path = new Buffer(instance._id+'/'+task._id+'/upload.tar.gz').toString('base64');
                     var req = request.post({url: config.api.wf+"/resource/upload/"+resource._id+"/"+path+"?untar=true", headers: headers});
@@ -158,9 +160,7 @@ function run(headers, instance, resource) {
 
                         console.log("registering dataset");
                         request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
-                            //info for dataset
                             project: argv.project_id,
-                            //name: argv.name,
                             desc: argv.desc,
                             datatype: datatype._id,
                             datatype_tags: argv.datatype_tag,
@@ -170,7 +170,6 @@ function run(headers, instance, resource) {
 
                             instance_id: instance._id,
                             task_id: task._id, //we archive data from copy task
-                            //output_id: argv.output_id,
                         }}, function(err, res, body) {
                             if(err) throw err;
                             console.log("dataset registgered");
