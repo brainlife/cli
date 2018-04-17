@@ -38,8 +38,9 @@ function dorequest() {
     if(commander.l) url+="/ldap/auth";
     else url+="/local/auth";
 
+    console.log(url);
     request.post({
-        url: url,
+        url,
         json: true,
         body: {username: commander.username, password: commander.password}
     }, function(err, res, body) {
