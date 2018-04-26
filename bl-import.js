@@ -19,13 +19,19 @@ if(!Array.isArray(argv.datatype_tag)) argv.datatype_tag = [argv.datatype_tag];
 if(argv.desc === undefined) throw new Error("desc missing");
 if(argv.project_id === undefined) throw new Error("project_id missing");
 if(argv.subject === undefined) throw new Error("subject missing");
+if(argv.type === undefined) throw new Error("subject missing");
 const dir = argv._[0];
+if(dir === undefined) dir = ".";
 
 let metadata = {};
 if(argv.metadata) {
     metadata_json = fs.readFileSync(argv.metadata, 'ascii');
     metadata = JSON.parse(metadata_json);
 }
+
+if(argv.subject) argv.subject = argv.subject.toString();
+if(argv.session) argv.session = argv.session.toString();
+
 
 /*
 var ws = new WebSocketClient();
@@ -178,6 +184,7 @@ function run(headers, instance, resource) {
                             datatype_tags: argv.datatype_tag,
                             tags: argv.tag, 
 
+                            //minimist sometimes pass subject/session as integer?
                             meta: Object.assign(metadata, {subject: argv.subject, session: argv.session}),
 
                             instance_id: instance._id,
