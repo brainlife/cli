@@ -1,5 +1,5 @@
 
-const host = "brainlife.io";
+const host = "test.brainlife.io";
 
 exports.api = {
     auth: "https://"+host+"/api/auth",

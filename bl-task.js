@@ -20,4 +20,3 @@ program
   .command('stop', 'stop a task')
   .command('list', 'list tasks')
   .parse(process.argv);
-

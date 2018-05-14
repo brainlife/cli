@@ -11,9 +11,7 @@ const jwt = require('jsonwebtoken');
 const config = require('./config');
 
 commander
-    .option('-u --username <username>', 'BrainLife username')
-    .option('-p --password <password>', 'BrainLife password')
-    .option('-l --ldap', 'use LDAP')
+    .option('-n --name', 'Pattern to search for apps by name')
     .parse(process.argv);
 
 var schema = {

@@ -193,7 +193,7 @@ function run(headers, instance, resource) {
                         }}, function(err, res, body) {
                             if(err) throw err;
                             if(res.statusCode != "200") throw new Error("failed to upload");
-                            console.log("dataset registgered");
+                            console.log("dataset registered");
                             console.dir(body);
                         });
                     });
