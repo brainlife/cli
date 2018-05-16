@@ -15,7 +15,7 @@ const util = require('./util');
 
 commander
     .option('query <query>', 'run a query against all projects')
-    .option('update <projectid>', 'update a project with the given projectid')
+    .option('update <projectid>', '(experimental) update a project with the given projectid')
     .option('raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
@@ -29,10 +29,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
     var headers = { "Authorization": "Bearer "+jwt };
     
     if (commander.query) {
-        util.queryProjects(commander.query, headers)
+        util.queryProjects(headers, commander.query)
         .then(projects => {
             if (commander.raw) console.log(JSON.stringify(projects));
-            else showProjects(projects, headers);
+            else showProjects(headers, projects);
         }).catch(console.error);
     }
     else if (commander.update) {
@@ -47,10 +47,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
             members: { description: 'members (like "username1, username2, ...")', required: false },
             guests: { description: 'guests (like "username1, username2, ...")', required: false }
         }}, function(err, results) {
-            util.updateProject(commander.update, results, headers)
+            util.updateProject(headers, commander.update, results)
             .then(project => {
                 if (commander.raw) console.log(JSON.stringify(project));
-                else showProjects([project], headers);
+                else showProjects(headers, [project]);
             }).catch(console.error);
         });
     }
@@ -62,8 +62,8 @@ fs.stat(config.path.jwt, (err, stat)=>{
  * @param {*} projects 
  * @param {*} headers 
  */
-function showProjects(projects, headers) {
-    util.formatProjects(projects, {
+function showProjects(headers, projects) {
+    util.formatProjects(headers, projects, {
         id: true,
         access: true,
         name: true,
@@ -71,7 +71,7 @@ function showProjects(projects, headers) {
         members: true,
         guests: true,
         desc: true
-    }, headers)
+    })
     .then(console.log)
     .catch(console.error);
 }

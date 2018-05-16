@@ -27,10 +27,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
     var headers = { "Authorization": "Bearer "+jwt };
     
     if (commander.query) {
-        util.queryDatatypes(commander.query, headers)
+        util.queryDatatypes(headers, commander.query)
         .then(datatypes => {
             if (commander.raw) console.log(JSON.stringify(datatypes));
-            else util.formatDatatypes(datatypes, { all: true }, headers).then(console.log);
+            else util.formatDatatypes(headers, datatypes, { all: true }).then(console.log);
         }).catch(console.error);
     }
     else commander.outputHelp();

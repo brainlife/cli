@@ -28,11 +28,11 @@ fs.stat(config.path.jwt, (err, stat)=>{
     let datatypeTable = {};
     
     if (commander.query) {
-        util.queryProfiles(commander.query, headers)
+        util.queryProfiles(headers, commander.query)
         .then(profiles => {
             profiles = util.filterProfiles(profiles, commander.query);
             if (commander.raw) console.log(JSON.stringify(profiles));
-            else util.formatProfiles(profiles, { all: true }, headers).then(console.log);
+            else util.formatProfiles(headers, profiles, { all: true }).then(console.log);
         }).catch(console.error);
     }
     else commander.outputHelp();

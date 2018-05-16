@@ -5,6 +5,9 @@ const config = require('./config');
 const fs = require('fs');
 const jsonwebtoken = require('jsonwebtoken');
 const timeago = require('time-ago');
+const async = require('async');
+const tar = require('tar');
+const spawn = require('child_process').spawn;
 
 const delimiter = ',';
 
@@ -130,6 +133,43 @@ const delimiter = ',';
   */
 
 /**
+ * @typedef {Object} instance
+ * @prop {string} _id
+ * @prop {string} user_id
+ * @prop {string} name
+ * @prop {string} update_date
+ * @prop {string} create_date
+ * @prop {boolean} removed
+ */
+
+/**
+ * @typedef {Object} task
+ * @prop {string} _id
+ * @prop {string} status_msg
+ * @prop {string} request_date
+ * @prop {string} status
+ * @prop {string} progress_key
+ * @prop {string} progress_key
+ * @prop {string} user_id
+ * @prop {string} preferred_resource_id
+ * @prop {string} instance_id
+ * @prop {string} service
+ * @prop {string} name
+ * @prop {string} create_date
+ * @prop {string[]} resource_ids
+ * @prop {number} run
+ * @prop {string[]} deps
+ * @prop {number} max_runtime
+ * @prop {string} next_date
+ * @prop {string[]} resource_deps
+ * @prop {string} resource_id
+ * @prop {any} _envs
+ * @prop {string} start_date
+ * @prop {string} finish_date
+ * @prop {any[]} products
+ */
+
+/**
  * Common functions used across CLI scripts
  */
 
@@ -154,7 +194,7 @@ const delimiter = ',';
  * @param {Object} whatToShow
  * @returns {Promise<string>}
  */
-function formatProfiles(data, whatToShow, headers) {
+function formatProfiles(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
         data = data.sort((a, b) => a.id > b.id);
         
@@ -169,6 +209,7 @@ function formatProfiles(data, whatToShow, headers) {
             
             return info.join('\n');
         });
+        resultArray.push(`(Returned ${data.length} results)`);
         resolve(resultArray.join('\n\n'));
     });
 }
@@ -190,22 +231,40 @@ function filterProfiles(data, queries) {
  * @param {Object} whatToShow
  * @returns {Promise<string>}
  */
-function formatDatasets(data, whatToShow, headers) {
+function formatDatasets(headers, data, whatToShow) {
+    let projectTable = {}, datatypeTable = {};
     return new Promise((resolve, reject) => {
-        let resultArray = data.map(d => {
-            let info = [];
-            let createDateObject = new Date(d.create_date);
-            let formattedDate = `${createDateObject.toLocaleString()} (${timeago.ago(createDateObject)})`;
+        queryProjects(headers)
+        .then(projects => {
+            projects.forEach(project => projectTable[project._id] = project);
+            return queryDatatypes(headers);
+        }).then(datatypes => {
+            datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
+            let resultArray = data.map(d => {
+                let info = [];
+                let createDateObject = new Date(d.create_date);
+                let formattedDate = `${createDateObject.toLocaleString()} (${timeago.ago(createDateObject)})`;
+                let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
+                let formattedProject = projectTable[d.project] ? projectTable[d.project].name : d.project;
+                let formattedDatatype = datatypeTable[d.datatype] ? datatypeTable[d.datatype].name : d.datatype;
+                let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : `<${d.datatype_tags.join(', ')}>`;
+                
+                if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
+                if (whatToShow.all || whatToShow.project) info.push(`Project: ${formattedProject}`);
+                if (whatToShow.all || whatToShow.subject) info.push(`Subject: ${subject}`);
+                if (whatToShow.all || whatToShow.datatype) info.push(`Datatype: ${formattedDatatype}${formattedDatatypeTags}`);
+                if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc||''}`);
+                if (whatToShow.all || whatToShow.create_date) info.push(`Create Date: ${formattedDate}`);
+                if (whatToShow.all || whatToShow.storage) info.push(`Storage: ${d.storage}`);
+                if (whatToShow.all || whatToShow.status) info.push(`Status: ${d.status}`);
+                // if (whatToShow.all || whatToShow.meta) info.push(`Meta: ${formattedMeta}`);
+                
+                return info.join('\n');
+            });
+            resultArray.push(`(Returned ${data.length} results)`);
+            resolve(resultArray.join('\n\n'));
             
-            if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-            if (whatToShow.all || whatToShow.create_date) info.push(`Create Date: ${formattedDate}`);
-            if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
-            if (whatToShow.all || whatToShow.storage) info.push(`Storage: ${d.storage}`);
-            if (whatToShow.all || whatToShow.status) info.push(`Status: ${d.status}`);
-            
-            return info.join('\n');
-        });
-        resolve(resultArray.join('\n\n'));
+        }).catch(console.error);
     });
 }
 
@@ -216,9 +275,9 @@ function formatDatasets(data, whatToShow, headers) {
  * @param {any} whatToShow
  * @returns {Promise<string>}
  */
-function formatApps(data, whatToShow, headers) {
+function formatApps(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        queryDatatypes('', headers)
+        queryDatatypes(headers)
         .then(datatypes => {
             let datatypeTable = {};
             
@@ -245,7 +304,9 @@ function formatApps(data, whatToShow, headers) {
                 
                 return info.join('\n');
             });
+            resultArray.push(`(Returned ${data.length} results)`);
             resolve(resultArray.join('\n\n'));
+            
         }).catch(console.error);
     });
 }
@@ -257,9 +318,9 @@ function formatApps(data, whatToShow, headers) {
  * @param {Object} whatToShow
  * @returns {Promise<string>}
  */
-function formatProjects(data, whatToShow, headers) {
+function formatProjects(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        queryProfiles('', headers)
+        queryProfiles(headers)
         .then(profiles => {
             let profileTable = {};
             profiles.forEach(profile => profileTable[profile.id] = profile);
@@ -275,12 +336,12 @@ function formatProjects(data, whatToShow, headers) {
                 if (whatToShow.all || whatToShow.admins) info.push(`Admins: ${formattedAdmins.join(', ')}`);
                 if (whatToShow.all || whatToShow.members) info.push(`Members: ${formattedMembers.join(', ')}`);
                 if (whatToShow.all || whatToShow.guests) info.push(`Guests: ${formattedGuests.join(', ')}`);
-                if (whatToShow.all || whatToShow.access) info.push(`Access: ${d.access}`);
+                if (whatToShow.all || whatToShow.access) info.push(`Access: ${d.access}${d.listed?' (but listed for all users)':''}`);
                 if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
                 
                 return info.join('\n');
             });
-            
+            resultArray.push(`(Returned ${data.length} results)`);
             resolve(resultArray.join('\n\n'));
         });
     });
@@ -293,7 +354,7 @@ function formatProjects(data, whatToShow, headers) {
  * @param {{name: boolean, desc: boolean, files: boolean}} whatToShow
  * @returns {Promise<string>}
  */
-function formatDatatypes(data, whatToShow, headers) {
+function formatDatatypes(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
         let resultArray = data.map(d => {
             let info = [];
@@ -319,9 +380,9 @@ function formatDatatypes(data, whatToShow, headers) {
  * @param {string} search
  * @returns {Promise<profile[]>}
  */
-function queryProfiles(search, headers) {
+function queryProfiles(headers, search) {
     return new Promise((resolve, reject) => {
-        let searches = search.split(delimiter);
+        let searches = (search || '').split(delimiter);
         query(config.api.auth + '/profile', searches, searches,
             (ids, queries) => {
                 let find = {}, orQueries = [], pattern = queries.join('|');
@@ -350,15 +411,15 @@ function queryProfiles(search, headers) {
  * @param {string} datatypes
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(search, datatypes, projects, headers) {
+function queryDatasets(headers, search, datatypes, projects, subject) {
     return new Promise((resolve, reject) => {
-        let searches = search.split(delimiter);
+        let searches = (search || '').split(delimiter);
         let dtypeids;
         
-        queryDatatypes(datatypes, headers)
+        queryDatatypes(headers, datatypes)
         .then(dtypes => {
             dtypeids = dtypes.map(x => x._id);
-            return queryProjects(projects, headers);
+            return queryProjects(headers, projects);
         })
         .then(prjcts => {
             let projectids = prjcts.map(x => x._id);
@@ -371,12 +432,9 @@ function queryDatasets(search, datatypes, projects, headers) {
                         orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
                     }
                     
-                    if (Object.keys(dtypeids).length > 0) {
-                        andQueries.push({ datatype: { $in: dtypeids } });
-                    }
-                    if (Object.keys(projectids).length > 0) {
-                        andQueries.push({ project: { $in: projectids } });
-                    }
+                    if (Object.keys(dtypeids).length > 0) andQueries.push({ datatype: { $in: dtypeids } });
+                    if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
+                    if (subject) andQueries.push({ meta: { subject } });
                     
                     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                     if (andQueries.length > 0) find.$and = andQueries;
@@ -392,14 +450,35 @@ function queryDatasets(search, datatypes, projects, headers) {
 }
 
 /**
+ * Download a dataset
+ * @param {string} query 
+ * @param {any} headers 
+ */
+function downloadDataset(headers, query) {
+    queryDatasets(headers, query)
+    .then(datasets => {
+        if (datasets.length != 1) throw "Error: invalid dataset id given";
+        let id = datasets[0]._id;
+        console.log(`Streaming dataset to ${id}/`);
+        
+        fs.mkdir(id, err => {
+            request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
+            .on('response', res => {
+                if(res.statusCode != 200) throw `Error: ${res.body.message}`;
+            }).pipe(tar.x({ C: id }));
+        });
+    });
+}
+
+/**
  * @name queryProjects
  * @desc Query the list of projects
  * @param {string} search
  * @returns {Promise<project[]>}
  */
-function queryProjects(search, headers) {
+function queryProjects(headers, search) {
     return new Promise((resolve, reject) => {
-        let searches = search.split(delimiter);
+        let searches = (search || '').split(delimiter);
         query(config.api.warehouse + '/project', searches, searches,
             (ids, queries) => {
                 let find = {}, orQueries = [], pattern = queries.join('|');
@@ -428,15 +507,15 @@ function queryProjects(search, headers) {
  * @param {string} outputs
  * @returns {Promise<app[]>}
  */
-function queryApps(search, inputs, outputs, headers) {
+function queryApps(headers, search, inputs, outputs) {
     return new Promise((resolve, reject) => {
         let vm = {};
-        let searches = search.split(delimiter);
+        let searches = (search || '').split(delimiter);
         
-        queryDatatypes(inputs, headers)
+        queryDatatypes(headers, inputs)
         .then(inputDatatypes => {
             vm.inputDatatypes = inputDatatypes.map(x => x._id);
-            return queryDatatypes(outputs, headers);
+            return queryDatatypes(headers, outputs);
         }).then(outputDatatypes => {
             vm.outputDatatypes = outputDatatypes.map(x => x._id);
             query(config.api.warehouse + '/app', searches, searches,
@@ -473,9 +552,9 @@ function queryApps(search, inputs, outputs, headers) {
  * @param {string} search
  * @returns {Promise<datatype[]>}
  */
-function queryDatatypes(search, headers) {
+function queryDatatypes(headers, search) {
     return new Promise((resolve, reject) => {
-        let searches = search.split(delimiter);
+        let searches = (search || '').split(delimiter);
         query(config.api.warehouse + '/datatype', searches, searches,
             (ids, queries) => {
                 let find = {}, orQueries = [], pattern = queries.join('|');
@@ -490,8 +569,7 @@ function queryDatatypes(search, headers) {
         .then((data, err) => {
             if (err) reject(err);
             else resolve(data.datatypes);
-        })
-        .catch(console.error);
+        }).catch(console.error);
     });
 }
 
@@ -530,13 +608,13 @@ function query(url, ids, queries, options, headers) {
  * @param {any} headers
  * @returns {Promise<project>}
  */
-function updateProject(id, updates, headers) {
+function updateProject(headers, id, updates) {
     let profileTable = [];
     return new Promise((resolve, reject) => {
-        queryProfiles('', headers)
+        queryProfiles(headers)
         .then(profiles => {
             profiles.forEach(profile => profileTable[profile.username.trim()] = profileTable[profile.id] = profile);
-            return queryProjects(id, headers);
+            return queryProjects(headers, id);
         })
         .then(projects => {
             if (projects.length != 1) throw `Error: invalid project id`;
@@ -544,21 +622,21 @@ function updateProject(id, updates, headers) {
             if (updates.admins && updates.admins.trim().length > 0) {
                 updates.admins = updates.admins.split(",").map(username => {
                     username = username.trim();
-                    if (profileTable[username]) return +profileTable[username].id;
+                    if (profileTable[username]) return profileTable[username].id;
                     else throw `Error: no user found with username '${username}' when checking admins`;
                 })
             }
             if (updates.members && updates.members.trim().length > 0) {
                 updates.members = updates.members.split(",").map(username => {
                     username = username.trim();
-                    if (profileTable[username]) return +profileTable[username].id;
+                    if (profileTable[username]) return profileTable[username].id;
                     else throw `Error: no user found with username '${username}' when checking members`;
                 })
             }
             if (updates.guests && updates.guests.trim().length > 0) {
                 username = username.trim();
                 updates.guests = updates.guests.split(",").map(username => {
-                    if (profileTable[username]) return +profileTable[username].id;
+                    if (profileTable[username]) return profileTable[username].id;
                     else throw `Error: no user found with username '${username}' when checking guests`;
                 })
             }
@@ -570,6 +648,188 @@ function updateProject(id, updates, headers) {
                 resolve(body);
             });
         })
+    });
+}
+
+/**
+ * @desc Get an instance for a service
+ * @param {any} headers
+ * @param {string} instanceName
+ * @returns {Promise<instance>}
+ */
+function getInstance(headers, instanceName) {
+    return new Promise((resolve, reject)=>{
+        // get instance that might already exist
+        var find = { name: instanceName };
+        request.get({url: config.api.wf+"/instance?find="+JSON.stringify(find), headers: headers, json: true}, function(err, res, body) {
+            if(err) return reject(err);
+            if(res.statusCode != 200) return reject(res.statusCode);
+            if(body.instances[0]) resolve(body.instances[0]);
+            else {
+                // need to create new instance
+                request.post({url: config.api.wf + "/instance", headers: headers, json: true, form: { name: instanceName },
+                }, function(err, res, body) {
+                    if(err) return reject(err);
+                    resolve(body);
+                }); 
+            }
+        });
+    });
+}
+
+/**
+ * @desc Get the best resource for a service
+ * @param {any} headers
+ * @param {string} service
+ * @returns {Promise<string>}
+ */
+function getBestResource(headers, service) {
+    // console.log("get resource");
+    return new Promise((resolve, reject)=>{
+        request.get({url: `${config.api.wf}/resource/best?service=${service}`, headers: headers, json: true}, function(err, res, body) {
+            if(err) return reject(err);
+            if(res.statusCode != 200) return reject(res.statusCode);
+            if(!body.resource) return reject(`Error: no resource found that runs service ${service}`);
+            resolve(body.resource);
+        });
+    });
+}
+
+/**
+ * @desc Upload a dataset
+ * @param {any} headers
+ * @param {string} datatypeSearch
+ * @param {string} projectSearch
+ * @param {{directory: string, description: string, datatype_tags: string, subject: string, session: string}} options
+ * @returns {Promise<string>}
+ */
+function uploadDataset(headers, datatypeSearch, projectSearch, options) {
+    return new Promise((resolve, reject) => {
+        let instance, resource, datatypes;
+        let instanceName = 'warehouse-cli.upload';
+        let noopService = 'soichih/sca-service-noop';
+        
+        options = options || {};
+        let directory = options.directory || '.';
+        let description = options.description || '';
+        let datatype_tags = (options.datatype_tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
+        let tags = (options.tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
+        
+        let metadata = {};
+        if (options.meta) metadata = JSON.parse(fs.readFileSync(options.meta, 'ascii'));
+        if (options.subject) metadata.subject = options.subject;
+        if (options.session) metadata.session = options.session;
+        
+        getInstance(headers, instanceName)
+        .then(_instance => {
+            instance = _instance;
+            return getBestResource(headers, noopService);
+        }).then(_resource => {
+            resource = _resource;
+            return queryDatatypes(headers, datatypeSearch);
+        }).then(_datatypes => {
+            datatypes = _datatypes;
+            if (datatypes.length == 0) throw "Error: Datatype not found";
+            if (datatypes.length > 1) throw `Error: ${datatypes.length} possible results found matching datatype '${datatypeSearch}'`;
+            return queryProjects(headers, projectSearch);
+        }).then(projects => {
+            if (projects.length == 0) throw "Error: Project not found";
+            if (projects.length > 1) throw `Error: ${projects.length} possible results found matching project '${projectSearch}'`;
+            
+            let taropts = ['-czh'];
+            
+            let datatype = datatypes[0];
+            let project = projects[0];
+            
+            async.forEach(datatype.files, (file, next_file)=>{
+                console.log(`Looking for ${directory}/${(file.filename||file.dirname)}`);
+                fs.stat(`${directory}/${file.filename}`, (err,stats)=>{
+                    if(err) {
+                        if (file.dirname) {
+                            fs.stat(`${directory}/${file.dirname}`, (err, stats) => {
+                                if (err) throw `Error: unable to stat ${directory}/${file.dirname} ... Does the directory exist?`;
+                                taropts.push(file.dirname);
+                                next_file();
+                            });
+                        } else {
+                            if(file.required) throw err;
+                            else {
+                                console.log(`Couldn't find ${(file.filename||file.dirname)} but it's not required for this datatype`);
+                                next_file();
+                            }
+                        }
+                    } else {
+                        taropts.push(file.filename);
+                        next_file();
+                    }
+                });
+            }, err => {
+                if(err) throw err;
+                
+                //submit noop to upload data
+                //warehouse dataset post api need a real task to submit from
+                request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
+                    instance_id: instance._id,
+                    name: instanceName,
+                    service: noopService,
+                }},
+                (err, res, body) => {
+                    if(err) throw `Error: ${res.body.message}`;
+                    let task = body.task;
+                    
+                    console.log("Waiting for upload task to be ready...");
+                    waitForFinish(headers, task, function(err) {
+                        if(err) throw err;
+                        
+                        console.log("Starting upload");
+                        
+                        let req = request.post({url: `${config.api.wf}/task/upload/${task._id}?p=upload.tar.gz&untar=true`, headers: headers});
+                        let tar = spawn('tar', taropts, { cwd: directory });
+                        tar.stdout.pipe(req);
+                        
+                        req.on('response', res => {
+                            if(res.statusCode != "200") throw `Error: ${res.body.message}`;
+                            console.log("Dataset successfully uploaded!");
+                            console.log("Now registering dataset...");
+                            
+                            request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
+                                project: project._id,
+                                desc: description,
+                                datatype: datatype._id,
+                                datatype_tags,
+                                tags: tags,
+                                
+                                meta: metadata,
+
+                                instance_id: instance._id,
+                                task_id: task._id, // we archive data from copy task
+                                output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+                            }}, (err, res, body) => {
+                                if(err) throw err;
+                                if(res.statusCode != "200") throw `Failed to upload: ${res.body.message}`;
+                                console.log("Finished dataset registration!");
+                                resolve(body);
+                            });
+                        });
+                    });
+                });
+            });
+        }).catch(console.error);
+        
+        // TODO use event subscription instead
+        function waitForFinish(headers, task, cb) {
+            var find = {_id: task._id};
+            request.get({ url: `${config.api.wf}/task?find=${JSON.stringify({_id: task._id})}`, headers, json: true}, (err, res, body) => {
+                if(err) return cb(err);
+                if(body.tasks[0].status == "finished") return cb();
+                if(body.tasks[0].status == "failed") return cb(body.tasks[0].status_msg);
+                
+                process.stdout.write(".");
+                setTimeout(function() {
+                    waitForFinish(headers, task, cb);
+                }, 1000);
+            });
+        }
     });
 }
 
@@ -627,5 +887,6 @@ module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
     updateProject,
     filterProfiles,
+    downloadDataset, uploadDataset,
     formatDatatypes, formatProjects, formatApps, formatDatasets, formatProfiles
 };

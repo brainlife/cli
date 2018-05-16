@@ -30,10 +30,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
     let datatypeTable = {};
     
     if (commander.query || commander.input || commander.output) {
-        util.queryApps(commander.query || '', commander.input || '', commander.output || '', headers)
+        util.queryApps(headers, commander.query, commander.input, commander.output)
         .then(apps => {
             if (commander.raw) console.log(JSON.stringify(apps));
-            else util.formatApps(apps, { all : true }, headers).then(console.log);
+            else util.formatApps(headers, apps, { all : true }).then(console.log);
         }).catch(console.error);
     }
     else commander.outputHelp();
