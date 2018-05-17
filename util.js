@@ -660,25 +660,27 @@ function updateProject(headers, id, updates) {
  * @param {project} project
  * @returns {Promise<instance>}
  */
-function getInstance(headers, instanceName, project) {
+function getInstance(headers, instanceName, options) {
 	return new Promise((resolve, reject)=>{
 		// get instance that might already exist
 		var find = { name: instanceName };
-		request.get({url: config.api.wf+"/instance?find="+JSON.stringify(find), headers: headers, json: true}, function(err, res, body) {
+		options = options || {};
+		
+		request.get({url: config.api.wf+"/instance?find="+JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
 			if(err) return reject(err);
 			if(res.statusCode != 200) return reject(res.statusCode);
 			if(body.instances[0]) resolve(body.instances[0]);
 			else {
 				// need to create new instance
-				let body = { name: instanceName };
-				if (project) {
+				let body = { name: instanceName, desc: options.desc };
+				if (options.project) {
 					body.config = { brainlife: true };
-					body.group_id = project.group_id;
+					body.group_id = options.project.group_id;
 				}
+				
 				request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
 				}, function(err, res, body) {
 					if(err) return reject(err);
-					console.log(body);
 					resolve(body);
 				});
 			}
@@ -693,7 +695,6 @@ function getInstance(headers, instanceName, project) {
  * @returns {Promise<string>}
  */
 function getBestResource(headers, service) {
-	// console.log("get resource");
 	return new Promise((resolve, reject)=>{
 		request.get({url: `${config.api.wf}/resource/best?service=${service}`, headers: headers, json: true}, function(err, res, body) {
 			if(err) return reject(err);
@@ -734,7 +735,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		if (_apps.length > 1) throw `Error: Invalid ID '${appSearch}'`;
 		app = _apps[0];
 		instanceName = `cli.'${app.name}'.${generateHash()}`;
-
+		
 		return queryProjects(headers, projectSearch);
 	})
 	.then(_projects => {
@@ -742,7 +743,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		if (_projects.length > 1) throw `Error: Invalid ID '${projectSearch}'`;
 		project = _projects[0];
 
-		return getInstance(headers, instanceName, project);
+		return getInstance(headers, instanceName, { project, desc: `(CLI) ${app.name}` });
 	})
 	.then(instance => {
 		let all_dataset_ids = inputs.map(x => x._id);
@@ -844,8 +845,8 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 						app.outputs.forEach(output => {
 							app_outputs.push({
 								id: output.id,
-								datatype: output.datatype._id,
-								//datatype_tags: output.datatype_tags,
+								datatype: output.datatype,
+								datatype_tags: output.datatype_tags,
 								desc: output.id + " from "+ app.name,
 								meta: output_metadata,
 								files: output.files,
@@ -943,7 +944,9 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				dtype.files.forEach(file => idToFile[file.id] = file);
 
 				let inputDtypeFile = idToFile[flattened[path].file_id];
-
+				
+				// TODO support case of userInput.multi == true
+				if (userInput.multi) throw `Error: Arrays not yet supported as input types`;
 				flattenedCalculatedConfig[path] = `../${download_task._id}/${userInput._id}/${inputDtypeFile.filename||inputDtypeFile.dirname}`;
 			}
 			else flattenedCalculatedConfig[path] = values[path];
