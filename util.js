@@ -585,7 +585,7 @@ function queryDatatypes(headers, search) {
  * @returns {Promise<any>}
  */
 function query(url, ids, queries, options, headers) {
-	ids = ids.filter(isValidObjectId);
+	ids = ids.map(x=>x.trim()).filter(isValidObjectId);
 	queries = queries.map(q => escapeRegExp(q.trim())).filter(q => q.length > 0);
 	options = options(ids, queries);
 
@@ -768,7 +768,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				if (err) throw err;
 
 				let jwt = body.jwt;
-				if (app.inputs.length != inputs.length) throw `Error: App expects ${app.inputs.length} inputs but I was given ${inputs.length}`;
+				if (app.inputs.length != inputs.length) throw `Error: App expects ${app.inputs.length} inputs but ${inputs.length} was given`;
 
 				let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
 				let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
@@ -780,14 +780,16 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					}
 					let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
 					let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
+					
+					// datatype tag validation, if you want to do that sort of thing
+					
+					// let invalid_dtags_error = `Error: Input ${idx+1} (dataset id ${input._id} with datatype ${datatypeTable[input.datatype].name}) has datatype tags [${input.datatype_tags.join(', ')}] but expected [${sorted_app_inputs[idx].datatype_tags.join(', ')}]`;
 
-					let invalid_dtags_error = `Error: Input ${idx+1} (dataset id ${input._id}) has datatype tags [${input.datatype_tags.join(', ')}] but expected [${sorted_app_inputs[idx].datatype_tags.join(', ')}]`;
+					// if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
 
-					if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
-
-					sorted_user_dtags.forEach((dtag, idx) => {
-						if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
-					});
+					// sorted_user_dtags.forEach((dtag, idx) => {
+					// 	if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
+					// });
 				});
 
 				let downloads = [], productRawOutputs = [];
