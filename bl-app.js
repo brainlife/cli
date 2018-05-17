@@ -17,6 +17,10 @@ commander
     .option('input <types>', 'specify required input types')
     .option('output <types>', 'specify required output types')
     .option('raw', 'output data in raw format (JSON)')
+    .option('run', 'run a Brain-Life app (see options below)')
+    .option('--app <appid>', 'id of app to run')
+    .option('--inputs <inputid1, inputid2, ...>', 'inputs to application')
+    .option('--project <projectid>', 'the project to store the output dataset from an app')
     .parse(process.argv);
 
 fs.stat(config.path.jwt, (err, stat)=>{
@@ -35,6 +39,10 @@ fs.stat(config.path.jwt, (err, stat)=>{
             if (commander.raw) console.log(JSON.stringify(apps));
             else util.formatApps(headers, apps, { all : true }).then(console.log);
         }).catch(console.error);
+    }
+    else if (commander.run) {
+        if (!commander.project) throw `Error: No project given to store output dataset`;
+        util.runApp(headers, commander.app, commander.inputs, commander.project);
     }
     else commander.outputHelp();
 });
