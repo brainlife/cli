@@ -183,7 +183,7 @@ const delimiter = ',';
 //     var jwt = fs.readFileSync(config.path.jwt);
 //     var user = jsonwebtoken.decode(jwt);
 //     var headers = { "Authorization": "Bearer "+jwt };
-	
+
 //     request.put({ url: config.api.warehouse + '/project/5afaf3a0ef96d50027ef368b?access=public', headers, json: true }, function(err, res, body) {
 //         console.log(body);
 //     });
@@ -199,16 +199,16 @@ const delimiter = ',';
 function formatProfiles(headers, data, whatToShow) {
 	return new Promise((resolve, reject) => {
 		data = data.sort((a, b) => a.id > b.id);
-		
+
 		let resultArray = data.map(d => {
 			let info = [];
-			
+
 			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d.id}`);
 			if (whatToShow.all || whatToShow.username) info.push(`Username: ${d.username}`);
 			if (whatToShow.all || whatToShow.fullname) info.push(`Full Name: ${d.fullname}`);
 			if (whatToShow.all || whatToShow.email) info.push(`Email: ${d.email}`);
 			if (whatToShow.all || whatToShow.active) info.push(`Active: ${d.active}`);
-			
+
 			return info.join('\n');
 		});
 		resultArray.push(`(Returned ${data.length} results)`);
@@ -218,7 +218,7 @@ function formatProfiles(headers, data, whatToShow) {
 
 /**
  * Filter profiles by user string
- * @param {profile[]} data 
+ * @param {profile[]} data
  * @param {string} queries
  */
 function filterProfiles(data, queries) {
@@ -250,7 +250,7 @@ function formatDatasets(headers, data, whatToShow) {
 				let formattedProject = projectTable[d.project] ? projectTable[d.project].name : d.project;
 				let formattedDatatype = datatypeTable[d.datatype] ? datatypeTable[d.datatype].name : d.datatype;
 				let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : `<${d.datatype_tags.join(', ')}>`;
-				
+
 				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
 				if (whatToShow.all || whatToShow.project) info.push(`Project: ${formattedProject}`);
 				if (whatToShow.all || whatToShow.subject) info.push(`Subject: ${subject}`);
@@ -260,12 +260,12 @@ function formatDatasets(headers, data, whatToShow) {
 				if (whatToShow.all || whatToShow.storage) info.push(`Storage: ${d.storage}`);
 				if (whatToShow.all || whatToShow.status) info.push(`Status: ${d.status}`);
 				// if (whatToShow.all || whatToShow.meta) info.push(`Meta: ${formattedMeta}`);
-				
+
 				return info.join('\n');
 			});
 			resultArray.push(`(Returned ${data.length} results)`);
 			resolve(resultArray.join('\n\n'));
-			
+
 		}).catch(console.error);
 	});
 }
@@ -282,9 +282,9 @@ function formatApps(headers, data, whatToShow) {
 		queryDatatypes(headers)
 		.then(datatypes => {
 			let datatypeTable = {};
-			
+
 			datatypes.forEach(d => datatypeTable[d._id] = d);
-			
+
 			let resultArray = data.map(D => {
 				let info = [];
 				let formattedInputs = D.inputs.map(input => {
@@ -292,23 +292,23 @@ function formatApps(headers, data, whatToShow) {
 					let tags = input.datatype_tags.length > 0 ? `<${input.datatype_tags.join(',')}>` : '';
 					return `${dtype}${tags}${input.multi?'[]':''}${input.optional?'?':''}`;
 				}).join(', ');
-				
+
 				let formattedOutputs = D.outputs.map(output => {
 					let dtype = datatypeTable[output.datatype] ? datatypeTable[output.datatype].name : output.datatype;
 					let tags = output.datatype_tags.length > 0 ? `<${output.datatype_tags.join(',')}>` : '';
 					return `${dtype}${tags}${output.multi?'[]':''}${output.optional?'?':''}`;
 				}).join(', ');
-				
+
 				if (whatToShow.all || whatToShow.id) info.push(`Id: ${D._id}`);
 				if (whatToShow.all || whatToShow.name) info.push(`Name: ${D.name}`);
 				if (whatToShow.all || whatToShow.datatypes) info.push(`Type: (${formattedInputs}) -> (${formattedOutputs})`);
 				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${D.desc}`);
-				
+
 				return info.join('\n');
 			});
 			resultArray.push(`(Returned ${data.length} results)`);
 			resolve(resultArray.join('\n\n'));
-			
+
 		}).catch(console.error);
 	});
 }
@@ -326,13 +326,13 @@ function formatProjects(headers, data, whatToShow) {
 		.then(profiles => {
 			let profileTable = {};
 			profiles.forEach(profile => profileTable[profile.id] = profile);
-			
+
 			let resultArray = data.map(d => {
 				let info = [];
 				let formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
 				let formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
 				let formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-				
+
 				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
 				if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
 				if (whatToShow.all || whatToShow.admins) info.push(`Admins: ${formattedAdmins.join(', ')}`);
@@ -340,7 +340,7 @@ function formatProjects(headers, data, whatToShow) {
 				if (whatToShow.all || whatToShow.guests) info.push(`Guests: ${formattedGuests.join(', ')}`);
 				if (whatToShow.all || whatToShow.access) info.push(`Access: ${d.access}${d.listed?' (but listed for all users)':''}`);
 				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
-				
+
 				return info.join('\n');
 			});
 			resultArray.push(`(Returned ${data.length} results)`);
@@ -363,15 +363,15 @@ function formatDatatypes(headers, data, whatToShow) {
 			let formattedFiles = d.files.map(file => {
 				return `[${file.required?'(required) ':''}${file.id}: ${file.filename||file.dirname}]`;
 			}).join('  ');
-			
+
 			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
 			if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
 			if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
 			if (whatToShow.all || whatToShow.files) info.push(`Files: ${formattedFiles}`);
-			
+
 			return info.join('\n');
 		});
-		
+
 		resolve(resultArray.join('\n\n'));
 	});
 }
@@ -395,7 +395,7 @@ function queryProfiles(headers, search) {
 					orQueries.push({ email: { $regex: pattern, $options: 'ig' } });
 				}
 				if (orQueries.length > 0) find.$or = orQueries;
-				
+
 				return { find, sort: { username: 1 }, limit: 3000 };
 			}, headers)
 		.then((data, err) => {
@@ -417,7 +417,7 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 	return new Promise((resolve, reject) => {
 		let searches = (search || '').split(delimiter);
 		let dtypeids;
-		
+
 		queryDatatypes(headers, datatypes)
 		.then(dtypes => {
 			dtypeids = dtypes.map(x => x._id);
@@ -433,14 +433,14 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 						orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
 						orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
 					}
-					
+
 					if (Object.keys(dtypeids).length > 0) andQueries.push({ datatype: { $in: dtypeids } });
 					if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
 					if (subject) andQueries.push({ meta: { subject } });
-					
+
 					if (orQueries.length > 0) andQueries.push({ $or: orQueries });
 					if (andQueries.length > 0) find.$and = andQueries;
-					
+
 					return { find, sort: { name: 1 } };
 				}, headers)
 			.then((data, err) => {
@@ -453,8 +453,8 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 
 /**
  * Download a dataset
- * @param {string} query 
- * @param {any} headers 
+ * @param {string} query
+ * @param {any} headers
  */
 function downloadDataset(headers, query) {
 	queryDatasets(headers, query)
@@ -462,7 +462,7 @@ function downloadDataset(headers, query) {
 		if (datasets.length != 1) throw "Error: invalid dataset id given";
 		let id = datasets[0]._id;
 		console.log(`Streaming dataset to ${id}/`);
-		
+
 		fs.mkdir(id, err => {
 			request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
 			.on('response', res => {
@@ -490,7 +490,7 @@ function queryProjects(headers, search) {
 					orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
 				}
 				if (orQueries.length > 0) find.$or = orQueries;
-				
+
 				return { find, sort: { access: 1 } };
 			}, headers)
 		.then((data, err) => {
@@ -513,7 +513,7 @@ function queryApps(headers, search, inputs, outputs) {
 	return new Promise((resolve, reject) => {
 		let vm = {};
 		let searches = (search || '').split(delimiter);
-		
+
 		queryDatatypes(headers, inputs)
 		.then(inputDatatypes => {
 			vm.inputDatatypes = inputDatatypes.map(x => x._id);
@@ -528,14 +528,14 @@ function queryApps(headers, search, inputs, outputs) {
 						orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
 						orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
 					}
-					
+
 					if (vm.inputDatatypes.length > 0) {
 						andQueries.push({ inputs: { $elemMatch: { datatype: { $in: vm.inputDatatypes } } } });
 					}
 					if (vm.outputDatatypes.length > 0) {
 						andQueries.push({ outputs: { $elemMatch: { datatype: { $in: vm.outputDatatypes } } }});
 					}
-					
+
 					if (orQueries.length > 0) andQueries.push({ $or: orQueries });
 					if (andQueries.length > 0) find.$and = andQueries;
 					return { find, sort: { name: 1 } };
@@ -588,11 +588,11 @@ function query(url, ids, queries, options, headers) {
 	ids = ids.filter(isValidObjectId);
 	queries = queries.map(q => escapeRegExp(q.trim())).filter(q => q.length > 0);
 	options = options(ids, queries);
-	
+
 	let params = Object.keys(options)
 	.map(x => `${x}=${/find|sort/.test(x) ? JSON.stringify(options[x]) : options[x]}`)
 	.join('&');
-	
+
 	return new Promise((resolve, reject)=>{
 		request.get({url: `${url}${params?'?':''}${params}`, headers: headers, json: true}, function(err, res, body) {
 			if (res.statusCode != 200) {
@@ -620,7 +620,7 @@ function updateProject(headers, id, updates) {
 		})
 		.then(projects => {
 			if (projects.length != 1) throw `Error: invalid project id`;
-			
+
 			if (updates.admins && updates.admins.trim().length > 0) {
 				updates.admins = updates.admins.split(",").map(username => {
 					username = username.trim();
@@ -642,10 +642,10 @@ function updateProject(headers, id, updates) {
 					else throw `Error: no user found with username '${username}' when checking guests`;
 				})
 			}
-			
+
 			let updateValues = toNonNullObject(updates);
 			if (Object.keys(updateValues) == 0) throw `Error: no values to update project with`;
-			
+
 			request.put(`${config.api.warehouse}/project/${projects[0]._id}`, { json: updateValues, updateValues, headers: headers }, (err, res, body) => {
 				resolve(body);
 			});
@@ -673,7 +673,7 @@ function getInstance(headers, instanceName) {
 				}, function(err, res, body) {
 					if(err) return reject(err);
 					resolve(body);
-				}); 
+				});
 			}
 		});
 	});
@@ -699,17 +699,17 @@ function getBestResource(headers, service) {
 
 /**
  * @desc Run a Brain Life application
- * @param {any} headers 
- * @param {string} appSearch 
- * @param {string} inputSearch 
- * @param {string} projectSearch 
+ * @param {any} headers
+ * @param {string} appSearch
+ * @param {string} inputSearch
+ * @param {string} projectSearch
  */
 function runApp(headers, appSearch, inputSearch, projectSearch) {
 	let datatypes, inputs, app, instance, project;
 	let datatypeTable = {};
 	let app_inputs = [];
 	let output_metadata = {};
-	
+
 	queryDatatypes(headers)
 	.then(_datatypes => {
 		datatypes = _datatypes;
@@ -718,21 +718,21 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 	})
 	.then(_inputs => {
 		inputs = _inputs;
-		
+
 		return queryApps(headers, appSearch, inputSearch, '');
 	})
 	.then(_apps => {
 		if (_apps.length == 0) throw `Error: No apps found matching ${appSearch}`;
 		if (_apps.length > 1) throw `Error: Invalid ID '${appSearch}'`;
 		app = _apps[0];
-		
+
 		return queryProjects(headers, projectSearch);
 	})
 	.then(_projects => {
 		if (_projects.length == 0) throw `Error: No projects found matching ${projectSearch}`;
 		if (_projects.length > 1) throw `Error: Invalid ID '${projectSearch}'`;
 		project = _projects[0];
-		
+
 		return getInstance(headers, `warehouse.stage-${app.name}`);
 	})
 	.then(instance => {
@@ -748,21 +748,21 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				};
 			}
 		});
-		
+
 		prompt.message = null;
 		prompt.start();
 		prompt.get({ properties: flattenedPrompt }, (err, values) => {
 			if (err) throw err;
-			
+
 			request.get({ headers, url: `${config.api.warehouse}/dataset/token?ids=${JSON.stringify(all_dataset_ids)}`, json: true }, (err, res, body) => {
 				if (err) throw err;
-				
+
 				let jwt = body.jwt;
 				if (app.inputs.length != inputs.length) throw `Error: App expects ${app.inputs.length} inputs but I was given ${inputs.length}`;
-				
+
 				let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
 				let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
-				
+
 				// type validation
 				sorted_user_inputs.forEach((input, idx) => {
 					if (input.datatype != sorted_app_inputs[idx].datatype) {
@@ -770,31 +770,31 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					}
 					let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
 					let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
-					
+
 					let invalid_dtags_error = `Error: Input ${idx+1} (dataset id ${input._id}) has datatype tags [${input.datatype_tags.join(', ')}] but expected [${sorted_app_inputs[idx].datatype_tags.join(', ')}]`;
-					
+
 					if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
-					
+
 					sorted_user_dtags.forEach((dtag, idx) => {
 						if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
 					});
 				});
-				
+
 				let downloads = [], productRawOutputs = [];
 				let datatypeToAppInput = {};
 				let inputTable = {};
 				inputs.forEach(input => inputTable[input.datatype] = input);
 				app.inputs.forEach(input => datatypeToAppInput[input.datatype] = input);
-				
+
 				app.inputs.forEach(input => {
 					let user_input = inputTable[input.datatype];
-					
+
 					downloads.push({
 						url: `${config.api.warehouse}/dataset/download/safe/${user_input._id}?at=${jwt}`,
 						untar: 'auto',
 						dir: user_input._id
 					});
-					
+
 					let output = {
 						id: input.id,
 						subdir: user_input._id,
@@ -808,12 +808,12 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					};
 					productRawOutputs.push(output);
 					app_inputs.push(Object.assign({ keys: [ datatypeToAppInput[input.datatype].id ] }, output));
-					
+
 					for (var k in user_input.meta) {
-						if (!output_metadata[k]) output_metadata[k] = user_input.meta[k]; 
+						if (!output_metadata[k]) output_metadata[k] = user_input.meta[k];
 					}
 				});
-				
+
 				request.post({ headers, url: `${config.api.wf}/task`, json: true, body: {
 					instance_id: instance._id,
 					name: "Staging Dataset",
@@ -822,12 +822,12 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				}}, (err, res, body) => {
 					if (err) throw err;
 					console.log("Data Staging Task Created, PROCESS: ");
-					
+
 					let task = body.task;
 					waitForFinish(headers, task, 0, (err, task) => {
 						if (err) throw message;
 						let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
-						
+
 						Object.assign(preparedConfig, {
 							_app: app._id,
 							_tid: 1,
@@ -838,10 +838,10 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 								desc: `cli output from ${project.name}`
 							},
 						});
-						
+
 						// console.log(JSON.stringify(preparedConfig));
 						// prepare and run the app task
-						
+
 						let appInstanceName = `${app.name}`;
 						getInstance(headers, appInstanceName)
 						.then(appInstance => {
@@ -853,10 +853,10 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 							}}, (err, res, body) => {
 								if (err) throw err;
 								if (res.statusCode != 200) throw `Error: ${res.body.message}`;
-								
+
 								let appTask = body.task;
 								console.log(`${app.name} Task Created, PROCESS: `);
-								
+
 								waitForFinish(headers, appTask, 0, (err, appTask) => {
 									if (err) throw message;
 									console.log(`Data will be automatically archived to Project '${project.name}'`);
@@ -868,10 +868,10 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 			});
 		});
 	}).catch(console.error);
-	
+
 	/**
 	 * Flatten a tree config object into an object with depth 1
-	 * @param {any} config 
+	 * @param {any} config
 	 * @param {string[]} path
 	 */
 	function flattenConfig(config, path) {
@@ -881,35 +881,35 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 			Object.keys(config).forEach(key => {
 				let thisPath = path.map(x=>x);
 				thisPath.push(key);
-				
+
 				Object.assign(result, flattenConfig(config[key], thisPath));
 			});
 		}
-		
+
 		return result;
 	}
-	
+
 	/**
-	 * 
-	 * @param {any} flattened 
-	 * @param {any} values 
-	 * @param {task} download_task 
-	 * @param {input[]} inputs 
-	 * @param {datatype[]} datatypeTable 
-	 * @param {app} app 
+	 *
+	 * @param {any} flattened
+	 * @param {any} values
+	 * @param {task} download_task
+	 * @param {input[]} inputs
+	 * @param {datatype[]} datatypeTable
+	 * @param {app} app
 	 */
 	function expandFlattenedConfig(flattened, values, download_task, inputs, datatypeTable, app) {
 		// app input -> datatype -> input
 		let idToAppInputTable = {};
 		let idToDatatype = {};
 		let datatypeToUserInputTable = {};
-		
+
 		app.inputs.forEach(input => idToAppInputTable[input.id] = input);
 		app.inputs.forEach(input => idToDatatype[input.id] = input.datatype);
 		inputs.forEach(input => datatypeToUserInputTable[input.datatype] = input);
 		let idToUserInput = id => datatypeToUserInputTable[idToDatatype[id]];
 		let result = {}, flattenedCalculatedConfig = {};
-		
+
 		Object.keys(flattened).forEach(path => {
 			if (flattened[path].type == 'input') {
 				let userInput = idToUserInput(flattened[path].input_id);
@@ -917,9 +917,9 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				let dtype = datatypeTable[userInput.datatype];
 				let idToFile = {};
 				dtype.files.forEach(file => idToFile[file.id] = file);
-				
+
 				let inputDtypeFile = idToFile[flattened[path].file_id];
-				
+
 				flattenedCalculatedConfig[path] = `../${download_task._id}/${userInput._id}/${inputDtypeFile.filename||inputDtypeFile.dirname}`;
 			}
 			else flattenedCalculatedConfig[path] = values[path];
@@ -932,7 +932,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				if (!recurObj[key]) recurObj[key] = {};
 				nextKey = key;
 				rightBefore = recurObj;
-				
+
 				recurObj = recurObj[key];
 			});
 			// object references are almost like pointers
@@ -941,23 +941,23 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		// console.log(result);
 		return result;
 	}
-	
+
 	let gearFrames = ['', '.', '..', '...'];
 	/**
-	 * 
-	 * @param {any} headers 
-	 * @param {task} task 
-	 * @param {(error: string, task: task) => any} cb 
+	 *
+	 * @param {any} headers
+	 * @param {task} task
+	 * @param {(error: string, task: task) => any} cb
 	 */
 	function waitForFinish(headers, task, gear, cb) {
 		var find = {_id: task._id};
-		
+
 		request.get({ url: `${config.api.wf}/task?find=${JSON.stringify({_id: task._id})}`, headers, json: true}, (err, res, body) => {
 			if(err) return cb(err, null);
 			if (res.statusCode != 200) throw `Error: ${res.body.message}`;
-			
+
 			let task = body.tasks[0];
-			
+
 			if (task.status == "finished") {
 				terminalOverwrite.clear();
 				terminalOverwrite(`STATUS: Successfully finished\n(${timeago.ago(new Date(task.finish_date))})`);
@@ -972,7 +972,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 			}
 			terminalOverwrite.clear();
 			terminalOverwrite(`STATUS: ${task.status_msg}${gearFrames[gear]}\n(running since ${timeago.ago(new Date(task.create_date))})`);
-			
+
 			setTimeout(function() {
 				waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
 			}, 1000);
@@ -993,18 +993,18 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 		let instance, resource, datatypes;
 		let instanceName = 'warehouse-cli.upload';
 		let noopService = 'soichih/sca-service-noop';
-		
+
 		options = options || {};
 		let directory = options.directory || '.';
 		let description = options.description || '';
 		let datatype_tags = (options.datatype_tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
 		let tags = (options.tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
-		
+
 		let metadata = {};
 		if (options.meta) metadata = JSON.parse(fs.readFileSync(options.meta, 'ascii'));
 		if (options.subject) metadata.subject = options.subject;
 		if (options.session) metadata.session = options.session;
-		
+
 		getInstance(headers, instanceName)
 		.then(_instance => {
 			instance = _instance;
@@ -1020,12 +1020,12 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 		}).then(projects => {
 			if (projects.length == 0) throw "Error: Project not found";
 			if (projects.length > 1) throw `Error: ${projects.length} possible results found matching project '${projectSearch}'`;
-			
+
 			let taropts = ['-czh'];
-			
+
 			let datatype = datatypes[0];
 			let project = projects[0];
-			
+
 			async.forEach(datatype.files, (file, next_file)=>{
 				console.log(`Looking for ${directory}/${(file.filename||file.dirname)}`);
 				fs.stat(`${directory}/${file.filename}`, (err,stats)=>{
@@ -1050,7 +1050,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 				});
 			}, err => {
 				if(err) throw err;
-				
+
 				//submit noop to upload data
 				//warehouse dataset post api need a real task to submit from
 				request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
@@ -1061,29 +1061,29 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 				(err, res, body) => {
 					if(err) throw `Error: ${res.body.message}`;
 					let task = body.task;
-					
+
 					console.log("Waiting for upload task to be ready...");
 					waitForFinish(headers, task, function(err) {
 						if(err) throw err;
-						
+
 						console.log("Starting upload");
-						
+
 						let req = request.post({url: `${config.api.wf}/task/upload/${task._id}?p=upload.tar.gz&untar=true`, headers: headers});
 						let tar = spawn('tar', taropts, { cwd: directory });
 						tar.stdout.pipe(req);
-						
+
 						req.on('response', res => {
 							if(res.statusCode != "200") throw `Error: ${res.body.message}`;
 							console.log("Dataset successfully uploaded!");
 							console.log("Now registering dataset...");
-							
+
 							request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
 								project: project._id,
 								desc: description,
 								datatype: datatype._id,
 								datatype_tags,
 								tags: tags,
-								
+
 								meta: metadata,
 
 								instance_id: instance._id,
@@ -1100,19 +1100,19 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 				});
 			});
 		}).catch(console.error);
-		
+
 		// TODO use event subscription instead
 		function waitForFinish(headers, task, cb) {
 			var find = {_id: task._id};
 			request.get({ url: `${config.api.wf}/task?find=${JSON.stringify({_id: task._id})}`, headers, json: true}, (err, res, body) => {
 				if(err) return cb(err);
 				if (res.statusCode != 200) throw `Error: ${res.body.message}`;
-				
+
 				terminalOverwrite.clear();
-				
+
 				if(body.tasks[0].status == "finished") return cb();
 				if(body.tasks[0].status == "failed") return cb(body.tasks[0].status_msg);
-				
+
 				process.stdout.write(".");
 				setTimeout(function() {
 					waitForFinish(headers, task, cb);
@@ -1145,14 +1145,14 @@ function toNonNullUri(o) {
 	Object.keys(o).forEach(k => {
 		if (o[k] && o[k].trim().length > 0) uri.push(`${encodeURIComponent(k)}=${encodeURIComponent(o[k])}`);
 	});
-	
+
 	let result = uri.join('&');
 	return result.length > 0 ? '?' + result : result;
 }
 
 /**
  * @desc Escapes a user input string to make it safe for regex matching
- * @param {string} str 
+ * @param {string} str
  */
 function escapeRegExp(str) {
 	return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
@@ -1160,7 +1160,7 @@ function escapeRegExp(str) {
 
 /**
  * @desc Returns whether or not a given string is a valid object ID
- * @param {string} str 
+ * @param {string} str
  */
 function isValidObjectId(str) {
 	return /^[a-f\d]{24}$/i.test(str);

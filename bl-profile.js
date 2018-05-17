@@ -13,27 +13,27 @@ const chalk = require('chalk');
 const util = require('./util');
 
 commander
-    .option('query <query>', 'run a query against all profiles')
-    .option('raw', 'output data in raw format (JSON)')
-    .parse(process.argv);
+	.option('query <query>', 'run a query against all profiles')
+	.option('raw', 'output data in raw format (JSON)')
+	.parse(process.argv);
 
 fs.stat(config.path.jwt, (err, stat)=>{
-    if(err) {
-        console.log("not logged in?");
-        process.exit(1);
-    }
-    var jwt = fs.readFileSync(config.path.jwt);
-    var user = jsonwebtoken.decode(jwt);
-    var headers = { "Authorization": "Bearer "+jwt };
-    let datatypeTable = {};
-    
-    if (commander.query) {
-        util.queryProfiles(headers, commander.query)
-        .then(profiles => {
-            profiles = util.filterProfiles(profiles, commander.query);
-            if (commander.raw) console.log(JSON.stringify(profiles));
-            else util.formatProfiles(headers, profiles, { all: true }).then(console.log);
-        }).catch(console.error);
-    }
-    else commander.outputHelp();
+	if(err) {
+		console.log("not logged in?");
+		process.exit(1);
+	}
+	var jwt = fs.readFileSync(config.path.jwt);
+	var user = jsonwebtoken.decode(jwt);
+	var headers = { "Authorization": "Bearer "+jwt };
+	let datatypeTable = {};
+
+	if (commander.query) {
+		util.queryProfiles(headers, commander.query)
+		.then(profiles => {
+			profiles = util.filterProfiles(profiles, commander.query);
+			if (commander.raw) console.log(JSON.stringify(profiles));
+			else util.formatProfiles(headers, profiles, { all: true }).then(console.log);
+		}).catch(console.error);
+	}
+	else commander.outputHelp();
 });
