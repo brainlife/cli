@@ -657,9 +657,10 @@ function updateProject(headers, id, updates) {
  * @desc Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
+ * @param {project} project
  * @returns {Promise<instance>}
  */
-function getInstance(headers, instanceName) {
+function getInstance(headers, instanceName, project) {
 	return new Promise((resolve, reject)=>{
 		// get instance that might already exist
 		var find = { name: instanceName };
@@ -669,9 +670,15 @@ function getInstance(headers, instanceName) {
 			if(body.instances[0]) resolve(body.instances[0]);
 			else {
 				// need to create new instance
-				request.post({url: config.api.wf + "/instance", headers: headers, json: true, form: { name: instanceName },
+				let body = { name: instanceName };
+				if (project) {
+					body.config = { brainlife: true };
+					body.group_id = project.group_id;
+				}
+				request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
 				}, function(err, res, body) {
 					if(err) return reject(err);
+					console.log(body);
 					resolve(body);
 				});
 			}
@@ -707,8 +714,9 @@ function getBestResource(headers, service) {
 function runApp(headers, appSearch, inputSearch, projectSearch) {
 	let datatypes, inputs, app, instance, project;
 	let datatypeTable = {};
-	let app_inputs = [];
+	let app_inputs = [], app_outputs = [];
 	let output_metadata = {};
+	let instanceName;
 
 	queryDatatypes(headers)
 	.then(_datatypes => {
@@ -725,6 +733,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		if (_apps.length == 0) throw `Error: No apps found matching ${appSearch}`;
 		if (_apps.length > 1) throw `Error: Invalid ID '${appSearch}'`;
 		app = _apps[0];
+		instanceName = `cli.'${app.name}'.${generateHash()}`;
 
 		return queryProjects(headers, projectSearch);
 	})
@@ -733,7 +742,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		if (_projects.length > 1) throw `Error: Invalid ID '${projectSearch}'`;
 		project = _projects[0];
 
-		return getInstance(headers, `warehouse.stage-${app.name}`);
+		return getInstance(headers, instanceName, project);
 	})
 	.then(instance => {
 		let all_dataset_ids = inputs.map(x => x._id);
@@ -818,51 +827,66 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					instance_id: instance._id,
 					name: "Staging Dataset",
 					service: "soichih/sca-product-raw",
+					desc: "Staging Dataset",
 					config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
 				}}, (err, res, body) => {
 					if (err) throw err;
 					console.log("Data Staging Task Created, PROCESS: ");
-
+					
 					let task = body.task;
 					waitForFinish(headers, task, 0, (err, task) => {
 						if (err) throw message;
 						let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
-
+						
+						// link task to app inputs
+						app_inputs.forEach(input => input.task_id = task._id);
+						
+						app.outputs.forEach(output => {
+							app_outputs.push({
+								id: output.id,
+								datatype: output.datatype._id,
+								//datatype_tags: output.datatype_tags,
+								desc: output.id + " from "+ app.name,
+								meta: output_metadata,
+								files: output.files,
+								archive: {
+									project: project._id,
+									desc: `${output.id} from ${app.name}`
+								},
+							});
+						});
+						
 						Object.assign(preparedConfig, {
 							_app: app._id,
 							_tid: 1,
 							_inputs: app_inputs,
-							_outputs: [],
-							archive: {
-								project: project._id,
-								desc: `cli output from ${project.name}`
-							},
+							_outputs: app_outputs,
 						});
 
 						// console.log(JSON.stringify(preparedConfig));
 						// prepare and run the app task
+						
+						request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
+							instance_id: instance._id,
+							name: instanceName,
+							service: app.github,
+							desc: `Running ${app.name}`,
+							service_branch: app.github_branch,
+							config: preparedConfig,
+							deps: [ task._id ]
+							
+						}}, (err, res, body) => {
+							if (err) throw err;
+							if (res.statusCode != 200) throw `Error: ${res.body.message}`;
 
-						let appInstanceName = `${app.name}`;
-						getInstance(headers, appInstanceName)
-						.then(appInstance => {
-							request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
-								instance_id: appInstance._id,
-								name: appInstanceName,
-								service: app.github,
-								service_branch: app.github_branch
-							}}, (err, res, body) => {
+							let appTask = body.task;
+							console.log(`${app.name} Task Created, PROCESS: `);
+
+							waitForFinish(headers, appTask, 0, (err, appTask) => {
 								if (err) throw err;
-								if (res.statusCode != 200) throw `Error: ${res.body.message}`;
-
-								let appTask = body.task;
-								console.log(`${app.name} Task Created, PROCESS: `);
-
-								waitForFinish(headers, appTask, 0, (err, appTask) => {
-									if (err) throw message;
-									console.log(`Data will be automatically archived to Project '${project.name}'`);
-								});
+								console.log(`Data will be automatically archived to Project '${project.name}'`);
 							});
-						}).catch(console.error);
+						});
 					});
 				})
 			});
@@ -1169,6 +1193,13 @@ function isValidObjectId(str) {
 function foldr(step, base, list) {
 	let result = base;
 	for (let i = list.length - 1; i >= 0; i--) result = step(list[i], result);
+	return result;
+}
+
+function generateHash(size) {
+	let result = "";
+	size = size || 32;
+	for (let i = 0; i < size; i++) result = result + ("qwertyuiopasdfghjklzxcvbnm1234567890")[Math.floor(Math.random() * 36)];
 	return result;
 }
 
