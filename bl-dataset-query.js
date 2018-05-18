@@ -50,25 +50,26 @@ function formatDatasets(headers, data, whatToShow) {
 			let resultArray = data.map(d => {
 				let info = [];
 				let createDateObject = new Date(d.create_date);
-				let formattedDate = `${createDateObject.toLocaleString()} (${timeago.ago(createDateObject)})`;
+				let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
 				let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
 				let formattedProject = projectTable[d.project] ? projectTable[d.project].name : d.project;
 				let formattedDatatype = datatypeTable[d.datatype] ? datatypeTable[d.datatype].name : d.datatype;
-				let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : `<${d.datatype_tags.join(', ')}>`;
+				let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : "<" + d.datatype_tags.join(', ') + ">";
 
-				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-				if (whatToShow.all || whatToShow.project) info.push(`Project: ${formattedProject}`);
-				if (whatToShow.all || whatToShow.subject) info.push(`Subject: ${subject}`);
-				if (whatToShow.all || whatToShow.datatype) info.push(`Datatype: ${formattedDatatype}${formattedDatatypeTags}`);
-				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc||''}`);
-				if (whatToShow.all || whatToShow.create_date) info.push(`Create Date: ${formattedDate}`);
-				if (whatToShow.all || whatToShow.storage) info.push(`Storage: ${d.storage}`);
-				if (whatToShow.all || whatToShow.status) info.push(`Status: ${d.status}`);
-				// if (whatToShow.all || whatToShow.meta) info.push(`Meta: ${formattedMeta}`);
+				if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
+				if (whatToShow.all || whatToShow.project) info.push("Project: " + formattedProject);
+				if (whatToShow.all || whatToShow.subject) info.push("Subject: " + subject);
+				if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
+				if (whatToShow.all || whatToShow.desc) info.push("Description: " + (d.desc||''));
+				if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
+				if (whatToShow.all || whatToShow.storage) info.push("Storage: " + d.storage);
+				if (whatToShow.all || whatToShow.status) info.push("Status: " + d.status);
+				// if (whatToShow.all || whatToShow.meta) info.push("Meta: " + formattedMeta);
 
 				return info.join('\n');
 			});
-			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
+			
+			resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
 			resolve(resultArray.join('\n\n'));
 
 		}).catch(console.error);

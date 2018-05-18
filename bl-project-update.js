@@ -15,13 +15,13 @@ commander
 
 util.loadJwt().then(jwt => {
 	let headers = { "Authorization": "Bearer " + jwt };
-	
 	util.updateProject(headers, commander.update,
 						{ 	name: commander.name, desc: commander.desc, admins: commander.admins,
 							members: commander.members, guests: commander.guests })
 	.then(project => {
 		if (commander.raw) console.log(JSON.stringify(project));
 		else showProjects(headers, [project]);
+	}).catch(console.error);
 }).catch(console.error);
 
 /**
@@ -38,9 +38,7 @@ function showProjects(headers, projects) {
 		members: true,
 		guests: true,
 		desc: true
-	})
-	.then(console.log)
-	.catch(console.error);
+	}).then(console.log).catch(console.error);
 }
 
 /**
@@ -61,18 +59,21 @@ function formatProjects(headers, data, whatToShow) {
 				let formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
 				let formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
 				let formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+				let formattedAccess = "Access: " + d.access;
+				if (d.listed) formattedAccess += " (but listed for all users)";
 
-				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-				if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
-				if (whatToShow.all || whatToShow.admins) info.push(`Admins: ${formattedAdmins.join(', ')}`);
-				if (whatToShow.all || whatToShow.members) info.push(`Members: ${formattedMembers.join(', ')}`);
-				if (whatToShow.all || whatToShow.guests) info.push(`Guests: ${formattedGuests.join(', ')}`);
-				if (whatToShow.all || whatToShow.access) info.push(`Access: ${d.access}${d.listed?' (but listed for all users)':''}`);
-				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
+				if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
+				if (whatToShow.all || whatToShow.name) info.push("Name: " + d.name);
+				if (whatToShow.all || whatToShow.admins) info.push("Admins: " + formattedAdmins.join(', '));
+				if (whatToShow.all || whatToShow.members) info.push("Members: " + formattedMembers.join(', '));
+				if (whatToShow.all || whatToShow.guests) info.push("Guests: " + formattedGuests.join(', '));
+				if (whatToShow.all || whatToShow.access) info.push("Access: " + formattedAccess);
+				if (whatToShow.all || whatToShow.desc) info.push("Description: " + d.desc);
 
 				return info.join('\n');
 			});
-			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
+			
+			resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
 			resolve(resultArray.join('\n\n'));
 		});
 	});

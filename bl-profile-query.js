@@ -34,15 +34,16 @@ function formatProfiles(headers, data, whatToShow) {
 		let resultArray = data.map(d => {
 			let info = [];
 
-			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d.id}`);
-			if (whatToShow.all || whatToShow.username) info.push(`Username: ${d.username}`);
-			if (whatToShow.all || whatToShow.fullname) info.push(`Full Name: ${d.fullname}`);
-			if (whatToShow.all || whatToShow.email) info.push(`Email: ${d.email}`);
-			if (whatToShow.all || whatToShow.active) info.push(`Active: ${d.active}`);
+			if (whatToShow.all || whatToShow.id) info.push("Id: " + d.id);
+			if (whatToShow.all || whatToShow.username) info.push("Username: " + d.username);
+			if (whatToShow.all || whatToShow.fullname) info.push("Full Name: " + d.fullname);
+			if (whatToShow.all || whatToShow.email) info.push("Email: " + d.email);
+			if (whatToShow.all || whatToShow.active) info.push("Active: " + d.active);
 
 			return info.join('\n');
 		});
-		resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
+		
+		resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
 		resolve(resultArray.join('\n\n'));
 	});
 }

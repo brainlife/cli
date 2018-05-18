@@ -38,17 +38,18 @@ function formatDatatypes(headers, data, whatToShow) {
 		let resultArray = data.map(d => {
 			let info = [];
 			let formattedFiles = d.files.map(file => {
-				return `[${file.required?'(required) ':''}${file.id}: ${file.filename||file.dirname}]`;
+				return "[" + (file.required?'(required) ':'') + file.id + ": " + (file.filename||file.dirname) + "]";
 			}).join('  ');
 
-			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-			if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
-			if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
-			if (whatToShow.all || whatToShow.files) info.push(`Files: ${formattedFiles}`);
+			if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
+			if (whatToShow.all || whatToShow.name) info.push("Name: " + d.name);
+			if (whatToShow.all || whatToShow.desc) info.push("Description: " + d.desc);
+			if (whatToShow.all || whatToShow.files) info.push("Files: " + formattedFiles);
 
 			return info.join('\n');
 		});
-
+		
+		resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
 		resolve(resultArray.join('\n\n'));
 	});
 }

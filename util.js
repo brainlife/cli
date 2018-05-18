@@ -177,6 +177,7 @@ const delimiter = ',';
 
 /**
  * Filter profiles by user string
+ * (since server side filtering is not supported by the api)
  * @param {profile[]} data
  * @param {string} queries
  */
@@ -208,7 +209,9 @@ function queryProfiles(headers, search) {
 			}, headers)
 		.then((data, err) => {
 			if (err) reject(err);
-			else resolve(data.profiles);
+			else {
+				resolve(data.profiles);
+			}
 		})
 		.catch(console.error);
 	});
@@ -252,7 +255,9 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 				}, headers)
 			.then((data, err) => {
 				if (err) reject(err);
-				else resolve(data.datasets);
+				else {
+					resolve(data.datasets);
+				}
 			}).catch(console.error);
 		}).catch(console.error);
 	});
@@ -268,12 +273,12 @@ function downloadDataset(headers, query) {
 	.then(datasets => {
 		if (datasets.length != 1) throw "Error: invalid dataset id given";
 		let id = datasets[0]._id;
-		console.log(`Streaming dataset to ${id}/`);
+		console.log("Streaming dataset to " + id);
 
 		fs.mkdir(id, err => {
 			request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
 			.on('response', res => {
-				if(res.statusCode != 200) throw `Error: ${res.body.message}`;
+				if(res.statusCode != 200) throw "Error: " + res.body.message;
 			}).pipe(tar.x({ C: id }));
 		});
 	});
@@ -320,7 +325,9 @@ function queryProjects(headers, search, adminSearch, userSearch) {
 		})
 		.then((data, err) => {
 			if (err) reject(err);
-			else resolve(data.projects);
+			else {
+				resolve(data.projects);
+			}
 		})
 		.catch(console.error);
 	});
@@ -366,7 +373,9 @@ function queryApps(headers, search, inputs, outputs) {
 				}, headers)
 			.then((data, err) => {
 				if (err) reject(err);
-				else resolve(data.apps);
+				else {
+					resolve(data.apps);
+				}
 			}).catch(console.error);
 		}).catch(console.error);
 	});
@@ -393,7 +402,9 @@ function queryDatatypes(headers, search) {
 			}, headers)
 		.then((data, err) => {
 			if (err) reject(err);
-			else resolve(data.datatypes);
+			else {
+				resolve(data.datatypes);
+			}
 		}).catch(console.error);
 	});
 }
@@ -413,13 +424,14 @@ function query(url, ids, queries, options, headers) {
 	options = options(ids, queries);
 
 	let params = Object.keys(options)
-	.map(x => `${x}=${/find|sort/.test(x) ? JSON.stringify(options[x]) : options[x]}`)
+	.map(x => x + "=" + (/find|sort/.test(x) ? JSON.stringify(options[x]) : options[x]))
 	.join('&');
-
+	if (params.length > 0) url += '?';
+	
 	return new Promise((resolve, reject)=>{
-		request.get({url: `${url}${params?'?':''}${params}`, headers: headers, json: true}, function(err, res, body) {
+		request.get({url: url + params, headers: headers, json: true}, function(err, res, body) {
 			if (res.statusCode != 200) {
-				throw `Error: ${res.body.message}`;
+				throw "Error: " + res.body.message;
 			}
 			if(err) throw new Error(res);
 			return resolve(body);
@@ -442,36 +454,40 @@ function updateProject(headers, id, updates) {
 			return queryProjects(headers, id);
 		})
 		.then(projects => {
-			if (projects.length != 1) throw `Error: invalid project id`;
+			if (projects.length != 1) throw "Error: invalid project id";
 
 			if (updates.admins && updates.admins.trim().length > 0) {
 				updates.admins = updates.admins.split(",").map(username => {
 					username = username.trim();
 					if (profileTable[username]) return profileTable[username].id;
-					else throw `Error: no user found with username '${username}' when checking admins`;
+					else {
+						throw "Error: no user found with username '" + username + "'when checking admins";
+					}
 				})
 			}
 			if (updates.members && updates.members.trim().length > 0) {
 				updates.members = updates.members.split(",").map(username => {
 					username = username.trim();
 					if (profileTable[username]) return profileTable[username].id;
-					else throw `Error: no user found with username '${username}' when checking members`;
+					else {
+						throw "Error: no user found with username '" + username + "'when checking members";
+					}
 				})
 			}
 			if (updates.guests && updates.guests.trim().length > 0) {
 				username = username.trim();
 				updates.guests = updates.guests.split(",").map(username => {
 					if (profileTable[username]) return profileTable[username].id;
-					else throw `Error: no user found with username '${username}' when checking guests`;
+					else {
+						throw "Error: no user found with username '" + username + "'when checking guests";
+					}
 				})
 			}
 
 			let updateValues = toNonNullObject(updates);
-			if (Object.keys(updateValues) == 0) throw `Error: no values to update project with`;
+			if (Object.keys(updateValues) == 0) throw "Error: no values to update project with";
 
-			request.put(`${config.api.warehouse}/project/${projects[0]._id}`, { json: updateValues, updateValues, headers: headers }, (err, res, body) => {
-				resolve(body);
-			});
+			request.put(config.api.warehouse + "/project/" + projects[0]._id, { json: updateValues, updateValues, headers: headers }, (err, res, body) => resolve(body));
 		})
 	});
 }
@@ -489,7 +505,7 @@ function getInstance(headers, instanceName, options) {
 		var find = { name: instanceName };
 		options = options || {};
 		
-		request.get({url: config.api.wf+"/instance?find="+JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
+		request.get({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
 			if(err) return reject(err);
 			if(res.statusCode != 200) return reject(res.statusCode);
 			if(body.instances[0]) resolve(body.instances[0]);
@@ -519,10 +535,10 @@ function getInstance(headers, instanceName, options) {
  */
 function getBestResource(headers, service) {
 	return new Promise((resolve, reject)=>{
-		request.get({url: `${config.api.wf}/resource/best?service=${service}`, headers: headers, json: true}, function(err, res, body) {
+		request.get({url: config.api.wf + "/resource/best?service=" + service, headers: headers, json: true}, function(err, res, body) {
 			if(err) return reject(err);
 			if(res.statusCode != 200) return reject(res.statusCode);
-			if(!body.resource) return reject(`Error: no resource found that runs service ${service}`);
+			if(!body.resource) return reject("Error: no resource found that runs service " + service);
 			resolve(body.resource);
 		});
 	});
@@ -554,19 +570,19 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		return queryApps(headers, appSearch, inputSearch, '');
 	})
 	.then(_apps => {
-		if (_apps.length == 0) throw `Error: No apps found matching ${appSearch}`;
-		if (_apps.length > 1) throw `Error: Invalid ID '${appSearch}'`;
+		if (_apps.length == 0) throw "Error: No apps found matching " + appSearch;
+		if (_apps.length > 1) throw "Error: Invalid ID '" + appSearch + "'";
 		app = _apps[0];
-		instanceName = `cli.'${app.name}'.${generateHash()}`;
+		instanceName = app.tags||app.name + "." + Math.random();
 		
 		return queryProjects(headers, projectSearch);
 	})
 	.then(_projects => {
-		if (_projects.length == 0) throw `Error: No projects found matching ${projectSearch}`;
-		if (_projects.length > 1) throw `Error: Invalid ID '${projectSearch}'`;
+		if (_projects.length == 0) throw "Error: No projects found matching " + projectSearch;
+		if (_projects.length > 1) throw "Error: Invalid ID '" + projectSearch + "'";
 		project = _projects[0];
 
-		return getInstance(headers, instanceName, { project, desc: `(CLI) ${app.name}` });
+		return getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
 	})
 	.then(instance => {
 		let all_dataset_ids = inputs.map(x => x._id);
@@ -577,7 +593,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				flattenedPrompt[key] = {
 					type: flattenedConfig[key].type,
 					default: flattenedConfig[key].default,
-					description: `${JSON.parse(key).join('->')} (${flattenedConfig[key].description||'null'}) (type: ${flattenedConfig[key].type})`
+					description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
 				};
 			}
 		});
@@ -587,11 +603,11 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		prompt.get({ properties: flattenedPrompt }, (err, values) => {
 			if (err) throw err;
 
-			request.get({ headers, url: `${config.api.warehouse}/dataset/token?ids=${JSON.stringify(all_dataset_ids)}`, json: true }, (err, res, body) => {
+			request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, (err, res, body) => {
 				if (err) throw err;
 
 				let jwt = body.jwt;
-				if (app.inputs.length != inputs.length) throw `Error: App expects ${app.inputs.length} inputs but ${inputs.length} was given`;
+				if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " were given";
 
 				let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
 				let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
@@ -599,14 +615,14 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				// type validation
 				sorted_user_inputs.forEach((input, idx) => {
 					if (input.datatype != sorted_app_inputs[idx].datatype) {
-						throw `Error: Input ${idx+1} (dataset id ${input._id}) has datatype ${datatypeTable[input.datatype].name} but expected ${datatypeTable[sorted_app_inputs[idx].datatype].name}`;
+						throw "Error: Input " + (idx + 1) + " (dataset id " + input._id + ") has datatype " + datatypeTable[input.datatype].name + " but expected " + datatypeTable[sorted_app_inputs[idx].datatype].name;
 					}
 					let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
 					let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
 					
 					// datatype tag validation, if you want to do that sort of thing
 					
-					// let invalid_dtags_error = `Error: Input ${idx+1} (dataset id ${input._id} with datatype ${datatypeTable[input.datatype].name}) has datatype tags [${input.datatype_tags.join(', ')}] but expected [${sorted_app_inputs[idx].datatype_tags.join(', ')}]`;
+					// let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
 
 					// if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
 
@@ -625,7 +641,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					let user_input = inputTable[input.datatype];
 
 					downloads.push({
-						url: `${config.api.warehouse}/dataset/download/safe/${user_input._id}?at=${jwt}`,
+						url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "at=" + jwt,
 						untar: 'auto',
 						dir: user_input._id
 					});
@@ -649,7 +665,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					}
 				});
 
-				request.post({ headers, url: `${config.api.wf}/task`, json: true, body: {
+				request.post({ headers, url: config.api.wf + "/task", json: true, body: {
 					instance_id: instance._id,
 					name: "Staging Dataset",
 					service: "soichih/sca-product-raw",
@@ -677,7 +693,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 								files: output.files,
 								archive: {
 									project: project._id,
-									desc: `${output.id} from ${app.name}`
+									desc: output.id + " from " + app.name
 								},
 							});
 						});
@@ -692,25 +708,25 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 						// console.log(JSON.stringify(preparedConfig));
 						// prepare and run the app task
 						
-						request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
+						request.post({ url: config.api.wf + "/task", headers, json: true, body: {
 							instance_id: instance._id,
 							name: instanceName,
 							service: app.github,
-							desc: `Running ${app.name}`,
+							desc: "Running " + app.name,
 							service_branch: app.github_branch,
 							config: preparedConfig,
 							deps: [ task._id ]
 							
 						}}, (err, res, body) => {
 							if (err) throw err;
-							if (res.statusCode != 200) throw `Error: ${res.body.message}`;
+							if (res.statusCode != 200) throw "Error: " + res.body.message;
 
 							let appTask = body.task;
-							console.log(`${app.name} Task Created, PROCESS: `);
+							console.log(app.name + " Task Created, PROCESS: ");
 
 							waitForFinish(headers, appTask, 0, (err, appTask) => {
 								if (err) throw err;
-								console.log(`Data will be automatically archived to Project '${project.name}'`);
+								console.log("Data will be automatically archived to Project '" + project.name + "'");
 							});
 						});
 					});
@@ -771,10 +787,11 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 				let inputDtypeFile = idToFile[flattened[path].file_id];
 				
 				// TODO support case of userInput.multi == true
-				if (userInput.multi) throw `Error: Arrays not yet supported as input types`;
-				flattenedCalculatedConfig[path] = `../${download_task._id}/${userInput._id}/${inputDtypeFile.filename||inputDtypeFile.dirname}`;
+				if (userInput.multi) throw "Error: Arrays not yet supported as input types";
+				flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
+			} else {
+				flattenedCalculatedConfig[path] = values[path];
 			}
-			else flattenedCalculatedConfig[path] = values[path];
 		});
 		// this split up is required to maintain soft copying on recurring properties
 		Object.keys(flattened).forEach(path => {
@@ -804,26 +821,26 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 	function waitForFinish(headers, task, gear, cb) {
 		var find = {_id: task._id};
 
-		request.get({ url: `${config.api.wf}/task?find=${JSON.stringify({_id: task._id})}`, headers, json: true}, (err, res, body) => {
+		request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
 			if(err) return cb(err, null);
-			if (res.statusCode != 200) throw `Error: ${res.body.message}`;
+			if (res.statusCode != 200) throw "Error: " + res.body.message;
 
 			let task = body.tasks[0];
 
 			if (task.status == "finished") {
 				terminalOverwrite.clear();
-				terminalOverwrite(`STATUS: Successfully finished\n(${timeago.ago(new Date(task.finish_date))})`);
+				terminalOverwrite("STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
 				terminalOverwrite.done();
 				return cb(null, task);
 			}
 			if (task.status == "failed") {
 				terminalOverwrite.clear();
-				terminalOverwrite(`STATUS: failed`);
+				terminalOverwrite("STATUS: failed");
 				terminalOverwrite.done();
-				return cb(`Error: ${task.status_msg}`, null);
+				return cb("Error: " + task.status_msg, null);
 			}
 			terminalOverwrite.clear();
-			terminalOverwrite(`STATUS: ${task.status_msg}${gearFrames[gear]}\n(running since ${timeago.ago(new Date(task.create_date))})`);
+			terminalOverwrite("STATUS: " + task.status_msg + gearFrames[gear] + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
 
 			setTimeout(function() {
 				waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
@@ -867,11 +884,11 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 		}).then(_datatypes => {
 			datatypes = _datatypes;
 			if (datatypes.length == 0) throw "Error: Datatype not found";
-			if (datatypes.length > 1) throw `Error: ${datatypes.length} possible results found matching datatype '${datatypeSearch}'`;
+			if (datatypes.length > 1) throw "Error: " + datatypes.length + " possible results found matching datatype '" + datatypeSearch + "'";
 			return queryProjects(headers, projectSearch);
 		}).then(projects => {
 			if (projects.length == 0) throw "Error: Project not found";
-			if (projects.length > 1) throw `Error: ${projects.length} possible results found matching project '${projectSearch}'`;
+			if (projects.length > 1) throw "Error: " + projects.length + " possible results found matching project '" + projectSearch + "'";
 
 			let taropts = ['-czh'];
 
@@ -879,19 +896,19 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 			let project = projects[0];
 
 			async.forEach(datatype.files, (file, next_file)=>{
-				console.log(`Looking for ${directory}/${(file.filename||file.dirname)}`);
-				fs.stat(`${directory}/${file.filename}`, (err,stats)=>{
+				console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
+				fs.stat(directory + "/" + file.filename, (err,stats)=>{
 					if(err) {
 						if (file.dirname) {
-							fs.stat(`${directory}/${file.dirname}`, (err, stats) => {
-								if (err) throw `Error: unable to stat ${directory}/${file.dirname} ... Does the directory exist?`;
+							fs.stat(directory + "/" + file.dirname, (err, stats) => {
+								if (err) throw "Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?";
 								taropts.push(file.dirname);
 								next_file();
 							});
 						} else {
 							if(file.required) throw err;
 							else {
-								console.log(`Couldn't find ${(file.filename||file.dirname)} but it's not required for this datatype`);
+								console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
 								next_file();
 							}
 						}
@@ -905,13 +922,13 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 
 				//submit noop to upload data
 				//warehouse dataset post api need a real task to submit from
-				request.post({ url: `${config.api.wf}/task`, headers, json: true, body: {
+				request.post({ url: config.api.wf + "/task", headers, json: true, body: {
 					instance_id: instance._id,
 					name: instanceName,
 					service: noopService,
 				}},
 				(err, res, body) => {
-					if(err) throw `Error: ${res.body.message}`;
+					if(err) throw "Error: " + res.body.message;
 					let task = body.task;
 
 					console.log("Waiting for upload task to be ready...");
@@ -920,12 +937,12 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 
 						console.log("Starting upload");
 
-						let req = request.post({url: `${config.api.wf}/task/upload/${task._id}?p=upload.tar.gz&untar=true`, headers: headers});
+						let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
 						let tar = spawn('tar', taropts, { cwd: directory });
 						tar.stdout.pipe(req);
 
 						req.on('response', res => {
-							if(res.statusCode != "200") throw `Error: ${res.body.message}`;
+							if(res.statusCode != "200") throw "Error: " + res.body.message;
 							console.log("Dataset successfully uploaded!");
 							console.log("Now registering dataset...");
 
@@ -943,7 +960,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 								output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
 							}}, (err, res, body) => {
 								if(err) throw err;
-								if(res.statusCode != "200") throw `Failed to upload: ${res.body.message}`;
+								if(res.statusCode != "200") throw "Failed to upload: " + res.body.message;
 								console.log("Finished dataset registration!");
 								resolve(body);
 							});
@@ -956,9 +973,9 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 		// TODO use event subscription instead
 		function waitForFinish(headers, task, cb) {
 			var find = {_id: task._id};
-			request.get({ url: `${config.api.wf}/task?find=${JSON.stringify({_id: task._id})}`, headers, json: true}, (err, res, body) => {
+			request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
 				if(err) return cb(err);
-				if (res.statusCode != 200) throw `Error: ${res.body.message}`;
+				if (res.statusCode != 200) throw "Error: " + res.body.message;
 
 				terminalOverwrite.clear();
 
@@ -982,7 +999,7 @@ function loadJwt() {
 	return new Promise((resolve, reject) => {
 		fs.stat(config.path.jwt, (err, stat) => {
 			if (err) {
-				throw `Error: Couldn't find your jwt token. You're probably not logged in`;
+				throw "Error: Couldn't find your jwt token. You're probably not logged in";
 				process.exit(1);
 			}
 			resolve(fs.readFileSync(config.path.jwt));
@@ -1011,7 +1028,7 @@ function toNonNullObject(o) {
 function toNonNullUri(o) {
 	let uri = [];
 	Object.keys(o).forEach(k => {
-		if (o[k] && o[k].trim().length > 0) uri.push(`${encodeURIComponent(k)}=${encodeURIComponent(o[k])}`);
+		if (o[k] && o[k].trim().length > 0) uri.push(encodeURIComponent(k) + "=" + encodeURIComponent(o[k]));
 	});
 
 	let result = uri.join('&');
@@ -1035,14 +1052,13 @@ function isValidObjectId(str) {
 }
 
 /**
- * Generate a random hash of the given size
- * @param {number} size
+ * Return a pluralized string whether or not there are multiple objects
+ * @param {string} string 
+ * @param {any[]} objects 
  */
-function generateHash(size) {
-	let result = "";
-	size = size || 32;
-	for (let i = 0; i < size; i++) result = result + ("qwertyuiopasdfghjklzxcvbnm1234567890")[Math.floor(Math.random() * 36)];
-	return result;
+function pluralize(string, objects) {
+	if (objects.length == 1) return string;
+	return string + "s";
 }
 
 module.exports = {
@@ -1051,5 +1067,5 @@ module.exports = {
 	downloadDataset, uploadDataset,
 	runApp,
 	updateProject,
-	loadJwt
+	loadJwt, pluralize
 };
