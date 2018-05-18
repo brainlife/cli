@@ -211,7 +211,7 @@ function formatProfiles(headers, data, whatToShow) {
 
 			return info.join('\n');
 		});
-		resultArray.push(`(Returned ${data.length} results)`);
+		resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
 		resolve(resultArray.join('\n\n'));
 	});
 }
@@ -222,7 +222,7 @@ function formatProfiles(headers, data, whatToShow) {
  * @param {string} queries
  */
 function filterProfiles(data, queries) {
-	let pattern = new RegExp(queries.split(delimiter).map(q => escapeRegExp(q.trim())).filter(q => q.length > 0).join('|'), 'ig');
+	let pattern = new RegExp((queries || '').split(delimiter).map(q => escapeRegExp(q.trim())).filter(q => q.length > 0).join('|'), 'ig');
 	return data.filter(d => pattern.test(d.username) || pattern.test(d.fullname) || pattern.test(d.email));
 }
 
@@ -263,7 +263,7 @@ function formatDatasets(headers, data, whatToShow) {
 
 				return info.join('\n');
 			});
-			resultArray.push(`(Returned ${data.length} results)`);
+			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
 			resolve(resultArray.join('\n\n'));
 
 		}).catch(console.error);
@@ -306,7 +306,7 @@ function formatApps(headers, data, whatToShow) {
 
 				return info.join('\n');
 			});
-			resultArray.push(`(Returned ${data.length} results)`);
+			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
 			resolve(resultArray.join('\n\n'));
 
 		}).catch(console.error);
@@ -343,7 +343,7 @@ function formatProjects(headers, data, whatToShow) {
 
 				return info.join('\n');
 			});
-			resultArray.push(`(Returned ${data.length} results)`);
+			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
 			resolve(resultArray.join('\n\n'));
 		});
 	});
@@ -476,23 +476,42 @@ function downloadDataset(headers, query) {
  * @name queryProjects
  * @desc Query the list of projects
  * @param {string} search
+ * @param {string} authorSearch
  * @returns {Promise<project[]>}
  */
-function queryProjects(headers, search) {
+function queryProjects(headers, search, adminSearch, userSearch) {
 	return new Promise((resolve, reject) => {
 		let searches = (search || '').split(delimiter);
-		query(config.api.warehouse + '/project', searches, searches,
+		let projectUserIds, projectAdminIds;
+		
+		queryProfiles(headers)
+		.then(_profiles => {
+			projectUserIds = filterProfiles(_profiles, userSearch).map(p => p.id);
+			projectAdminIds = filterProfiles(_profiles, adminSearch).map(p => p.id);
+			return query(config.api.warehouse + '/project', searches, searches,
 			(ids, queries) => {
-				let find = {}, orQueries = [], pattern = queries.join('|');
+				let find = { removed: false }, orQueries = [], andQueries = [], pattern = queries.join('|');
 				if (ids.length > 0) orQueries.push({ _id: { $in: ids } });
 				if (queries.length > 0) {
 					orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
 					orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
 				}
-				if (orQueries.length > 0) find.$or = orQueries;
-
+				
+				if (projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
+				if (projectUserIds.length > 0) {
+					let subOr = [];
+					subOr.push({ admins: { $elemMatch: { $in: projectUserIds } } });
+					subOr.push({ members: { $elemMatch: { $in: projectUserIds } } });
+					subOr.push({ guests: { $elemMatch: { $in: projectUserIds } } });
+					andQueries.push({ $or: subOr });
+				}
+				
+				if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+				if (andQueries.length > 0) find.$and = andQueries;
+				
 				return { find, sort: { access: 1 } };
-			}, headers)
+			}, headers);
+		})
 		.then((data, err) => {
 			if (err) reject(err);
 			else resolve(data.projects);

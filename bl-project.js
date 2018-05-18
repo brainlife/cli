@@ -15,6 +15,8 @@ const util = require('./util');
 
 commander
 	.option('query <query>', 'run a query against all projects')
+	.option('admin <admin>', 'filter project by admins in it')
+	.option('user <user>', 'filter project by all users in it')
 	.option('update <projectid>', '(experimental) update a project with the given projectid')
 	.option('raw', 'output data in raw format (JSON)')
 	.parse(process.argv);
@@ -28,8 +30,8 @@ fs.stat(config.path.jwt, (err, stat)=>{
 	var user = jsonwebtoken.decode(jwt);
 	var headers = { "Authorization": "Bearer "+jwt };
 
-	if (commander.query) {
-		util.queryProjects(headers, commander.query)
+	if (commander.query || commander.admin || commander.user) {
+		util.queryProjects(headers, commander.query, commander.admin, commander.user)
 		.then(projects => {
 			if (commander.raw) console.log(JSON.stringify(projects));
 			else showProjects(headers, projects);
