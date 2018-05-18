@@ -14,5 +14,6 @@ const util = require('./util');
 
 commander
 	.command('query', 'run a query against all datatypes')
-	.command('run', 'run a Brain-Life app')
+	.command('run', 'run a brainlife app')
+	.command('monitor', 'monitor an active brainlife application')
 	.parse(process.argv);

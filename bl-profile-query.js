@@ -43,7 +43,7 @@ function formatProfiles(headers, data, whatToShow) {
 			return info.join('\n');
 		});
 		
-		resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
+		resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
 		resolve(resultArray.join('\n\n'));
 	});
 }

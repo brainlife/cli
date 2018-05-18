@@ -13,6 +13,34 @@ const prompt = require('prompt');
 
 const delimiter = ',';
 
+// const gearFrames = ['', '.', '..', '...'];
+const gearFrames = [
+	'               ',
+	' e             ',
+	' fe            ',
+	' ife           ',
+	' Life          ',
+	'  Life         ',
+	' n Life        ',
+	' in Life       ',
+	' ain Life      ',
+	' rain Life     ',
+	' Brain Life    ',
+	'  Brain Life   ',
+	'   Brain Life  ',
+	'    Brain Life ',
+	'     Brain Life',
+	'      Brain Lif',
+	'       Brain Li',
+	'        Brain L',
+	'         Brain ',
+	'          Brain',
+	'           Brai',
+	'            Bra',
+	'             Br',
+	'              B',
+]
+
 /** @module util.js */
 
 /**
@@ -573,7 +601,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		if (_apps.length == 0) throw "Error: No apps found matching " + appSearch;
 		if (_apps.length > 1) throw "Error: Invalid ID '" + appSearch + "'";
 		app = _apps[0];
-		instanceName = app.tags||app.name + "." + Math.random();
+		instanceName = (app.tags||'CLI Process') + "." + (Math.random());
 		
 		return queryProjects(headers, projectSearch);
 	})
@@ -641,7 +669,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					let user_input = inputTable[input.datatype];
 
 					downloads.push({
-						url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "at=" + jwt,
+						url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
 						untar: 'auto',
 						dir: user_input._id
 					});
@@ -677,7 +705,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 					
 					let task = body.task;
 					waitForFinish(headers, task, 0, (err, task) => {
-						if (err) throw message;
+						if (err) throw err;
 						let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
 						
 						// link task to app inputs
@@ -722,12 +750,13 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 							if (res.statusCode != 200) throw "Error: " + res.body.message;
 
 							let appTask = body.task;
-							console.log(app.name + " Task Created, PROCESS: ");
+							console.log(app.name + " Task for app '" + app.name + "' has begun.\n" + 
+										"To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
 
-							waitForFinish(headers, appTask, 0, (err, appTask) => {
-								if (err) throw err;
-								console.log("Data will be automatically archived to Project '" + project.name + "'");
-							});
+							// waitForFinish(headers, appTask, 0, (err, appTask) => {
+							// 	if (err) throw err;
+							// 	console.log("Data will be automatically archived to Project '" + project.name + "'");
+							// });
 						});
 					});
 				})
@@ -809,43 +838,6 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 		});
 		// console.log(result);
 		return result;
-	}
-
-	let gearFrames = ['', '.', '..', '...'];
-	/**
-	 *
-	 * @param {any} headers
-	 * @param {task} task
-	 * @param {(error: string, task: task) => any} cb
-	 */
-	function waitForFinish(headers, task, gear, cb) {
-		var find = {_id: task._id};
-
-		request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
-			if(err) return cb(err, null);
-			if (res.statusCode != 200) throw "Error: " + res.body.message;
-
-			let task = body.tasks[0];
-
-			if (task.status == "finished") {
-				terminalOverwrite.clear();
-				terminalOverwrite("STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
-				terminalOverwrite.done();
-				return cb(null, task);
-			}
-			if (task.status == "failed") {
-				terminalOverwrite.clear();
-				terminalOverwrite("STATUS: failed");
-				terminalOverwrite.done();
-				return cb("Error: " + task.status_msg, null);
-			}
-			terminalOverwrite.clear();
-			terminalOverwrite("STATUS: " + task.status_msg + gearFrames[gear] + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
-
-			setTimeout(function() {
-				waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
-			}, 1000);
-		});
 	}
 }
 
@@ -932,7 +924,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 					let task = body.task;
 
 					console.log("Waiting for upload task to be ready...");
-					waitForFinish(headers, task, function(err) {
+					waitForFinish(headers, task, 0, function(err) {
 						if(err) throw err;
 
 						console.log("Starting upload");
@@ -969,25 +961,46 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 				});
 			});
 		}).catch(console.error);
+	});
+}
 
-		// TODO use event subscription instead
-		function waitForFinish(headers, task, cb) {
-			var find = {_id: task._id};
-			request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
-				if(err) return cb(err);
-				if (res.statusCode != 200) throw "Error: " + res.body.message;
+/**
+ *
+ * @param {any} headers
+ * @param {task} task
+ * @param {number} gear
+ * @param {(error: string, task: task) => any} cb
+ */
+function waitForFinish(headers, task, gear, cb) {
+	var find = {_id: task._id};
+	
+	request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
+		if(err) return cb(err, null);
+		if (res.statusCode != 200) throw "Error: " + res.body.message;
 
-				terminalOverwrite.clear();
+		let task = body.tasks[0];
 
-				if(body.tasks[0].status == "finished") return cb();
-				if(body.tasks[0].status == "failed") return cb(body.tasks[0].status_msg);
-
-				process.stdout.write(".");
-				setTimeout(function() {
-					waitForFinish(headers, task, cb);
-				}, 1000);
-			});
+		if (task.status == "finished") {
+			terminalOverwrite.clear();
+			terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" + 
+								"STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
+			terminalOverwrite.done();
+			return cb(null, task);
 		}
+		if (task.status == "failed") {
+			terminalOverwrite.clear();
+			terminalOverwrite("SERVICE: " + task.service + "\n" + 
+								"STATUS: failed");
+			terminalOverwrite.done();
+			return cb("Error: " + task.status_msg, null);
+		}
+		terminalOverwrite.clear();
+		terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" + 
+							"STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
+
+		setTimeout(function() {
+			waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
+		}, 1000);
 	});
 }
 
@@ -1067,5 +1080,5 @@ module.exports = {
 	downloadDataset, uploadDataset,
 	runApp,
 	updateProject,
-	loadJwt, pluralize
+	loadJwt, pluralize, waitForFinish
 };
