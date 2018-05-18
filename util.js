@@ -175,47 +175,6 @@ const delimiter = ',';
  * Common functions used across CLI scripts
  */
 
-// fs.stat(config.path.jwt, (err, stat)=>{
-//     if(err) {
-//         console.log("not logged in?");
-//         process.exit(1);
-//     }
-//     var jwt = fs.readFileSync(config.path.jwt);
-//     var user = jsonwebtoken.decode(jwt);
-//     var headers = { "Authorization": "Bearer "+jwt };
-
-//     request.put({ url: config.api.warehouse + '/project/5afaf3a0ef96d50027ef368b?access=public', headers, json: true }, function(err, res, body) {
-//         console.log(body);
-//     });
-// });
-
-/**
- * Format dataset information
- * @name formatProfiles
- * @param {profile[]} data
- * @param {Object} whatToShow
- * @returns {Promise<string>}
- */
-function formatProfiles(headers, data, whatToShow) {
-	return new Promise((resolve, reject) => {
-		data = data.sort((a, b) => a.id > b.id);
-
-		let resultArray = data.map(d => {
-			let info = [];
-
-			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d.id}`);
-			if (whatToShow.all || whatToShow.username) info.push(`Username: ${d.username}`);
-			if (whatToShow.all || whatToShow.fullname) info.push(`Full Name: ${d.fullname}`);
-			if (whatToShow.all || whatToShow.email) info.push(`Email: ${d.email}`);
-			if (whatToShow.all || whatToShow.active) info.push(`Active: ${d.active}`);
-
-			return info.join('\n');
-		});
-		resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
-		resolve(resultArray.join('\n\n'));
-	});
-}
-
 /**
  * Filter profiles by user string
  * @param {profile[]} data
@@ -227,158 +186,7 @@ function filterProfiles(data, queries) {
 }
 
 /**
- * Format dataset information
- * @name formatDatasets
- * @param {dataset[]} data
- * @param {Object} whatToShow
- * @returns {Promise<string>}
- */
-function formatDatasets(headers, data, whatToShow) {
-	let projectTable = {}, datatypeTable = {};
-	return new Promise((resolve, reject) => {
-		queryProjects(headers)
-		.then(projects => {
-			projects.forEach(project => projectTable[project._id] = project);
-			return queryDatatypes(headers);
-		}).then(datatypes => {
-			datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
-			let resultArray = data.map(d => {
-				let info = [];
-				let createDateObject = new Date(d.create_date);
-				let formattedDate = `${createDateObject.toLocaleString()} (${timeago.ago(createDateObject)})`;
-				let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
-				let formattedProject = projectTable[d.project] ? projectTable[d.project].name : d.project;
-				let formattedDatatype = datatypeTable[d.datatype] ? datatypeTable[d.datatype].name : d.datatype;
-				let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : `<${d.datatype_tags.join(', ')}>`;
-
-				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-				if (whatToShow.all || whatToShow.project) info.push(`Project: ${formattedProject}`);
-				if (whatToShow.all || whatToShow.subject) info.push(`Subject: ${subject}`);
-				if (whatToShow.all || whatToShow.datatype) info.push(`Datatype: ${formattedDatatype}${formattedDatatypeTags}`);
-				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc||''}`);
-				if (whatToShow.all || whatToShow.create_date) info.push(`Create Date: ${formattedDate}`);
-				if (whatToShow.all || whatToShow.storage) info.push(`Storage: ${d.storage}`);
-				if (whatToShow.all || whatToShow.status) info.push(`Status: ${d.status}`);
-				// if (whatToShow.all || whatToShow.meta) info.push(`Meta: ${formattedMeta}`);
-
-				return info.join('\n');
-			});
-			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
-			resolve(resultArray.join('\n\n'));
-
-		}).catch(console.error);
-	});
-}
-
-/**
- * Format app information
- * @name formatApps
- * @param {app[]} data
- * @param {any} whatToShow
- * @returns {Promise<string>}
- */
-function formatApps(headers, data, whatToShow) {
-	return new Promise((resolve, reject) => {
-		queryDatatypes(headers)
-		.then(datatypes => {
-			let datatypeTable = {};
-
-			datatypes.forEach(d => datatypeTable[d._id] = d);
-
-			let resultArray = data.map(D => {
-				let info = [];
-				let formattedInputs = D.inputs.map(input => {
-					let dtype = datatypeTable[input.datatype] ? datatypeTable[input.datatype].name : input.datatype;
-					let tags = input.datatype_tags.length > 0 ? `<${input.datatype_tags.join(',')}>` : '';
-					return `${dtype}${tags}${input.multi?'[]':''}${input.optional?'?':''}`;
-				}).join(', ');
-
-				let formattedOutputs = D.outputs.map(output => {
-					let dtype = datatypeTable[output.datatype] ? datatypeTable[output.datatype].name : output.datatype;
-					let tags = output.datatype_tags.length > 0 ? `<${output.datatype_tags.join(',')}>` : '';
-					return `${dtype}${tags}${output.multi?'[]':''}${output.optional?'?':''}`;
-				}).join(', ');
-
-				if (whatToShow.all || whatToShow.id) info.push(`Id: ${D._id}`);
-				if (whatToShow.all || whatToShow.name) info.push(`Name: ${D.name}`);
-				if (whatToShow.all || whatToShow.datatypes) info.push(`Type: (${formattedInputs}) -> (${formattedOutputs})`);
-				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${D.desc}`);
-
-				return info.join('\n');
-			});
-			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
-			resolve(resultArray.join('\n\n'));
-
-		}).catch(console.error);
-	});
-}
-
-/**
- * Format project information
- * @name formatProjects
- * @param {project[]} data
- * @param {Object} whatToShow
- * @returns {Promise<string>}
- */
-function formatProjects(headers, data, whatToShow) {
-	return new Promise((resolve, reject) => {
-		queryProfiles(headers)
-		.then(profiles => {
-			let profileTable = {};
-			profiles.forEach(profile => profileTable[profile.id] = profile);
-
-			let resultArray = data.map(d => {
-				let info = [];
-				let formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-				let formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-				let formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-
-				if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-				if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
-				if (whatToShow.all || whatToShow.admins) info.push(`Admins: ${formattedAdmins.join(', ')}`);
-				if (whatToShow.all || whatToShow.members) info.push(`Members: ${formattedMembers.join(', ')}`);
-				if (whatToShow.all || whatToShow.guests) info.push(`Guests: ${formattedGuests.join(', ')}`);
-				if (whatToShow.all || whatToShow.access) info.push(`Access: ${d.access}${d.listed?' (but listed for all users)':''}`);
-				if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
-
-				return info.join('\n');
-			});
-			resultArray.push(`(Returned ${data.length} result${data.length == 1 ? '' : 's'})`);
-			resolve(resultArray.join('\n\n'));
-		});
-	});
-}
-
-/**
- * Format datatype information
- * @name formatDatatypes
- * @param {datatype[]} data
- * @param {{name: boolean, desc: boolean, files: boolean}} whatToShow
- * @returns {Promise<string>}
- */
-function formatDatatypes(headers, data, whatToShow) {
-	return new Promise((resolve, reject) => {
-		let resultArray = data.map(d => {
-			let info = [];
-			let formattedFiles = d.files.map(file => {
-				return `[${file.required?'(required) ':''}${file.id}: ${file.filename||file.dirname}]`;
-			}).join('  ');
-
-			if (whatToShow.all || whatToShow.id) info.push(`Id: ${d._id}`);
-			if (whatToShow.all || whatToShow.name) info.push(`Name: ${d.name}`);
-			if (whatToShow.all || whatToShow.desc) info.push(`Description: ${d.desc}`);
-			if (whatToShow.all || whatToShow.files) info.push(`Files: ${formattedFiles}`);
-
-			return info.join('\n');
-		});
-
-		resolve(resultArray.join('\n\n'));
-	});
-}
-
-/**
- * @name queryProfiles
- * @desc Query the list of profiles
+ * Query the list of profiles
  * @param {string} search
  * @returns {Promise<profile[]>}
  */
@@ -407,8 +215,7 @@ function queryProfiles(headers, search) {
 }
 
 /**
- * @name queryDatasets
- * @desc Query the list of datasets
+ * Query the list of datasets
  * @param {string} search
  * @param {string} datatypes
  * @returns {Promise<dataset[]>}
@@ -473,8 +280,7 @@ function downloadDataset(headers, query) {
 }
 
 /**
- * @name queryProjects
- * @desc Query the list of projects
+ * Query the list of projects
  * @param {string} search
  * @param {string} authorSearch
  * @returns {Promise<project[]>}
@@ -521,8 +327,7 @@ function queryProjects(headers, search, adminSearch, userSearch) {
 }
 
 /**
- * @name queryApps
- * @desc Query the list of apps
+ * Query the list of apps
  * @param {string} search
  * @param {string} inputs
  * @param {string} outputs
@@ -568,8 +373,7 @@ function queryApps(headers, search, inputs, outputs) {
 }
 
 /**
- * @name queryDatatypes
- * @desc Query the list of datatypes
+ * Query the list of datatypes
  * @param {string} search
  * @returns {Promise<datatype[]>}
  */
@@ -595,7 +399,7 @@ function queryDatatypes(headers, search) {
 }
 
 /**
- * @desc Query a url for information
+ * Query a url for information
  * @param {string} url
  * @param {string[]} ids
  * @param {string[]} queries
@@ -624,7 +428,7 @@ function query(url, ids, queries, options, headers) {
 }
 
 /**
- * @desc Update a project
+ * Update a project
  * @param {any} updates
  * @param {any} headers
  * @returns {Promise<project>}
@@ -673,7 +477,7 @@ function updateProject(headers, id, updates) {
 }
 
 /**
- * @desc Get an instance for a service
+ * Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
  * @param {project} project
@@ -708,7 +512,7 @@ function getInstance(headers, instanceName, options) {
 }
 
 /**
- * @desc Get the best resource for a service
+ * Get the best resource for a service
  * @param {any} headers
  * @param {string} service
  * @returns {Promise<string>}
@@ -725,7 +529,7 @@ function getBestResource(headers, service) {
 }
 
 /**
- * @desc Run a Brain Life application
+ * Run a Brain Life application
  * @param {any} headers
  * @param {string} appSearch
  * @param {string} inputSearch
@@ -1029,7 +833,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 }
 
 /**
- * @desc Upload a dataset
+ * Upload a dataset
  * @param {any} headers
  * @param {string} datatypeSearch
  * @param {string} projectSearch
@@ -1171,7 +975,23 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 }
 
 /**
- * @desc Converts object with maybe null entries to an object with all nonnull values
+ * Load the user's jwt token
+ * @returns {Promise<string>}
+ */
+function loadJwt() {
+	return new Promise((resolve, reject) => {
+		fs.stat(config.path.jwt, (err, stat) => {
+			if (err) {
+				throw `Error: Couldn't find your jwt token. You're probably not logged in`;
+				process.exit(1);
+			}
+			resolve(fs.readFileSync(config.path.jwt));
+		});
+	});
+}
+
+/**
+ * Converts object with maybe null entries to an object with all nonnull values
  * @param {any} o
  * @returns {any}
  */
@@ -1184,7 +1004,7 @@ function toNonNullObject(o) {
 }
 
 /**
- * @desc Converts object with maybe null entries to a Uri with nonnull objects
+ * Converts object with maybe null entries to a Uri with nonnull objects
  * @param {any} o
  * @returns {string}
  */
@@ -1199,7 +1019,7 @@ function toNonNullUri(o) {
 }
 
 /**
- * @desc Escapes a user input string to make it safe for regex matching
+ * Escapes a user input string to make it safe for regex matching
  * @param {string} str
  */
 function escapeRegExp(str) {
@@ -1207,19 +1027,17 @@ function escapeRegExp(str) {
 }
 
 /**
- * @desc Returns whether or not a given string is a valid object ID
+ * Returns whether or not a given string is a valid object ID
  * @param {string} str
  */
 function isValidObjectId(str) {
 	return /^[a-f\d]{24}$/i.test(str);
 }
 
-function foldr(step, base, list) {
-	let result = base;
-	for (let i = list.length - 1; i >= 0; i--) result = step(list[i], result);
-	return result;
-}
-
+/**
+ * Generate a random hash of the given size
+ * @param {number} size
+ */
 function generateHash(size) {
 	let result = "";
 	size = size || 32;
@@ -1228,10 +1046,10 @@ function generateHash(size) {
 }
 
 module.exports = {
-	queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
-	updateProject,
 	filterProfiles,
+	queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
 	downloadDataset, uploadDataset,
 	runApp,
-	formatDatatypes, formatProjects, formatApps, formatDatasets, formatProfiles
+	updateProject,
+	loadJwt
 };
