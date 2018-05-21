@@ -13,7 +13,7 @@ const chalk = require('chalk');
 const util = require('./util');
 
 commander
-	.command('query', 'run a query against all datatypes')
-	.command('run', 'run a brainlife app')
-	.command('monitor', 'monitor an active brainlife application')
-	.parse(process.argv);
+    .command('query', 'run a query against all datatypes')
+    .command('run', 'run a brainlife app')
+    .command('monitor', 'monitor an active brainlife application')
+    .parse(process.argv);

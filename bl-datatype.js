@@ -13,5 +13,5 @@ const chalk = require('chalk');
 const util = require('./util');
 
 commander
-	.command('query', 'run a query against all datatypes')
-	.parse(process.argv);
+    .command('query', 'run a query against all datatypes')
+    .parse(process.argv);

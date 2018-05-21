@@ -3,5 +3,5 @@
 const commander = require('commander');
 
 commander
-	.command('query', 'run a query against all profiles')
-	.parse(process.argv);
+    .command('query', 'run a query against all profiles')
+    .parse(process.argv);

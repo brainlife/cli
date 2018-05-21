@@ -11,37 +11,37 @@ const jwt = require('jsonwebtoken');
 const config = require('./config');
 
 commander
-	.option('ldap', 'login using ldap')
-	.parse(process.argv);
+    .option('ldap', 'login using ldap')
+    .parse(process.argv);
 
 var schema = {
-	properties: {
-		username: {required: true},
-		password: {required: true, hidden: true},
-	}
+    properties: {
+        username: {required: true},
+        password: {required: true, hidden: true},
+    }
 };
 prompt.message = null;
 prompt.start();
 prompt.get(schema, function(err, results) {
-	if(err) throw err;
+    if(err) throw err;
 
-	let url = config.api.auth;
-	if(commander.ldap) url += "/ldap/auth";
-	else url += "/local/auth";
+    let url = config.api.auth;
+    if(commander.ldap) url += "/ldap/auth";
+    else url += "/local/auth";
 
-	request.post({ url, json: true, body: {username: results.username, password: results.password} }, (err, res, body) => {
-		if(res.statusCode != 200) throw "Error: " + res.body.message;
+    request.post({ url, json: true, body: {username: results.username, password: results.password} }, (err, res, body) => {
+        if(res.statusCode != 200) throw "Error: " + res.body.message;
 
-		//make sure .sca/keys directory exists
-		let dirname = path.dirname(config.path.jwt);
-		mkdirp(dirname, function (err) {
-			if (err) throw err;
+        //make sure .sca/keys directory exists
+        let dirname = path.dirname(config.path.jwt);
+        mkdirp(dirname, function (err) {
+            if (err) throw err;
 
-			fs.chmodSync(dirname, '700');
-			fs.writeFileSync(config.path.jwt, body.jwt);
-			fs.chmodSync(config.path.jwt, '600');
-			let token = jwt.decode(body.jwt);
-			console.log("Successfully logged in!");
-		});
-	});
+            fs.chmodSync(dirname, '700');
+            fs.writeFileSync(config.path.jwt, body.jwt);
+            fs.chmodSync(config.path.jwt, '600');
+            let token = jwt.decode(body.jwt);
+            console.log("Successfully logged in!");
+        });
+    });
 });
