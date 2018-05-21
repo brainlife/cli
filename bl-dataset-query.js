@@ -39,11 +39,14 @@ util.loadJwt().then(jwt => {
  * @returns {Promise<string>}
  */
 function formatDatasets(headers, data, whatToShow) {
-    let projectTable = {}, datatypeTable = {};
+    let projectTable = {}, datatypeTable = {}, profileTable = {};
     return new Promise((resolve, reject) => {
         util.queryProjects(headers)
         .then(projects => {
             projects.forEach(project => projectTable[project._id] = project);
+            return util.queryProfiles(headers);
+        }).then(_profiles => {
+            _profiles.forEach(profile => profileTable[profile.id] = profile);
             return util.queryDatatypes(headers);
         }).then(datatypes => {
             datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
@@ -52,12 +55,22 @@ function formatDatasets(headers, data, whatToShow) {
                 let createDateObject = new Date(d.create_date);
                 let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
                 let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
-                let formattedProject = projectTable[d.project] ? projectTable[d.project].name : d.project;
-                let formattedDatatype = datatypeTable[d.datatype] ? datatypeTable[d.datatype].name : d.datatype;
+                let formattedDatatype = datatypeTable[d.datatype].name;
                 let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : "<" + d.datatype_tags.join(', ') + ">";
-
+                
+                let formattedProject = 'Unknown', formattedAdmins = [], formattedMembers = [], formattedGuests = [];
+                if (projectTable[d.project]) {
+                    formattedProject = projectTable[d.project].name;
+                    formattedAdmins = projectTable[d.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                    formattedMembers = projectTable[d.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                    formattedGuests = projectTable[d.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                }
+                
                 if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
                 if (whatToShow.all || whatToShow.project) info.push("Project: " + formattedProject);
+                if (whatToShow.all || whatToShow.project) info.push("Admins: " + formattedAdmins.join(', '));
+                if (whatToShow.all || whatToShow.project) info.push("Members: " + formattedMembers.join(', '));
+                if (whatToShow.all || whatToShow.project) info.push("Guests: " + formattedGuests.join(', '));
                 if (whatToShow.all || whatToShow.subject) info.push("Subject: " + subject);
                 if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
                 if (whatToShow.all || whatToShow.desc) info.push("Description: " + (d.desc||''));

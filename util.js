@@ -256,7 +256,7 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
         let searches = (search || '').split(delimiter);
         let dtypeids;
         
-        let datas = datatypes.split(',').map(q => parseDatatypeString(q));
+        let datas = (datatypes || '').split(',').map(q => parseDatatypeString(q));
         let tags = [], dtypes = [];
         datas.forEach(data => {
             tags = tags.concat(data.tags);
