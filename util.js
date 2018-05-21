@@ -282,10 +282,10 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
                     if (tagSearch.length > 0) {
                         andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagSearch } } });
                     }
-
+                    
                     if (Object.keys(dtypeids).length > 0) andQueries.push({ datatype: { $in: dtypeids } });
                     if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
-                    if (subject) andQueries.push({ meta: { subject } });
+                    if (subject) andQueries.push({ "meta.subject": subject });
 
                     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                     if (andQueries.length > 0) find.$and = andQueries;
