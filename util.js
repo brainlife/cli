@@ -329,15 +329,16 @@ function downloadDataset(headers, query) {
  * @param {string} authorSearch
  * @returns {Promise<project[]>}
  */
-function queryProjects(headers, search, adminSearch, userSearch) {
+function queryProjects(headers, search, adminSearch, memberSearch, guestSearch) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
-        let projectUserIds, projectAdminIds;
         
         queryProfiles(headers)
         .then(_profiles => {
-            projectUserIds = filterProfiles(_profiles, userSearch).map(p => p.id);
-            projectAdminIds = filterProfiles(_profiles, adminSearch).map(p => p.id);
+            let projectAdminIds = filterProfiles(_profiles, adminSearch).map(p => p.id);
+            let projectMemberIds = filterProfiles(_profiles, memberSearch).map(p => p.id);
+            let projectGuestIds = filterProfiles(_profiles, guestSearch).map(p => p.id);
+            
             return query(config.api.warehouse + '/project', searches, searches,
             (ids, queries) => {
                 let find = { removed: false }, orQueries = [], andQueries = [], pattern = queries.join('|');
@@ -347,14 +348,9 @@ function queryProjects(headers, search, adminSearch, userSearch) {
                     orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
                 }
                 
-                if (projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
-                if (projectUserIds.length > 0) {
-                    let subOr = [];
-                    subOr.push({ admins: { $elemMatch: { $in: projectUserIds } } });
-                    subOr.push({ members: { $elemMatch: { $in: projectUserIds } } });
-                    subOr.push({ guests: { $elemMatch: { $in: projectUserIds } } });
-                    andQueries.push({ $or: subOr });
-                }
+                if (adminSearch && projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
+                if (memberSearch && projectMemberIds.length > 0) andQueries.push({ members: { $elemMatch: { $in: projectMemberIds } } });
+                if (guestSearch && projectGuestIds.length > 0) andQueries.push({ guests: { $elemMatch: { $in: projectGuestIds } } });
                 
                 if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                 if (andQueries.length > 0) find.$and = andQueries;

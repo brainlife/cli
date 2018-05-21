@@ -7,14 +7,15 @@ const util = require('./util');
 commander
     .option('--search <search>', 'run a query against all projects')
     .option('--admin <admin>', 'filter project by admins in it')
-    .option('--user <user>', 'filter project by all users in it')
+    .option('--member <members>', 'filter project by admins in it')
+    .option('--guest <guests>', 'filter project by admins in it')
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    util.queryProjects(headers, commander.query, commander.admin, commander.user)
+    util.queryProjects(headers, commander.query, commander.admin, commander.member, commander.guest)
     .then(projects => {
         if (commander.raw) console.log(JSON.stringify(projects));
         else showProjects(headers, projects);
