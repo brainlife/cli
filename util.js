@@ -278,19 +278,17 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
                         if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
                         if (subject) andQueries.push({ "meta.subject": subject });
                         if (info.tags.length > 0) andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagPattern, $options: 'ig' } } });
+                        if (dtypes.length > 0) orQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
                         
                         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                         
-                        andQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
                         find.$and = andQueries;
-                        
                         return { find, sort: { name: 1 } };
                     }, headers)
                     .then(data => {
                         data.datasets.forEach(dataset => {
                             if (!aggregate[dataset._id]) aggregate[dataset._id] = dataset;
                         });
-                        
                         next_search();
                     }).catch(console.error);
                 }).catch(console.error);
@@ -379,10 +377,10 @@ function queryApps(headers, search, inputs, outputs) {
         let vm = {};
         let searches = (search || '').split(delimiter);
         
-        queryDatatypes(headers, inputDatatypeSearch)
+        queryDatatypes(headers, inputs)
         .then(inputDatatypes => {
             vm.inputDatatypes = inputDatatypes.map(x => x._id);
-            return queryDatatypes(headers, outputDatatypeSearch);
+            return queryDatatypes(headers, outputs);
         }).then(outputDatatypes => {
             vm.outputDatatypes = outputDatatypes.map(x => x._id);
             query(config.api.warehouse + '/app', searches, searches,
@@ -605,7 +603,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
     .then(_datatypes => {
         datatypes = _datatypes;
         datatypes.forEach(d => datatypeTable[d._id] = d);
-        return queryDatasets(headers, inputSearch);
+        return queryDatasets(headers, inputSearch, inputSearch);
     })
     .then(_inputs => {
         inputs = _inputs;
@@ -668,7 +666,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
             if (err) throw err;
 
             let jwt = body.jwt;
-            if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " were given";
+            if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " " + pluralize('was', inputs) + " given";
 
             let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
             let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
@@ -683,13 +681,16 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 
                 // datatype tag validation, if you want to do that sort of thing
                 
-                // let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
+                let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
 
-                // if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
+                if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
 
-                // sorted_user_dtags.forEach((dtag, idx) => {
-                // 	if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
-                // });
+                sorted_app_dtags.forEach(dtag => {
+                    if (dtag.startsWith('!') && sorted_user_dtags.indexOf(dtag) != -1 ||
+                        !dtag.startsWith('!') && sorted_user_dtags.indexOf(dtag) == -1) {
+                        throw invalid_dtags_error;
+                    }
+                });
             });
 
             let downloads = [], productRawOutputs = [];
@@ -1104,6 +1105,8 @@ function isValidObjectId(str) {
  */
 function pluralize(string, objects) {
     if (objects.length == 1) return string;
+    
+    if (string == 'was') return 'were';
     return string + "s";
 }
 
