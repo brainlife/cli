@@ -579,12 +579,20 @@ function getBestResource(headers, service) {
  * @param {string} inputSearch
  * @param {string} projectSearch
  */
-function runApp(headers, appSearch, inputSearch, projectSearch) {
+function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
 	let datatypes, inputs, app, instance, project;
 	let datatypeTable = {};
 	let app_inputs = [], app_outputs = [];
 	let output_metadata = {};
 	let instanceName;
+	console.log(userConfig);
+	userConfig = userConfig || '{}';
+	try {
+		userConfig = JSON.parse(userConfig);
+	}
+	catch (exception) {
+		throw `Error: Could not parse JSON Config Object`;
+	}
 
 	queryDatatypes(headers)
 	.then(_datatypes => {
@@ -615,152 +623,169 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 	.then(instance => {
 		let all_dataset_ids = inputs.map(x => x._id);
 		let flattenedConfig = flattenConfig(app.config, []);
-		let flattenedPrompt = {};
+		let flattenedUserConfig = flattenConfig(userConfig, []);
+		let values = {};
+		
 		Object.keys(flattenedConfig).forEach(key => {
 			if (flattenedConfig[key].type != 'input') {
-				flattenedPrompt[key] = {
-					type: flattenedConfig[key].type,
-					default: flattenedConfig[key].default,
-					description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
-				};
+				let niceLookingKey = JSON.parse(key).join('.');
+				if (!flattenedUserConfig[key]) {
+					if (flattenedConfig[key].default) {
+						console.log("No config entry found for key '" + niceLookingKey +
+									"'; using the default value in the app's config: " + flattenedConfig[key].default);
+					}
+					else {
+						throw 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " + 
+								(flattenedConfig[key].type) + "). Please provide one and rerun";
+					}
+				}
+				
+				if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
+					if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
+						throw 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + 
+								"' but given value of type '" + (typeof flattenedUserConfig[key]) + "'";
+					}
+				}
+				
+				values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
+				
+				// flattenedPrompt[key] = {
+				// 	type: flattenedConfig[key].type,
+				// 	default: flattenedConfig[key].default,
+				// 	description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
+				// };
 			}
 		});
 
-		prompt.message = null;
-		prompt.start();
-		prompt.get({ properties: flattenedPrompt }, (err, values) => {
+		request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, (err, res, body) => {
 			if (err) throw err;
 
-			request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, (err, res, body) => {
-				if (err) throw err;
+			let jwt = body.jwt;
+			if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " were given";
 
-				let jwt = body.jwt;
-				if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " were given";
+			let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
+			let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
 
-				let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
-				let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
+			// type validation
+			sorted_user_inputs.forEach((input, idx) => {
+				if (input.datatype != sorted_app_inputs[idx].datatype) {
+					throw "Error: Input " + (idx + 1) + " (dataset id " + input._id + ") has datatype " + datatypeTable[input.datatype].name + " but expected " + datatypeTable[sorted_app_inputs[idx].datatype].name;
+				}
+				let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
+				let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
+				
+				// datatype tag validation, if you want to do that sort of thing
+				
+				// let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
 
-				// type validation
-				sorted_user_inputs.forEach((input, idx) => {
-					if (input.datatype != sorted_app_inputs[idx].datatype) {
-						throw "Error: Input " + (idx + 1) + " (dataset id " + input._id + ") has datatype " + datatypeTable[input.datatype].name + " but expected " + datatypeTable[sorted_app_inputs[idx].datatype].name;
-					}
-					let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
-					let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
-					
-					// datatype tag validation, if you want to do that sort of thing
-					
-					// let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
+				// if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
 
-					// if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
-
-					// sorted_user_dtags.forEach((dtag, idx) => {
-					// 	if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
-					// });
-				});
-
-				let downloads = [], productRawOutputs = [];
-				let datatypeToAppInput = {};
-				let inputTable = {};
-				inputs.forEach(input => inputTable[input.datatype] = input);
-				app.inputs.forEach(input => datatypeToAppInput[input.datatype] = input);
-
-				app.inputs.forEach(input => {
-					let user_input = inputTable[input.datatype];
-
-					downloads.push({
-						url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
-						untar: 'auto',
-						dir: user_input._id
-					});
-
-					let output = {
-						id: input.id,
-						subdir: user_input._id,
-						dataset_id: user_input._id,
-						task_id: user_input.task_id || user_input.prov.task_id,
-						datatype: user_input.datatype,
-						datatype_tags: user_input.datatype_tags,
-						tags: user_input.tags,
-						meta: user_input.meta,
-						project: user_input.project
-					};
-					productRawOutputs.push(output);
-					app_inputs.push(Object.assign({ keys: [ datatypeToAppInput[input.datatype].id ] }, output));
-
-					for (var k in user_input.meta) {
-						if (!output_metadata[k]) output_metadata[k] = user_input.meta[k];
-					}
-				});
-
-				request.post({ headers, url: config.api.wf + "/task", json: true, body: {
-					instance_id: instance._id,
-					name: "Staging Dataset",
-					service: "soichih/sca-product-raw",
-					desc: "Staging Dataset",
-					config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
-				}}, (err, res, body) => {
-					if (err) throw err;
-					console.log("Data Staging Task Created, PROCESS: ");
-					
-					let task = body.task;
-					waitForFinish(headers, task, 0, (err, task) => {
-						if (err) throw err;
-						let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
-						
-						// link task to app inputs
-						app_inputs.forEach(input => input.task_id = task._id);
-						
-						app.outputs.forEach(output => {
-							app_outputs.push({
-								id: output.id,
-								datatype: output.datatype,
-								datatype_tags: output.datatype_tags,
-								desc: output.id + " from "+ app.name,
-								meta: output_metadata,
-								files: output.files,
-								archive: {
-									project: project._id,
-									desc: output.id + " from " + app.name
-								},
-							});
-						});
-						
-						Object.assign(preparedConfig, {
-							_app: app._id,
-							_tid: 1,
-							_inputs: app_inputs,
-							_outputs: app_outputs,
-						});
-
-						// console.log(JSON.stringify(preparedConfig));
-						// prepare and run the app task
-						
-						request.post({ url: config.api.wf + "/task", headers, json: true, body: {
-							instance_id: instance._id,
-							name: instanceName,
-							service: app.github,
-							desc: "Running " + app.name,
-							service_branch: app.github_branch,
-							config: preparedConfig,
-							deps: [ task._id ]
-							
-						}}, (err, res, body) => {
-							if (err) throw err;
-							if (res.statusCode != 200) throw "Error: " + res.body.message;
-
-							let appTask = body.task;
-							console.log(app.name + " Task for app '" + app.name + "' has begun.\n" + 
-										"To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
-
-							// waitForFinish(headers, appTask, 0, (err, appTask) => {
-							// 	if (err) throw err;
-							// 	console.log("Data will be automatically archived to Project '" + project.name + "'");
-							// });
-						});
-					});
-				})
+				// sorted_user_dtags.forEach((dtag, idx) => {
+				// 	if (dtag != sorted_app_dtags[idx]) throw invalid_dtags_error;
+				// });
 			});
+
+			let downloads = [], productRawOutputs = [];
+			let datatypeToAppInput = {};
+			let inputTable = {};
+			inputs.forEach(input => inputTable[input.datatype] = input);
+			app.inputs.forEach(input => datatypeToAppInput[input.datatype] = input);
+
+			app.inputs.forEach(input => {
+				let user_input = inputTable[input.datatype];
+
+				downloads.push({
+					url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
+					untar: 'auto',
+					dir: user_input._id
+				});
+
+				let output = {
+					id: input.id,
+					subdir: user_input._id,
+					dataset_id: user_input._id,
+					task_id: user_input.task_id || user_input.prov.task_id,
+					datatype: user_input.datatype,
+					datatype_tags: user_input.datatype_tags,
+					tags: user_input.tags,
+					meta: user_input.meta,
+					project: user_input.project
+				};
+				productRawOutputs.push(output);
+				app_inputs.push(Object.assign({ keys: [ datatypeToAppInput[input.datatype].id ] }, output));
+
+				for (var k in user_input.meta) {
+					if (!output_metadata[k]) output_metadata[k] = user_input.meta[k];
+				}
+			});
+
+			request.post({ headers, url: config.api.wf + "/task", json: true, body: {
+				instance_id: instance._id,
+				name: "Staging Dataset",
+				service: "soichih/sca-product-raw",
+				desc: "Staging Dataset",
+				config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
+			}}, (err, res, body) => {
+				if (err) throw err;
+				console.log("Data Staging Task Created, PROCESS: ");
+				
+				let task = body.task;
+				waitForFinish(headers, task, 0, (err, task) => {
+					if (err) throw err;
+					let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
+					
+					// link task to app inputs
+					app_inputs.forEach(input => input.task_id = task._id);
+					
+					app.outputs.forEach(output => {
+						app_outputs.push({
+							id: output.id,
+							datatype: output.datatype,
+							datatype_tags: output.datatype_tags,
+							desc: output.id + " from "+ app.name,
+							meta: output_metadata,
+							files: output.files,
+							archive: {
+								project: project._id,
+								desc: output.id + " from " + app.name
+							},
+						});
+					});
+					
+					Object.assign(preparedConfig, {
+						_app: app._id,
+						_tid: 1,
+						_inputs: app_inputs,
+						_outputs: app_outputs,
+					});
+
+					// console.log(JSON.stringify(preparedConfig));
+					// prepare and run the app task
+					
+					request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+						instance_id: instance._id,
+						name: instanceName,
+						service: app.github,
+						desc: "Running " + app.name,
+						service_branch: app.github_branch,
+						config: preparedConfig,
+						deps: [ task._id ]
+						
+					}}, (err, res, body) => {
+						if (err) throw err;
+						if (res.statusCode != 200) throw "Error: " + res.body.message;
+
+						let appTask = body.task;
+						console.log(app.name + " Task for app '" + app.name + "' has begun.\n" + 
+									"To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
+
+						// waitForFinish(headers, appTask, 0, (err, appTask) => {
+						// 	if (err) throw err;
+						// 	console.log("Data will be automatically archived to Project '" + project.name + "'");
+						// });
+					});
+				});
+			})
 		});
 	}).catch(console.error);
 
@@ -771,7 +796,8 @@ function runApp(headers, appSearch, inputSearch, projectSearch) {
 	 */
 	function flattenConfig(config, path) {
 		let result = {};
-		if (config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
+		
+		if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
 		else {
 			Object.keys(config).forEach(key => {
 				let thisPath = path.map(x=>x);
