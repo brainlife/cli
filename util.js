@@ -251,7 +251,7 @@ function queryProfiles(headers, search) {
  * @param {string} datatypes
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(headers, search, datatypes, projects, subject) {
+function queryDatasets(headers, search, datatypes, projects, subject, tags) {
 	return new Promise((resolve, reject) => {
 		let searches = (search || '').split(delimiter);
 		let dtypeids;
@@ -585,7 +585,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
 	let app_inputs = [], app_outputs = [];
 	let output_metadata = {};
 	let instanceName;
-	console.log(userConfig);
+	
 	userConfig = userConfig || '{}';
 	try {
 		userConfig = JSON.parse(userConfig);
@@ -1079,7 +1079,7 @@ function toNonNullUri(o) {
  * @param {string} str
  */
 function escapeRegExp(str) {
-	return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+	return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\/\^\$\|]/g, "\\$&");
 }
 
 /**
