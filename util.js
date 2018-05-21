@@ -423,8 +423,7 @@ function queryApps(headers, search, inputs, outputs) {
                                 { $and: [
                                     { datatype: { $in: vm.inputDatatypes } },
                                     { datatype_tags: { $elemMatch: { $regex: inputTagSearch } } } ] } } });
-                        }
-                        else {
+                        } else {
                             andQueries.push({ inputs: { $elemMatch: { datatype: { $in: vm.inputDatatypes } } } });
                         }
                     }
@@ -434,8 +433,7 @@ function queryApps(headers, search, inputs, outputs) {
                                 { $and: [
                                     { datatype: { $in: vm.outputDatatypes } },
                                     { datatype_tags: { $elemMatch: { $regex: outputTagSearch } } } ] } } });
-                        }
-                        else {
+                        } else {
                             andQueries.push({ outputs: { $elemMatch: { datatype: { $in: vm.outputDatatypes } } } });
                         }
                     }
