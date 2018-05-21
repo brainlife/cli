@@ -4,7 +4,7 @@ const util = require('./util');
 const request = require('request');
 
 commander
-	.option('--id <search>', 'id of task to monitor')
+	.option('--id <task_id>', 'id of task to monitor')
 	.parse(process.argv);
 
 util.loadJwt().then(jwt => {
