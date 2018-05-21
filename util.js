@@ -591,7 +591,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
 		userConfig = JSON.parse(userConfig);
 	}
 	catch (exception) {
-		throw `Error: Could not parse JSON Config Object`;
+		throw 'Error: Could not parse JSON Config Object';
 	}
 
 	queryDatatypes(headers)
