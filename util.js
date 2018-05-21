@@ -254,50 +254,49 @@ function queryProfiles(headers, search) {
 function queryDatasets(headers, search, datatypes, projects, subject) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
-        let dtypeids;
+        let dtypeInfo = (datatypes || '').split(delimiter).map(parseDatatypeString);
         
-        let datas = (datatypes || '').split(',').map(q => parseDatatypeString(q));
-        let tags = [], dtypes = [];
-        datas.forEach(data => {
-            tags = tags.concat(data.tags);
-            dtypes.push(data.datatype);
-        });
-        let tagSearch = tags.map(x => escapeRegExp(x.trim())).join('|');
-
-        queryDatatypes(headers, dtypes.join(','))
-        .then(dtypes => {
-            dtypeids = dtypes.map(x => x._id);
-            return queryProjects(headers, projects);
-        })
+        queryProjects(headers, projects)
         .then(prjcts => {
             let projectids = prjcts.map(x => x._id);
-            query(config.api.warehouse + '/dataset', searches, searches,
-                (ids, queries) => {
-                    let find = {}, orQueries = [], andQueries = [], pattern = queries.join('|');
-                    if (ids.length > 0) orQueries.push({ _id: { $in: ids } });
-                    if (queries.length > 0) {
-                        orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
-                        orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
-                    }
-                    if (tagSearch.length > 0) {
-                        andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagSearch } } });
-                    }
+            let aggregate = {}, index = 0;
+            
+            async.forEach(dtypeInfo, (info, next_search) => {
+                queryDatatypes(headers, info.datatype)
+                .then(dtypes => {
+                    let tagPattern = info.tags.map(t => escapeRegExp(t.trim())).join('|');
                     
-                    if (Object.keys(dtypeids).length > 0) andQueries.push({ datatype: { $in: dtypeids } });
-                    if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
-                    if (subject) andQueries.push({ "meta.subject": subject });
-
-                    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-                    if (andQueries.length > 0) find.$and = andQueries;
-
-                    return { find, sort: { name: 1 } };
-                }, headers)
-            .then((data, err) => {
-                if (err) reject(err);
-                else {
-                    resolve(data.datasets);
-                }
-            }).catch(console.error);
+                    query(config.api.warehouse + '/dataset', searches, searches,
+                    (ids, queries) => {
+                        let find = {}, orQueries = [], andQueries = [], pattern = queries.join('|');
+                        if (ids.length > 0) orQueries.push({ _id: { $in: ids } });
+                        if (queries.length > 0) {
+                            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
+                            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+                        }
+                        
+                        if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
+                        if (subject) andQueries.push({ "meta.subject": subject });
+                        if (info.tags.length > 0) andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagPattern, $options: 'ig' } } });
+                        
+                        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+                        
+                        andQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
+                        find.$and = andQueries;
+                        
+                        return { find, sort: { name: 1 } };
+                    }, headers)
+                    .then(data => {
+                        data.datasets.forEach(dataset => {
+                            if (!aggregate[dataset._id]) aggregate[dataset._id] = dataset;
+                        });
+                        
+                        next_search();
+                    }).catch(console.error);
+                }).catch(console.error);
+            }, err => {
+                resolve(Object.keys(aggregate).map(key => aggregate[key]));
+            });
         }).catch(console.error);
     });
 }
@@ -379,24 +378,6 @@ function queryApps(headers, search, inputs, outputs) {
     return new Promise((resolve, reject) => {
         let vm = {};
         let searches = (search || '').split(delimiter);
-        let datas = (inputs || '').split(',').map(q => parseDatatypeString(q));
-        let tags = [], dtypes = [];
-        
-        datas.forEach(data => {
-            tags = tags.concat(data.tags);
-            dtypes.push(data.datatype);
-        });
-        let inputTagSearch = tags.map(x => escapeRegExp(x.trim())).join('|');
-        let inputDatatypeSearch = dtypes.map(x => escapeRegExp(x.trim())).join('|');
-        
-        datas = (outputs || '').split(',').map(q => parseDatatypeString(q));
-        tags = []; dtypes = [];
-        datas.forEach(data => {
-            tags = tags.concat(data.tags);
-            dtypes.push(data.datatype);
-        });
-        let outputTagSearch = tags.map(x => escapeRegExp(x.trim())).join('|');
-        let outputDatatypeSearch = dtypes.map(x => escapeRegExp(x.trim())).join('|');
         
         queryDatatypes(headers, inputDatatypeSearch)
         .then(inputDatatypes => {
@@ -414,24 +395,10 @@ function queryApps(headers, search, inputs, outputs) {
                     }
 
                     if (vm.inputDatatypes.length > 0) {
-                        if (inputTagSearch.length > 0) {
-                            andQueries.push({ inputs: { $elemMatch: 
-                                { $and: [
-                                    { datatype: { $in: vm.inputDatatypes } },
-                                    { datatype_tags: { $elemMatch: { $regex: inputTagSearch } } } ] } } });
-                        } else {
-                            andQueries.push({ inputs: { $elemMatch: { datatype: { $in: vm.inputDatatypes } } } });
-                        }
+                        andQueries.push({ inputs: { $elemMatch: { datatype: { $in: vm.inputDatatypes } } } });
                     }
                     if (vm.outputDatatypes.length > 0) {
-                        if (outputTagSearch.length > 0) {
-                            andQueries.push({ outputs: { $elemMatch: 
-                                { $and: [
-                                    { datatype: { $in: vm.outputDatatypes } },
-                                    { datatype_tags: { $elemMatch: { $regex: outputTagSearch } } } ] } } });
-                        } else {
-                            andQueries.push({ outputs: { $elemMatch: { datatype: { $in: vm.outputDatatypes } } } });
-                        }
+                        andQueries.push({ outputs: { $elemMatch: { datatype: { $in: vm.outputDatatypes } } } });
                     }
 
                     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
