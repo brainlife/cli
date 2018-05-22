@@ -220,3 +220,11 @@ Then, after the app has finished, you can download the resulting dataset just by
 ```
 $ bl dataset download --id 5afddb42251f5200274d9ca1
 ```
+
+## Grab An ID From the CLI
+
+If you want to quickly grab an id of a datatype/project/dataset/app, simply install `jq` (`npm install -g jq`) and then run something like this:
+
+```
+$ bl datatype query --limit 1 | jq -r '.[0]._id'
+```

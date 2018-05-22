@@ -1,11 +1,13 @@
 const config = require('./config');
 const commander = require('commander');
+const argv = require('minimist')(process.argv.slice(2));
 const util = require('./util');
 
 commander
-    .option('--search <search>', 'filter apps by id, name, or description')
-    .option('--input-type <types>', 'specify required input types')
-    .option('--output-type <types>', 'specify required output types')
+    .option('--id <id>', 'filter apps by id')
+    .option('--search <search>', 'filter apps by name or description')
+    .option('--input-datatype <type>', 'specify required input type')
+    .option('--output-datatype <type>', 'specify required output type')
     .option('--skip <skip>', 'number of results to skip')
     .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
@@ -15,7 +17,13 @@ util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    util.queryApps(headers, commander.search, commander.inputType, commander.outputType, commander.skip, commander.limit)
+    if (!argv['input-datatype']) argv['input-datatype'] = [];
+    if (!Array.isArray(argv['input-datatype'])) argv['input-datatype'] = [ argv['input-datatype'] ];
+    
+    if (!argv['output-datatype']) argv['output-datatype'] = [];
+    if (!Array.isArray(argv['output-datatype'])) argv['output-datatype'] = [ argv['output-datatype'] ];
+    
+    util.queryApps(headers, commander.id, commander.search, argv['input-datatype'], argv['output-datatype'], commander.skip, commander.limit)
     .then(apps => {
         if (commander.raw) console.log(JSON.stringify(apps));
         else formatApps(headers, apps, { all : true }).then(console.log);
