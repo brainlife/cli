@@ -17,6 +17,8 @@ commander
     .option('--datatype <datatype>', 'filter datasets by datatype')
     .option('--project <projectid>', 'filter datasets by project id')
     .option('--subject <subject>', 'filter datasets by subject')
+    .option('--skip <skip>', 'number of results to skip')
+    .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
@@ -24,7 +26,7 @@ util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    util.queryDatasets(headers, commander.search, commander.datatype, commander.project, commander.subject)
+    util.queryDatasets(headers, commander.search, commander.datatype, commander.project, commander.subject, commander.skip, commander.limit)
     .then(datasets => {
         if (commander.raw) console.log(JSON.stringify(datasets));
         else formatDatasets(headers, datasets, { all: true }).then(console.log);

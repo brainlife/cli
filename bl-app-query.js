@@ -6,6 +6,8 @@ commander
     .option('--search <search>', 'filter apps by id, name, or description')
     .option('--input-type <types>', 'specify required input types')
     .option('--output-type <types>', 'specify required output types')
+    .option('--skip <skip>', 'number of results to skip')
+    .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
@@ -13,7 +15,7 @@ util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    util.queryApps(headers, commander.search, commander.inputType, commander.outputType)
+    util.queryApps(headers, commander.search, commander.inputType, commander.outputType, commander.skip, commander.limit)
     .then(apps => {
         if (commander.raw) console.log(JSON.stringify(apps));
         else formatApps(headers, apps, { all : true }).then(console.log);

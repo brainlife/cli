@@ -9,13 +9,15 @@ commander
     .option('--admin <admin>', 'filter project by admins in it')
     .option('--member <members>', 'filter project by admins in it')
     .option('--guest <guests>', 'filter project by admins in it')
+    .option('--skip <skip>', 'number of results to skip')
+    .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    util.queryProjects(headers, commander.search, commander.admin, commander.member, commander.guest)
+    util.queryProjects(headers, commander.search, commander.admin, commander.member, commander.guest, commander.skip, commander.limit)
     .then(projects => {
         if (commander.raw) console.log(JSON.stringify(projects));
         else showProjects(headers, projects);

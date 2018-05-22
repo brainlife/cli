@@ -219,7 +219,7 @@ function filterProfiles(data, queries) {
  * @param {string} search
  * @returns {Promise<profile[]>}
  */
-function queryProfiles(headers, search) {
+function queryProfiles(headers, search, limit, skip) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
         query(config.api.auth + '/profile', searches, searches,
@@ -233,7 +233,7 @@ function queryProfiles(headers, search) {
                 }
                 if (orQueries.length > 0) find.$or = orQueries;
 
-                return { find, sort: { username: 1 }, limit: 3000 };
+                return { find, sort: { username: 1 }, limit: limit || 3000, skip: skip || 0 };
             }, headers)
         .then((data, err) => {
             if (err) reject(err);
@@ -251,7 +251,7 @@ function queryProfiles(headers, search) {
  * @param {string} datatypes
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(headers, search, datatypes, projects, subject) {
+function queryDatasets(headers, search, datatypes, projects, subject, skip, limit) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
         let dtypeInfo = (datatypes || '').split(delimiter).map(parseDatatypeString);
@@ -283,7 +283,7 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
                         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                         
                         find.$and = andQueries;
-                        return { find, sort: { name: 1 } };
+                        return { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
                     }, headers)
                     .then(data => {
                         data.datasets.forEach(dataset => {
@@ -307,7 +307,6 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 function downloadDataset(headers, query) {
     queryDatasets(headers, query)
     .then(datasets => {
-        console.log(datasets.map(x => x._id));
         if (datasets.length != 1) error("Error: invalid dataset id given");
         let id = datasets[0]._id;
         console.log("Streaming dataset to " + id);
@@ -327,7 +326,7 @@ function downloadDataset(headers, query) {
  * @param {string} authorSearch
  * @returns {Promise<project[]>}
  */
-function queryProjects(headers, search, adminSearch, memberSearch, guestSearch) {
+function queryProjects(headers, search, adminSearch, memberSearch, guestSearch, skip, limit) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
         
@@ -353,7 +352,7 @@ function queryProjects(headers, search, adminSearch, memberSearch, guestSearch) 
                 if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                 if (andQueries.length > 0) find.$and = andQueries;
                 
-                return { find, sort: { access: 1 } };
+                return { find, sort: { access: 1 }, skip: skip || 0, limit: limit || 100 };
             }, headers);
         })
         .then((data, err) => {
@@ -373,7 +372,7 @@ function queryProjects(headers, search, adminSearch, memberSearch, guestSearch) 
  * @param {string} outputs
  * @returns {Promise<app[]>}
  */
-function queryApps(headers, search, inputs, outputs) {
+function queryApps(headers, search, inputs, outputs, skip, limit) {
     return new Promise((resolve, reject) => {
         let vm = {};
         let searches = (search || '').split(delimiter);
@@ -402,7 +401,7 @@ function queryApps(headers, search, inputs, outputs) {
 
                     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                     if (andQueries.length > 0) find.$and = andQueries;
-                    return { find, sort: { name: 1 } };
+                    return { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
                 }, headers)
             .then((data, err) => {
                 if (err) error(err);
@@ -420,7 +419,7 @@ function queryApps(headers, search, inputs, outputs) {
  * @param {string} search
  * @returns {Promise<datatype[]>}
  */
-function queryDatatypes(headers, search) {
+function queryDatatypes(headers, search, skip, limit) {
     return new Promise((resolve, reject) => {
         let searches = (search || '').split(delimiter);
         query(config.api.warehouse + '/datatype', searches, searches,
@@ -432,7 +431,7 @@ function queryDatatypes(headers, search) {
                     orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
                 }
                 if (orQueries.length > 0) find.$or = orQueries;
-                return { find, sort: { name: 1 } };
+                return { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
             }, headers)
         .then((data, err) => {
             if (err) reject(err);
@@ -458,7 +457,13 @@ function query(url, ids, queries, options, headers) {
     options = options(ids, queries);
 
     let params = Object.keys(options)
-    .map(x => x + "=" + (/find|sort/.test(x) ? JSON.stringify(options[x]) : options[x]))
+    .map(key => {
+        if (/find|sort/.test(key)) return key + "=" + JSON.stringify(options[key]);
+        else if (/limit|skip/.test(key)) return key + "=" + (+options[key]);
+        else {
+            x + "=" + options[key];
+        }
+    })
     .join('&');
     if (params.length > 0) url += '?';
     

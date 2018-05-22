@@ -13,13 +13,15 @@ const util = require('./util');
 
 commander
     .option('--search <search>', 'filter datatype by id, name, or description')
+    .option('--skip <skip>', 'number of results to skip')
+    .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    util.queryDatatypes(headers, commander.search)
+    util.queryDatatypes(headers, commander.search, commander.skip, commander.limit)
     .then(datatypes => {
         if (commander.raw) console.log(JSON.stringify(datatypes));
         else formatDatatypes(headers, datatypes, { all: true }).then(console.log);
