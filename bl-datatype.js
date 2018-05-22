@@ -9,7 +9,6 @@ const spawn = require('child_process').spawn;
 //const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
-const chalk = require('chalk');
 const util = require('./util');
 
 commander
