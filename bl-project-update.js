@@ -56,9 +56,14 @@ function formatProjects(headers, data, whatToShow) {
 
             let resultArray = data.map(d => {
                 let info = [];
-                let formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                let formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                let formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                let formattedAdmins = "";
+                let formattedMembers = "";
+                let formattedGuests = "";
+                
+                if (d.admins) formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (d.members) formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (d.guests) formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                
                 let formattedAccess = "Access: " + d.access;
                 if (d.listed) formattedAccess += " (but listed for all users)";
 

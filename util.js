@@ -308,14 +308,14 @@ function downloadDataset(headers, query) {
     queryDatasets(headers, query)
     .then(datasets => {
         console.log(datasets.map(x => x._id));
-        if (datasets.length != 1) throw "Error: invalid dataset id given";
+        if (datasets.length != 1) error("Error: invalid dataset id given");
         let id = datasets[0]._id;
         console.log("Streaming dataset to " + id);
 
         fs.mkdir(id, err => {
             request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
             .on('response', res => {
-                if(res.statusCode != 200) throw "Error: " + res.body.message;
+                if(res.statusCode != 200) error("Error: " + res.body.message);
             }).pipe(tar.x({ C: id }));
         });
     });
@@ -341,7 +341,7 @@ function queryProjects(headers, search, adminSearch, memberSearch, guestSearch) 
             (ids, queries) => {
                 let find = { removed: false }, orQueries = [], andQueries = [], pattern = queries.join('|');
                 if (ids.length > 0) orQueries.push({ _id: { $in: ids } });
-                if (queries.length > 0) {
+                if (pattern.length > 0) {
                     orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
                     orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
                 }
@@ -405,7 +405,7 @@ function queryApps(headers, search, inputs, outputs) {
                     return { find, sort: { name: 1 } };
                 }, headers)
             .then((data, err) => {
-                if (err) throw err;
+                if (err) error(err);
                 else {
                     // then query the list of apps matching the given datatype tags
                     resolve(data.apps);
@@ -465,9 +465,9 @@ function query(url, ids, queries, options, headers) {
     return new Promise((resolve, reject)=>{
         request.get({url: url + params, headers: headers, json: true}, function(err, res, body) {
             if (res.statusCode != 200) {
-                throw "Error: " + res.body.message;
+                error("Error: " + res.body.message);
             }
-            if(err) throw new Error(res);
+            if(err) error(res);
             return resolve(body);
         });
     });
@@ -488,14 +488,14 @@ function updateProject(headers, id, updates) {
             return queryProjects(headers, id);
         })
         .then(projects => {
-            if (projects.length != 1) throw "Error: invalid project id";
+            if (projects.length != 1) error("Error: invalid project id");
 
             if (updates.admins && updates.admins.trim().length > 0) {
                 updates.admins = updates.admins.split(",").map(username => {
                     username = username.trim();
                     if (profileTable[username]) return profileTable[username].id;
                     else {
-                        throw "Error: no user found with username '" + username + "'when checking admins";
+                        error("Error: no user found with username '" + username + "'when checking admins");
                     }
                 })
             }
@@ -504,7 +504,7 @@ function updateProject(headers, id, updates) {
                     username = username.trim();
                     if (profileTable[username]) return profileTable[username].id;
                     else {
-                        throw "Error: no user found with username '" + username + "'when checking members";
+                        error("Error: no user found with username '" + username + "'when checking members");
                     }
                 })
             }
@@ -513,13 +513,13 @@ function updateProject(headers, id, updates) {
                 updates.guests = updates.guests.split(",").map(username => {
                     if (profileTable[username]) return profileTable[username].id;
                     else {
-                        throw "Error: no user found with username '" + username + "'when checking guests";
+                        error("Error: no user found with username '" + username + "'when checking guests");
                     }
                 })
             }
 
             let updateValues = toNonNullObject(updates);
-            if (Object.keys(updateValues) == 0) throw "Error: no values to update project with";
+            if (Object.keys(updateValues) == 0) error("Error: no values to update project with");
 
             request.put(config.api.warehouse + "/project/" + projects[0]._id, { json: updateValues, updateValues, headers: headers }, (err, res, body) => resolve(body));
         })
@@ -597,7 +597,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         userConfig = JSON.parse(userConfig);
     }
     catch (exception) {
-        throw 'Error: Could not parse JSON Config Object';
+        error('Error: Could not parse JSON Config Object');
     }
 
     queryDatatypes(headers)
@@ -612,16 +612,16 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         return queryApps(headers, appSearch, inputSearch, '');
     })
     .then(_apps => {
-        if (_apps.length == 0) throw "Error: No apps found matching " + appSearch;
-        if (_apps.length > 1) throw "Error: Invalid ID '" + appSearch + "'";
+        if (_apps.length == 0) error("Error: No apps found matching " + appSearch);
+        if (_apps.length > 1) error("Error: Invalid ID '" + appSearch + "'");
         app = _apps[0];
         instanceName = (app.tags||'CLI Process') + "." + (Math.random());
         
         return queryProjects(headers, projectSearch);
     })
     .then(_projects => {
-        if (_projects.length == 0) throw "Error: No projects found matching " + projectSearch;
-        if (_projects.length > 1) throw "Error: Invalid ID '" + projectSearch + "'";
+        if (_projects.length == 0) error("Error: No projects found matching " + projectSearch);
+        if (_projects.length > 1) error("Error: Invalid ID '" + projectSearch + "'");
         project = _projects[0];
 
         return getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
@@ -641,15 +641,15 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                                     "'; using the default value in the app's config: " + flattenedConfig[key].default);
                     }
                     else {
-                        throw 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " + 
-                                (flattenedConfig[key].type) + "). Please provide one and rerun";
+                        error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " + 
+                                (flattenedConfig[key].type) + "). Please provide one and rerun");
                     }
                 }
                 
                 if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
                     if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
-                        throw 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + 
-                                "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'";
+                        error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + 
+                                "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
                     }
                 }
                 
@@ -664,10 +664,10 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         });
 
         request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, (err, res, body) => {
-            if (err) throw err;
+            if (err) error(err);
 
             let jwt = body.jwt;
-            if (app.inputs.length != inputs.length) throw "Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " " + pluralize('was', inputs) + " given";
+            if (app.inputs.length != inputs.length) error("Error: App expects " + app.inputs.length + " inputs but " + inputs.length + " " + pluralize('was', inputs) + " given");
 
             let sorted_app_inputs = app.inputs.sort((a, b) => a._id > b._id);
             let sorted_user_inputs = inputs.sort((a, b) => a._id > b._id);
@@ -675,7 +675,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
             // type validation
             sorted_user_inputs.forEach((input, idx) => {
                 if (input.datatype != sorted_app_inputs[idx].datatype) {
-                    throw "Error: Input " + (idx + 1) + " (dataset id " + input._id + ") has datatype " + datatypeTable[input.datatype].name + " but expected " + datatypeTable[sorted_app_inputs[idx].datatype].name;
+                    error( "Error: Input " + (idx + 1) + " (dataset id " + input._id + ") has datatype " + datatypeTable[input.datatype].name + " but expected " + datatypeTable[sorted_app_inputs[idx].datatype].name);
                 }
                 let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
                 let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
@@ -684,12 +684,12 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 
                 let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
 
-                if (sorted_app_dtags.length != sorted_user_dtags.length) throw invalid_dtags_error;
+                if (sorted_app_dtags.length != sorted_user_dtags.length) error(invalid_dtags_error);
 
                 sorted_app_dtags.forEach(dtag => {
                     if (dtag.startsWith('!') && sorted_user_dtags.indexOf(dtag) != -1 ||
                         !dtag.startsWith('!') && sorted_user_dtags.indexOf(dtag) == -1) {
-                        throw invalid_dtags_error;
+                        error(invalid_dtags_error);
                     }
                 });
             });
@@ -735,12 +735,12 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 desc: "Staging Dataset",
                 config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
             }}, (err, res, body) => {
-                if (err) throw err;
+                if (err) error(err);
                 console.log("Data Staging Task Created, PROCESS: ");
                 
                 let task = body.task;
                 waitForFinish(headers, task, 0, (err, task) => {
-                    if (err) throw err;
+                    if (err) error(err);
                     let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
                     
                     // link task to app inputs
@@ -781,15 +781,15 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                         deps: [ task._id ]
                         
                     }}, (err, res, body) => {
-                        if (err) throw err;
-                        if (res.statusCode != 200) throw "Error: " + res.body.message;
+                        if (err) error(err);
+                        if (res.statusCode != 200) error("Error: " + res.body.message);
 
                         let appTask = body.task;
                         console.log(app.name + " Task for app '" + app.name + "' has begun.\n" + 
                                     "To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
 
                         // waitForFinish(headers, appTask, 0, (err, appTask) => {
-                        // 	if (err) throw err;
+                        // 	if (err) error(err);
                         // 	console.log("Data will be automatically archived to Project '" + project.name + "'");
                         // });
                     });
@@ -851,7 +851,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 let inputDtypeFile = idToFile[flattened[path].file_id];
                 
                 // TODO support case of userInput.multi == true
-                if (userInput.multi) throw "Error: Arrays not yet supported as input types";
+                if (userInput.multi) error("Error: Arrays not yet supported as input types");
                 flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
             } else {
                 flattenedCalculatedConfig[path] = values[path];
@@ -910,12 +910,12 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
             return queryDatatypes(headers, datatypeSearch);
         }).then(_datatypes => {
             datatypes = _datatypes;
-            if (datatypes.length == 0) throw "Error: Datatype not found";
-            if (datatypes.length > 1) throw "Error: " + datatypes.length + " possible results found matching datatype '" + datatypeSearch + "'";
+            if (datatypes.length == 0) error("Error: Datatype not found");
+            if (datatypes.length > 1) error("Error: " + datatypes.length + " possible results found matching datatype '" + datatypeSearch + "'");
             return queryProjects(headers, projectSearch);
         }).then(projects => {
-            if (projects.length == 0) throw "Error: Project not found";
-            if (projects.length > 1) throw "Error: " + projects.length + " possible results found matching project '" + projectSearch + "'";
+            if (projects.length == 0) error("Error: Project not found");
+            if (projects.length > 1) error("Error: " + projects.length + " possible results found matching project '" + projectSearch + "'");
 
             let taropts = ['-czh'];
 
@@ -928,12 +928,12 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                     if(err) {
                         if (file.dirname) {
                             fs.stat(directory + "/" + file.dirname, (err, stats) => {
-                                if (err) throw "Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?";
+                                if (err) "Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?";
                                 taropts.push(file.dirname);
                                 next_file();
                             });
                         } else {
-                            if(file.required) throw err;
+                            if(file.required) error(err);
                             else {
                                 console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                                 next_file();
@@ -945,7 +945,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                     }
                 });
             }, err => {
-                if(err) throw err;
+                if(err) error(err);
 
                 //submit noop to upload data
                 //warehouse dataset post api need a real task to submit from
@@ -955,12 +955,12 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                     service: noopService,
                 }},
                 (err, res, body) => {
-                    if(err) throw "Error: " + res.body.message;
+                    if(err) error("Error: " + res.body.message);
                     let task = body.task;
 
                     console.log("Waiting for upload task to be ready...");
                     waitForFinish(headers, task, 0, function(err) {
-                        if(err) throw err;
+                        if(err) error(err);
 
                         console.log("Starting upload");
 
@@ -969,7 +969,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                         tar.stdout.pipe(req);
 
                         req.on('response', res => {
-                            if(res.statusCode != "200") throw "Error: " + res.body.message;
+                            if(res.statusCode != "200") error("Error: " + res.body.message);
                             console.log("Dataset successfully uploaded!");
                             console.log("Now registering dataset...");
 
@@ -986,8 +986,8 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                 task_id: task._id, // we archive data from copy task
                                 output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                             }}, (err, res, body) => {
-                                if(err) throw err;
-                                if(res.statusCode != "200") throw "Failed to upload: " + res.body.message;
+                                if(err) error(err);
+                                if(res.statusCode != "200") error("Failed to upload: " + res.body.message);
                                 console.log("Finished dataset registration!");
                                 resolve(body);
                             });
@@ -1011,7 +1011,7 @@ function waitForFinish(headers, task, gear, cb) {
     
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
-        if (res.statusCode != 200) throw "Error: " + res.body.message;
+        if (res.statusCode != 200) error("Error: " + res.body.message);
 
         let task = body.tasks[0];
 
@@ -1047,7 +1047,7 @@ function loadJwt() {
     return new Promise((resolve, reject) => {
         fs.stat(config.path.jwt, (err, stat) => {
             if (err) {
-                throw "Error: Couldn't find your jwt token. You're probably not logged in";
+                error("Error: Couldn't find your jwt token. You're probably not logged in");
                 process.exit(1);
             }
             resolve(fs.readFileSync(config.path.jwt));
@@ -1135,11 +1135,16 @@ function parseDatatypeString(string) {
     return { tags, datatype };
 }
 
+function error(message) {
+    console.error(message);
+    process.exit(1);
+}
+
 module.exports = {
     filterProfiles,
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
     downloadDataset, uploadDataset,
     runApp,
     updateProject,
-    loadJwt, pluralize, waitForFinish
+    loadJwt, pluralize, waitForFinish, error
 };

@@ -61,9 +61,10 @@ function formatDatasets(headers, data, whatToShow) {
                 let formattedProject = 'Unknown', formattedAdmins = [], formattedMembers = [], formattedGuests = [];
                 if (projectTable[d.project]) {
                     formattedProject = projectTable[d.project].name;
-                    formattedAdmins = projectTable[d.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                    formattedMembers = projectTable[d.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                    formattedGuests = projectTable[d.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                    
+                    if (projectTable[d.project].admins) formattedAdmins = projectTable[d.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                    if (projectTable[d.project].members) formattedMembers = projectTable[d.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                    if (projectTable[d.project].guests) formattedGuests = projectTable[d.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
                 }
                 
                 if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);

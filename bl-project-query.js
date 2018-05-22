@@ -15,7 +15,7 @@ commander
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    util.queryProjects(headers, commander.query, commander.admin, commander.member, commander.guest)
+    util.queryProjects(headers, commander.search, commander.admin, commander.member, commander.guest)
     .then(projects => {
         if (commander.raw) console.log(JSON.stringify(projects));
         else showProjects(headers, projects);
@@ -56,9 +56,14 @@ function formatProjects(headers, data, whatToShow) {
 
             let resultArray = data.map(d => {
                 let info = [];
-                let formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                let formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                let formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                let formattedAdmins = "";
+                let formattedMembers = "";
+                let formattedGuests = "";
+                
+                if (d.admins) formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (d.members) formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (d.guests) formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                
                 let formattedAccess = "Access: " + d.access;
                 if (d.listed) formattedAccess += " (but listed for all users)";
 
@@ -73,7 +78,7 @@ function formatProjects(headers, data, whatToShow) {
                 return info.join('\n');
             });
             
-            resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+            resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
             resolve(resultArray.join('\n\n'));
         });
     });
