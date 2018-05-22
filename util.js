@@ -39,7 +39,7 @@ const gearFrames = [
     '            Bra',
     '             Br',
     '              B',
-]
+];
 
 /** @module util.js */
 
@@ -278,7 +278,7 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
                         if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
                         if (subject) andQueries.push({ "meta.subject": subject });
                         if (info.tags.length > 0) andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagPattern, $options: 'ig' } } });
-                        if (dtypes.length > 0) orQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
+                        if (info.datatype.length > 0) orQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
                         
                         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
                         
@@ -307,6 +307,7 @@ function queryDatasets(headers, search, datatypes, projects, subject) {
 function downloadDataset(headers, query) {
     queryDatasets(headers, query)
     .then(datasets => {
+        console.log(datasets.map(x => x._id));
         if (datasets.length != 1) throw "Error: invalid dataset id given";
         let id = datasets[0]._id;
         console.log("Streaming dataset to " + id);
@@ -897,8 +898,8 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
 
         let metadata = {};
         if (options.meta) metadata = JSON.parse(fs.readFileSync(options.meta, 'ascii'));
-        if (options.subject) metadata.subject = options.subject;
-        if (options.session) metadata.session = options.session;
+        if (options.subject) metadata.subject = options.subject || 0;
+        metadata.session = options.session || 1;
 
         getInstance(headers, instanceName)
         .then(_instance => {

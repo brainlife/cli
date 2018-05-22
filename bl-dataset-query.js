@@ -72,6 +72,7 @@ function formatDatasets(headers, data, whatToShow) {
                 if (whatToShow.all || whatToShow.project) info.push("Members: " + formattedMembers.join(', '));
                 if (whatToShow.all || whatToShow.project) info.push("Guests: " + formattedGuests.join(', '));
                 if (whatToShow.all || whatToShow.subject) info.push("Subject: " + subject);
+                if (whatToShow.all || whatToShow.subject) info.push("Session: " + (d.meta ? (d.meta.session || "") : ""));
                 if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
                 if (whatToShow.all || whatToShow.desc) info.push("Description: " + (d.desc||''));
                 if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
