@@ -447,14 +447,14 @@ function queryDatatypes(headers, search, skip, limit) {
  * @param {string} url
  * @param {string[]} ids
  * @param {string[]} queries
- * @param {(filteredIds: string[], filteredQueries: string[]) => {find: any, sort: any, select: string, limit: number, skip: number}} options
+ * @param {(filteredIds: string[], filteredQueries: string[]) => {find: any, sort: any, select: string, limit: number, skip: number}} options_cb
  * @param {any} headers
  * @returns {Promise<any>}
  */
-function query(url, ids, queries, options, headers) {
+function query(url, ids, queries, options_cb, headers) {
     ids = ids.map(x=>x.trim()).filter(isValidObjectId);
     queries = queries.map(q => escapeRegExp(q.trim())).filter(q => q.length > 0);
-    options = options(ids, queries);
+    options = options_cb(ids, queries);
 
     let params = Object.keys(options)
     .map(key => {
