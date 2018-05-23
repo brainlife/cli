@@ -13,7 +13,7 @@ commander
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
@@ -23,11 +23,19 @@ util.loadJwt().then(jwt => {
     if (!argv['output-datatype']) argv['output-datatype'] = [];
     if (!Array.isArray(argv['output-datatype'])) argv['output-datatype'] = [ argv['output-datatype'] ];
     
-    util.queryApps(headers, commander.id, commander.search, argv['input-datatype'], argv['output-datatype'], commander.skip, commander.limit)
-    .then(apps => {
-        if (commander.raw) console.log(JSON.stringify(apps));
-        else formatApps(headers, apps, { all : true }).then(console.log);
-    }).catch(console.error);
+    argv['input-datatype'].forEach(checkSingleDatatypeQuery);
+    argv['output-datatype'].forEach(checkSingleDatatypeQuery);
+    
+    let apps = await util.queryApps(headers, commander.id, commander.search, argv['input-datatype'], argv['output-datatype'], commander.skip, commander.limit);
+    
+    if (commander.raw) console.log(JSON.stringify(apps));
+    else formatApps(headers, apps, { all : true }).then(console.log);
+    
+    async function checkSingleDatatypeQuery(query) {
+        let datatypes = await util.matchDatatypes(headers, query);
+        if (datatypes.length == 0) util.error("Error: No datatype matching '" + query + "'");
+        if (datatypes.length > 1) util.error("Error: Multiple datatypes matching '" + query + "'");
+    }
 }).catch(console.error);
 
 /**

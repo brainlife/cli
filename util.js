@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+'use strict';
+
 const request = require('request');
 const config = require('./config');
 const fs = require('fs');
@@ -211,7 +213,7 @@ const gearFrames = [
 function queryProfiles(headers, idSearch, search, limit, skip) {
     return new Promise((resolve, reject) => {
         let find = {}, orQueries = [];
-        
+
         request.get(config.api.auth + '/profile?limit=' + (limit || -1) + '&offset=' + (skip || 0), { headers, json: true }, (err, res, body) => {
             if (err) reject(err);
             else if (res.statusCode != 200) reject(res.body.message);
@@ -222,13 +224,13 @@ function queryProfiles(headers, idSearch, search, limit, skip) {
                     if (Array.isArray(idSearch)) {
                         maybe = maybe || idSearch.indexOf(profile.id) != -1;
                     }
-                    
-                    if (idSearch) maybe = maybe || idSearch == profile.id;
+
+                    if (idSearch && idSearch.length > 0) maybe = maybe || idSearch == profile.id;
                     if (search && search.length > 0) {
                         let pattern;
                         if (Array.isArray(search)) pattern = new RegExp(search.map(escapeRegExp).join('|'), 'g');
                         else pattern = new RegExp(escapeRegExp(search), 'g');
-                        
+
                         maybe = maybe                           ||
                                 pattern.test(profile.fullname)  ||
                                 pattern.test(profile.email)     ||
@@ -236,7 +238,7 @@ function queryProfiles(headers, idSearch, search, limit, skip) {
                     }
                     return maybe;
                 });
-                
+
                 resolve(profiles);
             }
         });
@@ -245,17 +247,17 @@ function queryProfiles(headers, idSearch, search, limit, skip) {
 
 /**
  * Flexibly match profiles
- * @param {any} headers 
- * @param {string} match 
+ * @param {any} headers
+ * @param {string} match
  */
 function matchProfiles(headers, match) {
     let options = match;
     if (!Array.isArray(options)) options = (options || '').split(delimiter);
     options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
-    
+
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
-    
+
     return queryProfiles(headers, ids, queries, "-1", "0");
 }
 
@@ -265,51 +267,56 @@ function matchProfiles(headers, match) {
  * @param {string} datatypes
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(headers, search, datatypes, projects, subject, skip, limit) {
-    return new Promise((resolve, reject) => {
-        let searches = (search || '').split(delimiter);
-        let dtypeInfo = (datatypes || '').split(delimiter).map(parseDatatypeString);
+function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags, project, subject, skip, limit) {
+    return new Promise(async (resolve, reject) => {
+        let datatypes = await matchDatatypes(headers, datatype);
+        let projects = await matchProjects(headers, project, admin);
         
-        queryProjects(headers, projects)
-        .then(prjcts => {
-            let projectids = prjcts.map(x => x._id);
-            let aggregate = {}, index = 0;
-            
-            async.forEach(dtypeInfo, (info, next_search) => {
-                queryDatatypes(headers, info.datatype)
-                .then(dtypes => {
-                    let tagPattern = info.tags.map(t => escapeRegExp(t.trim())).join('|');
-                    
-                    query(config.api.warehouse + '/dataset', searches, searches,
-                    (ids, queries) => {
-                        let find = {}, orQueries = [], andQueries = [], pattern = queries.join('|');
-                        if (ids.length > 0) orQueries.push({ _id: { $in: ids } });
-                        if (queries.length > 0) {
-                            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
-                            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
-                        }
-                        
-                        if (Object.keys(projectids).length > 0) andQueries.push({ project: { $in: projectids } });
-                        if (subject) andQueries.push({ "meta.subject": subject });
-                        if (info.tags.length > 0) andQueries.push({ datatype_tags: { $elemMatch: { $regex: tagPattern, $options: 'ig' } } });
-                        if (info.datatype.length > 0) orQueries.push({ datatype: { $in: dtypes.map(x => x._id) } });
-                        
-                        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-                        
-                        find.$and = andQueries;
-                        return { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
-                    }, headers)
-                    .then(data => {
-                        data.datasets.forEach(dataset => {
-                            if (!aggregate[dataset._id]) aggregate[dataset._id] = dataset;
-                        });
-                        next_search();
-                    }).catch(console.error);
-                }).catch(console.error);
-            }, err => {
-                resolve(Object.keys(aggregate).map(key => aggregate[key]));
+        if (datatype && datatypes.length == 0) error("No datatypes found matching '" + datatype + "'");
+        if (project && projects.length == 0) error("No projects found matching '" + project + "'");
+        if (admin && projects.length == 0) error("No matching projects found with admin search '" + admin + "'");
+        
+        let projectIds = projects.map(p => p._id);
+        let find = { removed: false }, andQueries = [], orQueries = [];
+        
+        if (idSearch && idSearch.length > 0) {
+            if (Array.isArray(idSearch)) {
+                idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid dataset id: ' + id); });
+                orQueries.push({ _id: { $in: idSearch } });
+            }
+            else {
+                if (!isValidObjectId(idSearch)) error('Not a valid dataset id: ' + idSearch);
+                orQueries.push({ _id: idSearch });
+            }
+        }
+        if (search && search.length > 0) {
+            let pattern;
+            if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
+            else pattern = escapeRegExp(search || '');
+
+            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
+            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+        }
+        if (datatype_tags && datatype_tags.length > 0) {
+            datatype_tags.forEach(tag => {
+                andQueries.push({ datatype_tags: { $elemMatch: { $in: datatype_tags } } });
             });
-        }).catch(console.error);
+        }
+        if (projects && projects.length > 0) {
+            andQueries.push({ project: { $in: projects.map(p => p._id) } });
+        }
+        
+        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+        if (andQueries.length > 0) find.$and = andQueries;
+        
+        let url = makeQueryUrl(config.api.warehouse + '/dataset', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
+        request.get(url, { json: true, headers }, (err, res, body) => {
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
+            else {
+                resolve(body.datasets);
+            }
+        });
     });
 }
 
@@ -341,73 +348,59 @@ function downloadDataset(headers, query) {
  * @returns {Promise<project[]>}
  */
 function queryProjects(headers, idSearch, search, adminSearch, memberSearch, guestSearch, skip, limit) {
-    return new Promise((resolve, reject) => {
-        let searches = (search || '').split(delimiter);
-        let projectAdminIds = [];
-        let projectMemberIds = [];
-        let projectGuestIds = [];
+    return new Promise(async (resolve, reject) => {
+        let projectAdminIds = (await matchProfiles(headers, adminSearch)).map(u => u.id);
+        let projectMemberIds = (await matchProfiles(headers, memberSearch)).map(u => u.id);
+        let projectGuestIds = (await matchProfiles(headers, guestSearch)).map(u => u.id);
+        let find = { removed: false }, andQueries = [], orQueries = [];
         
-        matchProfiles(headers, adminSearch)
-        .then(_admins => {
-            projectAdminIds = _admins.map(u => u.id);
-            return matchProfiles(headers, memberSearch);
-        })
-        .then(_members => {
-            projectMemberIds = _members.map(u => u.id);
-            return matchProfiles(headers, guestSearch);
-        })
-        .then(_guests => {
-            projectGuestIds = _guests.map(u => u.id);
-            
-            let find = { removed: false }, andQueries = [], orQueries = [];
-            if (idSearch) {
-                if (Array.isArray(idSearch)) {
-                    idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid project id: ' + id); });
-                    orQueries.push({ _id: { $in: idSearch } });
-                }
-                else {
-                    if (!isValidObjectId(idSearch)) error('Not a valid project id: ' + idSearch);
-                    orQueries.push({ _id: idSearch });
-                }
+        if (idSearch && idSearch.length > 0) {
+            if (Array.isArray(idSearch)) {
+                idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid project id: ' + id); });
+                orQueries.push({ _id: { $in: idSearch } });
             }
-            if (search && search.length > 0) {
-                let pattern;
-                if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-                else pattern = escapeRegExp(search || '');
-                
-                orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
-                orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+            else {
+                if (!isValidObjectId(idSearch)) error('Not a valid project id: ' + idSearch);
+                orQueries.push({ _id: idSearch });
             }
-            if (adminSearch && projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
-            if (memberSearch && projectMemberIds.length > 0) andQueries.push({ members: { $elemMatch: { $in: projectMemberIds } } });
-            if (guestSearch && projectGuestIds.length > 0) andQueries.push({ guests: { $elemMatch: { $in: projectGuestIds } } });
-            
-            if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-            if (andQueries.length > 0) find.$and = andQueries;
-            
-            let queryParams = { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
-            let url = makeQueryUrl(config.api.warehouse + '/project', queryParams);
-            request.get(url, { headers, json: true }, (err, res, body) => {
-                if (err) reject(err);
-                else if (res.statusCode != 200) reject(res.body.message);
-                else {
-                    resolve(body.projects);
-                }
-            });
-        }).catch(console.error);
+        }
+        if (search && search.length > 0) {
+            let pattern;
+            if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
+            else pattern = escapeRegExp(search || '');
+
+            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
+            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+        }
+        if (adminSearch && projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
+        if (memberSearch && projectMemberIds.length > 0) andQueries.push({ members: { $elemMatch: { $in: projectMemberIds } } });
+        if (guestSearch && projectGuestIds.length > 0) andQueries.push({ guests: { $elemMatch: { $in: projectGuestIds } } });
+
+        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+        if (andQueries.length > 0) find.$and = andQueries;
+
+        let url = makeQueryUrl(config.api.warehouse + '/project', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
+        
+        request.get(url, { headers, json: true }, (err, res, body) => {
+            if (err) reject(err);
+            else if (res.statusCode != 200) reject(res.body.message);
+            else {
+                resolve(body.projects);
+            }
+        });
     });
 }
 
 /**
  * Flexibly match projects
- * @param {any} headers 
- * @param {string} match 
+ * @param {any} headers
+ * @param {string} match
  */
 function matchProjects(headers, match, admins, members, guests) {
     let options = match;
     if (!Array.isArray(options)) options = (options || '').split(delimiter);
     options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
-    
+
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
     
@@ -422,67 +415,61 @@ function matchProjects(headers, match, admins, members, guests) {
  * @returns {Promise<app[]>}
  */
 function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
-    return new Promise((resolve, reject) => {
-        let vm = {};
+    return new Promise(async (resolve, reject) => {
+        let inputDatatypes = (await matchDatatypes(headers, inputs)).map(d => d._id);
+        let outputDatatypes = (await matchDatatypes(headers, outputs)).map(d => d._id);
         
-        matchDatatypes(headers, inputs)
-        .then(inputDatatypes => {
-            vm.inputDatatypes = inputDatatypes.map(x => x._id);
-            return matchDatatypes(headers, outputs);
-        }).then(outputDatatypes => {
-            vm.outputDatatypes = outputDatatypes.map(x => x._id);
-            
-            let find = { removed: false }, andQueries = [], orQueries = [];
-            if (idSearch) {
-                if (Array.isArray(idSearch)) {
-                    idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid app id: ' + id); });
-                    orQueries.push({ _id: { $in: idSearch } });
-                }
-                else {
-                    if (!isValidObjectId(idSearch)) error('Not a valid app id: ' + idSearch);
-                    orQueries.push({ _id: idSearch });
-                }
+        let find = { removed: false }, andQueries = [], orQueries = [];
+        if (idSearch && idSearch.length > 0) {
+            if (Array.isArray(idSearch)) {
+                idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid app id: ' + id); });
+                orQueries.push({ _id: { $in: idSearch } });
             }
-            if (search && search.length > 0) {
-                let pattern;
-                if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-                else pattern = escapeRegExp(search || '');
-                
-                orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
-                orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+            else {
+                if (!isValidObjectId(idSearch)) error('Not a valid app id: ' + idSearch);
+                orQueries.push({ _id: idSearch });
             }
-            vm.inputDatatypes.forEach(datatype => andQueries.push({ inputs: { $elemMatch: { datatype } } }));
-            vm.outputDatatypes.forEach(datatype => andQueries.push({ outputs: { $elemMatch: { datatype } } }));
-            
-            if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-            if (andQueries.length > 0) find.$and = andQueries;
-            
-            let queryParams = { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
-            let url = makeQueryUrl(config.api.warehouse + '/app', queryParams);
-            request.get(url, { headers, json: true }, (err, res, body) => {
-                if (err) reject(err);
-                else if (res.statusCode != 200) reject(res.body.message);
-                else {
-                    resolve(body.apps);
-                }
-            });
-        }).catch(console.error);
+        }
+        if (search && search.length > 0) {
+            let pattern;
+            if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
+            else pattern = escapeRegExp(search || '');
+
+            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
+            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+        }
+        
+        if (inputs && inputs.length > 0) inputDatatypes.forEach(datatype => andQueries.push({ inputs: { $elemMatch: { datatype } } }));
+        if (outputs && outputs.length > 0) outputDatatypes.forEach(datatype => andQueries.push({ outputs: { $elemMatch: { datatype } } }));
+
+        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+        if (andQueries.length > 0) find.$and = andQueries;
+
+        let url = makeQueryUrl(config.api.warehouse + '/app', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
+        
+        request.get(url, { headers, json: true }, (err, res, body) => {
+            if (err) reject(err);
+            else if (res.statusCode != 200) reject(res.body.message);
+            else {
+                resolve(body.apps);
+            }
+        });
     });
 }
 
 /**
  * Flexibly match apps
- * @param {any} headers 
- * @param {string} match 
+ * @param {any} headers
+ * @param {string} match
  */
 function matchApps(headers, match, inputs, outputs) {
     let options = match;
     if (!Array.isArray(options)) options = (options || '').split(delimiter);
     options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
-    
+
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
-    
+
     return queryApps(headers, ids, queries, inputs, outputs, "0", "0");
 }
 
@@ -491,10 +478,10 @@ function matchApps(headers, match, inputs, outputs) {
  * @param {string} search
  * @returns {Promise<datatype[]>}
  */
-function queryDatatypes(headers, idSearch, search, skip, limit) {
+function queryDatatype(headers, idSearch, search, skip, limit) {
     return new Promise((resolve, reject) => {
         let find = {}, orQueries = [];
-        if (idSearch) {
+        if (idSearch && idSearch.length > 0) {
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a datatype id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
@@ -508,14 +495,13 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
             else pattern = escapeRegExp(search || '');
-            
+
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
         if (orQueries.length > 0) find.$or = orQueries;
-        
-        let queryParams = { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 };
-        let url = makeQueryUrl(config.api.warehouse + '/datatype', queryParams);
+
+        let url = makeQueryUrl(config.api.warehouse + '/datatype', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
         request.get(url, { headers, json: true }, (err, res, body) => {
             if (err) reject(err);
             else if (res.statusCode != 200) reject(res.body.message);
@@ -528,48 +514,23 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
 
 /**
  * Flexibly match datatypes
- * @param {any} headers 
- * @param {string} match 
+ * @param {any} headers
+ * @param {string} match
  */
 function matchDatatypes(headers, match) {
     let options = match;
     if (!Array.isArray(options)) options = (options || '').split(delimiter);
     options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
-    
+
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
-    
-    return queryDatatypes(headers, ids, queries, "0", "0");
-}
 
-/**
- * Query a url for information
- * @param {string} url
- * @param {string[]} ids
- * @param {string[]} queries
- * @param {(filteredIds: string[], filteredQueries: string[]) => {find: any, sort: any, select: string, limit: number, skip: number}} options_cb
- * @param {any} headers
- * @returns {Promise<any>}
- */
-function query(url, ids, queries, options_cb, headers) {
-    ids = ids.map(x=>x.trim()).filter(isValidObjectId);
-    queries = queries.map(q => escapeRegExp(q.trim())).filter(q => q.length > 0);
-    options = options_cb(ids, queries);
-    
-    return new Promise((resolve, reject)=>{
-        request.get({url: makeQueryUrl(url, options_cb(ids, queries)), headers, json: true}, function(err, res, body) {
-            if (res.statusCode != 200) {
-                error("Error: " + res.body.message);
-            }
-            if(err) error(res);
-            return resolve(body);
-        });
-    });
+    return queryDatatype(headers, ids, queries, "0", "0");
 }
 
 /**
  * Make a query url out of the given options
- * @param {{find: any, sort: any, select: string, limit: number, skip: number}} options 
+ * @param {{find: any, sort: any, select: string, limit: number, skip: number}} options
  */
 function makeQueryUrl(url, options) {
     let params = Object.keys(options).map(key => {
@@ -579,7 +540,7 @@ function makeQueryUrl(url, options) {
             return key + "=" + options[key];
         }
     }).join('&');
-    
+
     if (params.length > 0) params = '?' + params;
     return url + params;
 }
@@ -649,7 +610,7 @@ function getInstance(headers, instanceName, options) {
         // get instance that might already exist
         var find = { name: instanceName };
         options = options || {};
-        
+
         request.get({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
             if(err) return reject(err);
             if(res.statusCode != 200) return reject(res.statusCode);
@@ -661,11 +622,14 @@ function getInstance(headers, instanceName, options) {
                     body.config = { brainlife: true };
                     body.group_id = options.project.group_id;
                 }
-                
+
                 request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
-                    if(err) return reject(err);
-                    resolve(body);
+                    if (err) return reject(err);
+                    else if (res.statusCode != 200) reject(res.body.message);
+                    else {
+                        resolve(body);
+                    }
                 });
             }
         });
@@ -702,7 +666,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
     let app_inputs = [], app_outputs = [];
     let output_metadata = {};
     let instanceName;
-    
+
     userConfig = userConfig || '{}';
     try {
         userConfig = JSON.parse(userConfig);
@@ -711,7 +675,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         error('Error: Could not parse JSON Config Object');
     }
 
-    queryDatatypes(headers)
+    queryDatatype(headers)
     .then(_datatypes => {
         datatypes = _datatypes;
         datatypes.forEach(d => datatypeTable[d._id] = d);
@@ -727,7 +691,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         if (_apps.length > 1) error("Error: Invalid ID '" + appSearch + "'");
         app = _apps[0];
         instanceName = (app.tags||'CLI Process') + "." + (Math.random());
-        
+
         return queryProjects(headers, projectSearch);
     })
     .then(_projects => {
@@ -742,7 +706,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         let flattenedConfig = flattenConfig(app.config, []);
         let flattenedUserConfig = flattenConfig(userConfig, []);
         let values = {};
-        
+
         Object.keys(flattenedConfig).forEach(key => {
             if (flattenedConfig[key].type != 'input') {
                 let niceLookingKey = JSON.parse(key).join('.');
@@ -752,20 +716,20 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                                     "'; using the default value in the app's config: " + flattenedConfig[key].default);
                     }
                     else {
-                        error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " + 
+                        error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " +
                                 (flattenedConfig[key].type) + "). Please provide one and rerun");
                     }
                 }
-                
+
                 if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
                     if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
-                        error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + 
+                        error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type +
                                 "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
                     }
                 }
-                
+
                 values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
-                
+
                 // flattenedPrompt[key] = {
                 // 	type: flattenedConfig[key].type,
                 // 	default: flattenedConfig[key].default,
@@ -791,9 +755,9 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 }
                 let sorted_app_dtags = sorted_app_inputs[idx].datatype_tags.sort((a,b) => a > b);
                 let sorted_user_dtags = input.datatype_tags.sort((a,b) => a > b);
-                
+
                 // datatype tag validation, if you want to do that sort of thing
-                
+
                 let invalid_dtags_error = "Error: Input " + (idx+1) + " (dataset id " + input._id + " with datatype " + datatypeTable[input.datatype].name + ") has datatype tags [" + input.datatype_tags.join(', ') + "] but expected [" + sorted_app_inputs[idx].datatype_tags.join(', ') + "]";
 
                 if (sorted_app_dtags.length != sorted_user_dtags.length) error(invalid_dtags_error);
@@ -850,15 +814,15 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 if (err) reject(err);
                 else if (res.statusCode != 200) reject(res.body.message);
                 console.log("Data Staging Task Created, PROCESS: ");
-                
+
                 let task = body.task;
                 waitForFinish(headers, task, 0, (err, task) => {
                     if (err) error(err);
                     let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
-                    
+
                     // link task to app inputs
                     app_inputs.forEach(input => input.task_id = task._id);
-                    
+
                     app.outputs.forEach(output => {
                         app_outputs.push({
                             id: output.id,
@@ -873,7 +837,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                             },
                         });
                     });
-                    
+
                     Object.assign(preparedConfig, {
                         _app: app._id,
                         _tid: 1,
@@ -883,7 +847,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
 
                     // console.log(JSON.stringify(preparedConfig));
                     // prepare and run the app task
-                    
+
                     request.post({ url: config.api.wf + "/task", headers, json: true, body: {
                         instance_id: instance._id,
                         name: instanceName,
@@ -892,15 +856,15 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                         service_branch: app.github_branch,
                         config: preparedConfig,
                         deps: [ task._id ]
-                        
+
                     }}, (err, res, body) => {
                         if (err) reject(err);
                         else if (res.statusCode != 200) reject(res.body.message);
-                        
+
                         if (res.statusCode != 200) error("Error: " + res.body.message);
 
                         let appTask = body.task;
-                        console.log(app.name + " Task for app '" + app.name + "' has begun.\n" + 
+                        console.log(app.name + " Task for app '" + app.name + "' has begun.\n" +
                                     "To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
 
                         // waitForFinish(headers, appTask, 0, (err, appTask) => {
@@ -911,7 +875,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 });
             })
         });
-    }).catch(console.error);
+    }).catch(error);
 
     /**
      * Flatten a tree config object into an object with depth 1
@@ -920,7 +884,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
      */
     function flattenConfig(config, path) {
         let result = {};
-        
+
         if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
         else {
             Object.keys(config).forEach(key => {
@@ -964,7 +928,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
                 dtype.files.forEach(file => idToFile[file.id] = file);
 
                 let inputDtypeFile = idToFile[flattened[path].file_id];
-                
+
                 // TODO support case of userInput.multi == true
                 if (userInput.multi) error("Error: Arrays not yet supported as input types");
                 flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
@@ -1022,7 +986,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
             return getBestResource(headers, noopService);
         }).then(_resource => {
             resource = _resource;
-            return queryDatatypes(headers, datatypeSearch);
+            return queryDatatype(headers, datatypeSearch);
         }).then(_datatypes => {
             datatypes = _datatypes;
             if (datatypes.length == 0) error("Error: Datatype not found");
@@ -1110,7 +1074,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                     });
                 });
             });
-        }).catch(console.error);
+        }).catch(error);
     });
 }
 
@@ -1123,7 +1087,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
  */
 function waitForFinish(headers, task, gear, cb) {
     var find = {_id: task._id};
-    
+
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
         if (res.statusCode != 200) error("Error: " + res.body.message);
@@ -1132,20 +1096,20 @@ function waitForFinish(headers, task, gear, cb) {
 
         if (task.status == "finished") {
             terminalOverwrite.clear();
-            terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" + 
+            terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
                                 "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
             terminalOverwrite.done();
             return cb(null, task);
         }
         if (task.status == "failed") {
             terminalOverwrite.clear();
-            terminalOverwrite("SERVICE: " + task.service + "\n" + 
+            terminalOverwrite("SERVICE: " + task.service + "\n" +
                                 "STATUS: failed");
             terminalOverwrite.done();
             return cb("Error: " + task.status_msg, null);
         }
         terminalOverwrite.clear();
-        terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" + 
+        terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
                             "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
 
         setTimeout(function() {
@@ -1216,23 +1180,23 @@ function isValidObjectId(str) {
 
 /**
  * Return a pluralized string whether or not there are multiple objects
- * @param {string} string 
- * @param {any[]} objects 
+ * @param {string} string
+ * @param {any[]} objects
  */
 function pluralize(string, objects) {
     if (objects.length == 1) return string;
-    
+
     if (string == 'was') return 'were';
     return string + "s";
 }
 
 /**
  * Parse a datatype string to a datatype name and tags
- * @param {string} string 
+ * @param {string} string
  */
 function parseDatatypeString(string) {
     let tags = [], datatype = string;
-    
+
     if (string.endsWith('>')) {
         let lastBeginningAngleBracket = null;
         for (let i = 0; i < string.length - 1; i++) {
@@ -1256,7 +1220,8 @@ function error(message) {
 }
 
 module.exports = {
-    queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
+    matchDatatypes,
+    queryDatatype, queryApps, queryProfiles, queryProjects, queryDatasets,
     downloadDataset, uploadDataset,
     runApp,
     updateProject,

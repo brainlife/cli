@@ -15,14 +15,13 @@ commander
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-
-    util.queryProjects(headers, commander.id, commander.search, commander.admin, commander.member, commander.guest, commander.skip, commander.limit)
-    .then(projects => {
-        if (commander.raw) console.log(JSON.stringify(projects));
-        else showProjects(headers, projects);
-    }).catch(console.error);
+    
+    let projects = await util.queryProjects(headers, commander.id, commander.search, commander.admin, commander.member, commander.guest, commander.skip, commander.limit);
+    
+    if (commander.raw) console.log(JSON.stringify(projects));
+    else showProjects(headers, projects);
 }).catch(console.error);
 
 /**

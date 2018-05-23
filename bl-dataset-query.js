@@ -6,15 +6,17 @@ const config = require('./config');
 const fs = require('fs');
 const async = require('async');
 const spawn = require('child_process').spawn;
-//const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');
 const timeago = require('time-ago');
 
 commander
-    .option('--search <search>', 'filter datasets by name or id')
+    .option('--id <id>', 'filter datasets by id')
+    .option('--search <search>', 'filter datasets by desc')
     .option('--datatype <datatype>', 'filter datasets by datatype')
+    .option('--tag <datatype tag>', 'filter datasets by datatype tag')
+    .option('--admin <project admin>', 'filter datasets by their project admin')
     .option('--project <projectid>', 'filter datasets by project id')
     .option('--subject <subject>', 'filter datasets by subject')
     .option('--skip <skip>', 'number of results to skip')
@@ -22,16 +24,18 @@ commander
     .option('--raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    util.queryDatasets(headers, commander.search, commander.datatype, commander.project, commander.subject, commander.skip, commander.limit)
-    .then(datasets => {
-        if (commander.raw) console.log(JSON.stringify(datasets));
-        else formatDatasets(headers, datasets, { all: true }).then(console.log);
-    }).catch(console.error);
-}).catch(console.error);
+    if (!argv['tag']) argv['tag'] = [];
+    if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
+    
+    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['tag'], commander.project, commander.subject, commander.skip, commander.limit);
+    
+    if (commander.raw) console.log(JSON.stringify(datasets));
+    else formatDatasets(headers, datasets, { all: true }).then(console.log);
+}).catch(util.error);
 
 /**
  * Format dataset information
@@ -42,7 +46,7 @@ util.loadJwt().then(jwt => {
 function formatDatasets(headers, data, whatToShow) {
     let projectTable = {}, datatypeTable = {}, profileTable = {};
     return new Promise((resolve, reject) => {
-        util.queryProjects(headers)
+        util.queryProjects(headers, null, null, null, null, null, "0", "0")
         .then(projects => {
             projects.forEach(project => projectTable[project._id] = project);
             return util.queryProfiles(headers);
@@ -88,6 +92,6 @@ function formatDatasets(headers, data, whatToShow) {
             resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
             resolve(resultArray.join('\n\n'));
 
-        }).catch(console.error);
+        }).catch(util.error);
     });
 }
