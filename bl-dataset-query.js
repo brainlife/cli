@@ -14,7 +14,7 @@ const timeago = require('time-ago');
 commander
     .option('--id <id>', 'filter datasets by id')
     .option('--search <search>', 'filter datasets by desc')
-    .option('--datatype <datatype>', 'filter datasets by datatype')
+    .option('-d, --desc, --datatype <datatype>', 'filter datasets by datatype')
     .option('--tag <datatype tag>', 'filter datasets by datatype tag')
     .option('--admin <project admin>', 'filter datasets by their project admin')
     .option('--project <projectid>', 'filter datasets by project id')
@@ -28,10 +28,10 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    if (!argv['tag']) argv['tag'] = [];
-    if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
+    if (!argv['datatype_tag']) argv['datatype_tag'] = [];
+    if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['tag'], commander.project, commander.subject, commander.skip, commander.limit);
+    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['datatype_tag'], commander.project, commander.subject, commander.skip, commander.limit);
     
     if (commander.raw) console.log(JSON.stringify(datasets));
     else formatDatasets(headers, datasets, { all: true }).then(console.log);

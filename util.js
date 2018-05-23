@@ -478,7 +478,7 @@ function matchApps(headers, match, inputs, outputs) {
  * @param {string} search
  * @returns {Promise<datatype[]>}
  */
-function queryDatatype(headers, idSearch, search, skip, limit) {
+function queryDatatypes(headers, idSearch, search, skip, limit) {
     return new Promise((resolve, reject) => {
         let find = {}, orQueries = [];
         if (idSearch && idSearch.length > 0) {
@@ -525,7 +525,7 @@ function matchDatatypes(headers, match) {
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
 
-    return queryDatatype(headers, ids, queries, "0", "0");
+    return queryDatatypes(headers, ids, queries, "0", "0");
 }
 
 /**
@@ -675,7 +675,7 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
         error('Error: Could not parse JSON Config Object');
     }
 
-    queryDatatype(headers)
+    queryDatatypes(headers)
     .then(_datatypes => {
         datatypes = _datatypes;
         datatypes.forEach(d => datatypeTable[d._id] = d);
@@ -960,121 +960,112 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
  * @param {any} headers
  * @param {string} datatypeSearch
  * @param {string} projectSearch
- * @param {{directory: string, description: string, datatype_tags: string, subject: string, session: string}} options
+ * @param {{directory: string, description: string, datatype_tags: string, subject: string, session: string, tags: any, meta: any}} options
  * @returns {Promise<string>}
  */
 function uploadDataset(headers, datatypeSearch, projectSearch, options) {
-    return new Promise((resolve, reject) => {
-        let instance, resource, datatypes;
+    return new Promise(async (resolve, reject) => {
         let instanceName = 'warehouse-cli.upload';
         let noopService = 'soichih/sca-service-noop';
 
         options = options || {};
         let directory = options.directory || '.';
         let description = options.description || '';
-        let datatype_tags = (options.datatype_tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
-        let tags = (options.tags || '').split(',').map(x => x.trim()).filter(x => x.length > 0);
-
-        let metadata = {};
-        if (options.meta) metadata = JSON.parse(fs.readFileSync(options.meta, 'ascii'));
+        let datatype_tags = options.datatype_tags || [];
+        let tags = options.tags || [];
+        let metadata = options.meta || {};
+        
         if (options.subject) metadata.subject = options.subject || 0;
         metadata.session = options.session || 1;
+        
+        let instance = await getInstance(headers, instanceName);
+        let resource = await getBestResource(headers, noopService);
+        let datatypes = await matchDatatypes(headers, datatypeSearch);
+        let projects = await queryProjects(headers, projectSearch);
+        
+        if (datatypes.length == 0) error("Error: datatype '" + datatypeSearch + "' not found");
+        if (datatypes.length > 1) error("Error: multiple datatypes matching '" + datatypeSearch + "'");
+        
+        if (projects.length == 0) error("Error: project '" + projectSearch + "' not found");
+        if (projects.length > 1) error("Error: multiple projects matching '" + projectSearch + "'");
+        
+        let taropts = ['-czh'];
+        let datatype = datatypes[0];
+        let project = projects[0];
 
-        getInstance(headers, instanceName)
-        .then(_instance => {
-            instance = _instance;
-            return getBestResource(headers, noopService);
-        }).then(_resource => {
-            resource = _resource;
-            return queryDatatype(headers, datatypeSearch);
-        }).then(_datatypes => {
-            datatypes = _datatypes;
-            if (datatypes.length == 0) error("Error: Datatype not found");
-            if (datatypes.length > 1) error("Error: " + datatypes.length + " possible results found matching datatype '" + datatypeSearch + "'");
-            return queryProjects(headers, projectSearch);
-        }).then(projects => {
-            if (projects.length == 0) error("Error: Project not found");
-            if (projects.length > 1) error("Error: " + projects.length + " possible results found matching project '" + projectSearch + "'");
-
-            let taropts = ['-czh'];
-
-            let datatype = datatypes[0];
-            let project = projects[0];
-
-            async.forEach(datatype.files, (file, next_file)=>{
-                console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
-                fs.stat(directory + "/" + file.filename, (err,stats)=>{
-                    if(err) {
-                        if (file.dirname) {
-                            fs.stat(directory + "/" + file.dirname, (err, stats) => {
-                                if (err) "Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?";
-                                taropts.push(file.dirname);
-                                next_file();
-                            });
-                        } else {
-                            if(file.required) error(err);
-                            else {
-                                console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
-                                next_file();
-                            }
-                        }
+        async.forEach(datatype.files, (file, next_file) => {
+            console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
+            fs.stat(directory + "/" + file.filename, (err,stats)=>{
+                if(err) {
+                    if (file.dirname) {
+                        fs.stat(directory + "/" + file.dirname, (err, stats) => {
+                            if (err) "Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?";
+                            taropts.push(file.dirname);
+                            next_file();
+                        });
                     } else {
-                        taropts.push(file.filename);
-                        next_file();
+                        if(file.required) error(err);
+                        else {
+                            console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                            next_file();
+                        }
                     }
-                });
-            }, err => {
-                if(err) error(err);
+                } else {
+                    taropts.push(file.filename);
+                    next_file();
+                }
+            });
+        }, err => {
+            if(err) error(err);
 
-                //submit noop to upload data
-                //warehouse dataset post api need a real task to submit from
-                request.post({ url: config.api.wf + "/task", headers, json: true, body: {
-                    instance_id: instance._id,
-                    name: instanceName,
-                    service: noopService,
-                }},
-                (err, res, body) => {
-                    if(err) error("Error: " + res.body.message);
-                    let task = body.task;
+            //submit noop to upload data
+            //warehouse dataset post api need a real task to submit from
+            request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+                instance_id: instance._id,
+                name: instanceName,
+                service: noopService,
+            }},
+            (err, res, body) => {
+                if(err) error("Error: " + res.body.message);
+                let task = body.task;
 
-                    console.log("Waiting for upload task to be ready...");
-                    waitForFinish(headers, task, 0, function(err) {
-                        if(err) error(err);
+                console.log("Waiting for upload task to be ready...");
+                waitForFinish(headers, task, 0, function(err) {
+                    if(err) error(err);
 
-                        console.log("Starting upload");
+                    console.log("Starting upload");
 
-                        let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
-                        let tar = spawn('tar', taropts, { cwd: directory });
-                        tar.stdout.pipe(req);
+                    let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
+                    let tar = spawn('tar', taropts, { cwd: directory });
+                    tar.stdout.pipe(req);
 
-                        req.on('response', res => {
-                            if(res.statusCode != "200") error("Error: " + res.body.message);
-                            console.log("Dataset successfully uploaded!");
-                            console.log("Now registering dataset...");
+                    req.on('response', res => {
+                        if(res.statusCode != "200") error("Error: " + res.body.message);
+                        console.log("Dataset successfully uploaded!");
+                        console.log("Now registering dataset...");
 
-                            request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
-                                project: project._id,
-                                desc: description,
-                                datatype: datatype._id,
-                                datatype_tags,
-                                tags: tags,
+                        request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
+                            project: project._id,
+                            desc: description,
+                            datatype: datatype._id,
+                            datatype_tags,
+                            tags: tags,
 
-                                meta: metadata,
+                            meta: metadata,
 
-                                instance_id: instance._id,
-                                task_id: task._id, // we archive data from copy task
-                                output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
-                            }}, (err, res, body) => {
-                                if(err) error(err);
-                                if(res.statusCode != "200") error("Failed to upload: " + res.body.message);
-                                console.log("Finished dataset registration!");
-                                resolve(body);
-                            });
+                            instance_id: instance._id,
+                            task_id: task._id, // we archive data from copy task
+                            output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+                        }}, (err, res, body) => {
+                            if(err) error(err);
+                            if(res.statusCode != "200") error("Failed to upload: " + res.body.message);
+                            console.log("Finished dataset registration!");
+                            resolve(body);
                         });
                     });
                 });
             });
-        }).catch(error);
+        });
     });
 }
 
@@ -1221,7 +1212,7 @@ function error(message) {
 
 module.exports = {
     matchDatatypes,
-    queryDatatype, queryApps, queryProfiles, queryProjects, queryDatasets,
+    queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
     downloadDataset, uploadDataset,
     runApp,
     updateProject,

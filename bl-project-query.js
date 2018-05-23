@@ -8,8 +8,8 @@ commander
     .option('--id <id>', 'filter projects by id')
     .option('--search <search>', 'filter projects by name or description')
     .option('--admin <admin>', 'filter project by admins in it')
-    .option('--member <members>', 'filter project by admins in it')
-    .option('--guest <guests>', 'filter project by admins in it')
+    .option('--member <members>', 'filter project by members in it')
+    .option('--guest <guests>', 'filter project by guests in it')
     .option('--skip <skip>', 'number of results to skip')
     .option('--limit <limit>', 'maximum number of results to show')
     .option('--raw', 'output data in raw format (JSON)')
@@ -80,7 +80,7 @@ function formatProjects(headers, data, whatToShow) {
                 return info.join('\n');
             });
             
-            resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data));
+            resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
             resolve(resultArray.join('\n\n'));
         });
     });

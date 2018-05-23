@@ -40,26 +40,76 @@ We would like to accomplish the following workflow:
 * Run a brainlife application with that dataset
 * Download the result
 
-To start, let's look at the `bl dataset` command by running `bl dataset --help`:
+In order to store a dataset, brainlife requires that you supply a project and datatype associated with it.
+
+A datatype is used so that brainlife can guarantee that a certain type of dataset will always contain a given set of files. For example, the dataset we will be uploading–a t1 weighted image–must contain a file called 't1.nii.gz' in order to be successfully stored.
+
+Before following along with this readme, you will need to make your own project on [brainlife.io](https://brainlife.io).
+
+Have you made one? Then let's begin:
+
+### Querying the Project
+
+To search through the list of projects, we can use `bl project query`
+
+My username is `stevengeeky`, so I'll query all of the projects I'm the admin of:
 
 ```
-$ bl dataset --help
+$ bl project query --admin stevengeeky
+Id: 5afc2c8de68fc50028e90820
+Name: Test Project
+Admins: stevengeeky
+Members: stevengeeky
+Guests:
+Access: Access: private (but listed for all users)
+Description: test
 
-  Usage: bl-dataset [options] [command]
+(Returned 1 result)
+```
+
+Keep the id in mind for later. To specifically extrapolate the id from the query, install `jq` and run something similar to the following (using the previous query as an example):
+
+```
+$ bl project query --admin stevengeeky --raw | jq -r '.[0]._id'
+```
+
+Which returns `5afc2c8de68fc50028e90820`.
+
+Also, if you don't know what to run or how to run something, simply attach --help to the end of any command:
+
+```
+$ bl project query --help
+
+  Usage: bl-project-query [options]
 
   Options:
 
-    -h, --help  output usage information
-
-  Commands:
-
-    query       query the list of all datasets
-    download    download a dataset with the given id
-    upload      upload a dataset
-    help [cmd]  display help for [cmd]
+    --id <id>           filter projects by id
+    --search <search>   filter projects by name or description
+    --admin <admin>     filter project by admins in it
+    --member <members>  filter project by members in it
+    --guest <guests>    filter project by guests in it
+    --skip <skip>       number of results to skip
+    --limit <limit>     maximum number of results to show
+    --raw               output data in raw format (JSON)
+    -h, --help          output usage information
 ```
 
-If we want to upload a dataset, it seems we will need `bl dataset upload` to do that. Now we run `bl dataset upload --help`
+Now, we need a datatype for our dataset. Since I will be uploading a t1 weighted image, I'll query for the list of datatypes which might match what I want:
+
+```
+$ bl datatype query --search t1
+Id: 58c33bcee13a50849b25879a
+Name: neuro/anat/t1w
+Description: T1 Weighted
+Files: [(required) t1: t1.nii.gz]
+
+(Returned 1 result)
+```
+
+The single result returned happens to be exactly what we want. This will be the datatype for our uploaded dataset.
+
+Now, it's time to actually upload our data. I have a file named `t1.nii.gz` in a directory called `t1/`, and to upload it I need to supply a few things. Let's run `bl dataset upload --help` to figure out what those things are:
 
 ```
 $ bl dataset upload --help
@@ -80,43 +130,9 @@ $ bl dataset upload --help
     -h, --help                       output usage information
 ```
 
-So assume we have some data to upload (a t1 weighted image) called `t1.nii.gz` stored inside a directory called `t1/`
+All that is required to upload a dataset is a directory to upload, a project id, and a datatype id. But you can also supply other options to provide additional information about it, such as applicable datatype tags, search tags, and which session and subject the data is from.
 
-Currently, we are able to supply all of the above arguments, except for --project and --datatype. We can find those by querying them:
-
-```
-$ bl project query --help
-
-... # see how to use the command
-
-$ bl project query --admin stevengeeky
-```
-
-My query command returned one project, which I am the owner of:
-
-```
-Id: 5afc2c8de68fc50028e90820
-Name: Test Project
-Admins: stevengeeky
-Members: stevengeeky
-Guests:
-Access: Access: private (but listed for all users)
-Description: test
-```
-
-Take note of the id, we will need it for that dataset upload command. Now we need a datatype
-
-```
-$ bl datatype query --search t1
-Id: 58c33bcee13a50849b25879a
-Name: neuro/anat/t1w
-Description: T1 Weighted
-Files: [(required) t1: t1.nii.gz]
-
-(Returned 1 result)
-```
-
-So we now have a datatype id as well. This means we can finally upload our dataset:
+I will upload my dataset by using the following command, given the id of my project and datatype of my dataset:
 
 ```
 $ bl dataset upload --directory t1/      \
@@ -125,8 +141,13 @@ $ bl dataset upload --directory t1/      \
     --description 'My t1 weighted image' \
     --subject 12345                      \
     --session 1                          \
-    --tags "t1, image"
+    --tag "t1"                           \
+    --tag "image"
+```
 
+Notice that I supplied `--tag` twice to add more than one search tag to my dataset. This works the same way with `datatype_tags`.
+
+```
 Looking for /path/to/t1/t1.nii.gz
 Waiting for upload task to be ready...
 SERVICE: soichih/sca-service-noop    Brain Life
@@ -172,7 +193,7 @@ $ bl app query --input-type 'neuro/anat/t1'
 
 Id: 5ac01066029f78002be2c481
 Name: ACPC alignment via ART
-Type: (neuro/anat/t1w) -> (neuro/anat/t1w<acpc_aligned>)
+Type: (neuro/anat/t1w -> (neuro/anat/t1w<acpc_aligned>)
 Description: This app uses the Automatic Registration Toolbox (ART) to perform ACPC alignment of the T1 image. See https://www.nitrc.org/projects/art/ for moreinformation.
 
 ...
@@ -219,12 +240,4 @@ Then, after the app has finished, you can download the resulting dataset just by
 
 ```
 $ bl dataset download --id 5afddb42251f5200274d9ca1
-```
-
-## Grab An ID From the CLI
-
-If you want to quickly grab an id of a datatype/project/dataset/app, simply install `jq` (`npm install -g jq`) and then run something like this:
-
-```
-$ bl datatype query --limit 1 | jq -r '.[0]._id'
 ```
