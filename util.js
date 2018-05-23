@@ -660,12 +660,11 @@ function getBestResource(headers, service) {
  * @param {string} inputSearch
  * @param {string} projectSearch
  */
-function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
+async function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
     let datatypes, inputs, app, instance, project;
     let datatypeTable = {};
     let app_inputs = [], app_outputs = [];
     let output_metadata = {};
-    let instanceName;
 
     userConfig = userConfig || '{}';
     try {
@@ -813,65 +812,57 @@ function runApp(headers, appSearch, inputSearch, projectSearch, userConfig) {
             }}, (err, res, body) => {
                 if (err) reject(err);
                 else if (res.statusCode != 200) reject(res.body.message);
-                console.log("Data Staging Task Created, PROCESS: ");
+                console.log("Data Staging Task Created");
 
                 let task = body.task;
-                waitForFinish(headers, task, 0, (err, task) => {
-                    if (err) error(err);
-                    let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
+                let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
 
-                    // link task to app inputs
-                    app_inputs.forEach(input => input.task_id = task._id);
+                // link task to app inputs
+                app_inputs.forEach(input => input.task_id = task._id);
 
-                    app.outputs.forEach(output => {
-                        app_outputs.push({
-                            id: output.id,
-                            datatype: output.datatype,
-                            datatype_tags: output.datatype_tags,
-                            desc: output.id + " from "+ app.name,
-                            meta: output_metadata,
-                            files: output.files,
-                            archive: {
-                                project: project._id,
-                                desc: output.id + " from " + app.name
-                            },
-                        });
+                app.outputs.forEach(output => {
+                    app_outputs.push({
+                        id: output.id,
+                        datatype: output.datatype,
+                        datatype_tags: output.datatype_tags,
+                        desc: output.id + " from "+ app.name,
+                        meta: output_metadata,
+                        files: output.files,
+                        archive: {
+                            project: project._id,
+                            desc: output.id + " from " + app.name
+                        },
                     });
+                });
 
-                    Object.assign(preparedConfig, {
-                        _app: app._id,
-                        _tid: 1,
-                        _inputs: app_inputs,
-                        _outputs: app_outputs,
-                    });
+                Object.assign(preparedConfig, {
+                    _app: app._id,
+                    _tid: 1,
+                    _inputs: app_inputs,
+                    _outputs: app_outputs,
+                });
 
-                    // console.log(JSON.stringify(preparedConfig));
-                    // prepare and run the app task
+                // console.log(JSON.stringify(preparedConfig));
+                // prepare and run the app task
 
-                    request.post({ url: config.api.wf + "/task", headers, json: true, body: {
-                        instance_id: instance._id,
-                        name: instanceName,
-                        service: app.github,
-                        desc: "Running " + app.name,
-                        service_branch: app.github_branch,
-                        config: preparedConfig,
-                        deps: [ task._id ]
+                request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+                    instance_id: instance._id,
+                    name: instanceName,
+                    service: app.github,
+                    desc: "Running " + app.name,
+                    service_branch: app.github_branch,
+                    config: preparedConfig,
+                    deps: [ task._id ]
 
-                    }}, (err, res, body) => {
-                        if (err) reject(err);
-                        else if (res.statusCode != 200) reject(res.body.message);
+                }}, (err, res, body) => {
+                    if (err) reject(err);
+                    else if (res.statusCode != 200) reject(res.body.message);
 
-                        if (res.statusCode != 200) error("Error: " + res.body.message);
+                    if (res.statusCode != 200) error("Error: " + res.body.message);
 
-                        let appTask = body.task;
-                        console.log(app.name + " Task for app '" + app.name + "' has begun.\n" +
-                                    "To monitor the app as it runs, please execute \nbl app monitor --id " + appTask._id);
-
-                        // waitForFinish(headers, appTask, 0, (err, appTask) => {
-                        // 	if (err) error(err);
-                        // 	console.log("Data will be automatically archived to Project '" + project.name + "'");
-                        // });
-                    });
+                    let appTask = body.task;
+                    console.log(app.name + " Task for app '" + app.name + "' has been created.\n" +
+                                "To monitor the app as it runs, please execute \nbl app wait --id " + appTask._id);
                 });
             })
         });
@@ -1078,34 +1069,46 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
  */
 function waitForFinish(headers, task, gear, cb) {
     var find = {_id: task._id};
-
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
         if (res.statusCode != 200) error("Error: " + res.body.message);
-
+        
         let task = body.tasks[0];
-
-        if (task.status == "finished") {
-            terminalOverwrite.clear();
-            terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
-                                "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
-            terminalOverwrite.done();
-            return cb(null, task);
+        
+        if (!process.stdout.isTTY) {
+            if (task.status == "finished") return cb(null, task);
+            else if (task.status == "failed") return cb("Error: " + task.status_msg, null);
+            else {
+                setTimeout(function() {
+                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
+                }, 1000);
+            }
         }
-        if (task.status == "failed") {
-            terminalOverwrite.clear();
-            terminalOverwrite("SERVICE: " + task.service + "\n" +
-                                "STATUS: failed");
-            terminalOverwrite.done();
-            return cb("Error: " + task.status_msg, null);
+        else {
+            if (task.status == "finished") {
+                terminalOverwrite.clear();
+                terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
+                                    "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
+                terminalOverwrite.done();
+                return cb(null, task);
+            }
+            else if (task.status == "failed") {
+                terminalOverwrite.clear();
+                terminalOverwrite("SERVICE: " + task.service + "\n" +
+                                    "STATUS: failed");
+                terminalOverwrite.done();
+                return cb("Error: " + task.status_msg, null);
+            }
+            else {
+                terminalOverwrite.clear();
+                terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
+                                    "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
+        
+                setTimeout(function() {
+                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
+                }, 1000);
+            }
         }
-        terminalOverwrite.clear();
-        terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
-                            "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
-
-        setTimeout(function() {
-            waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
-        }, 1000);
     });
 }
 

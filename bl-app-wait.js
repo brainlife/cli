@@ -4,7 +4,7 @@ const util = require('./util');
 const request = require('request');
 
 commander
-    .option('--id <task_id>', 'id of task to monitor')
+    .option('-i, --id <task_id>', 'id of task to wait for')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
@@ -13,7 +13,7 @@ util.loadJwt().then(jwt => {
         if (body.tasks.length == 0) throw "Error: no tasks found with id " + commander.id;
         util.waitForFinish(headers, body.tasks[0], 0, err => {
             if (err) throw err;
-            console.log("(done monitoring)");
+            console.log("(done waiting)");
         });
     });
 }).catch(console.error);

@@ -12,11 +12,11 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--id <id>', 'filter datatype by id')
-    .option('--search <search>', 'filter datatype by name or description')
-    .option('--skip <skip>', 'number of results to skip')
-    .option('--limit <limit>', 'maximum number of results to show')
-    .option('--raw', 'output data in raw format (JSON)')
+    .option('-i, --id <id>', 'filter datatype by id')
+    .option('-s, --search <search>', 'filter datatype by name or description')
+    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('-l, --limit <limit>', 'maximum number of results to show')
+    .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {

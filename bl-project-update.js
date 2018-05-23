@@ -5,12 +5,12 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--id <projectid>', 'the id of the project to update')
-    .option('--name <newname>', '(optional) set the project\'s name')
-    .option('--desc <newdesc>', '(optional) set the project\'s description')
-    .option('--admins <newAdmins>', '(optional) set the project\'s admins')
-    .option('--members <newMembers>', '(optional) set the project\'s members')
-    .option('--guests <newGuests>', '(optional) set the project\'s guests')
+    .option('-i, --id <projectid>', 'the id of the project to update')
+    .option('-n, --name <newname>', '(optional) set the project\'s name')
+    .option('-d, --desc <newdesc>', '(optional) set the project\'s description')
+    .option('-a, --admins <newAdmins>', '(optional) set the project\'s admins')
+    .option('-m, --members <newMembers>', '(optional) set the project\'s members')
+    .option('-g, --guests <newGuests>', '(optional) set the project\'s guests')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {

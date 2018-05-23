@@ -12,16 +12,16 @@ const util = require('./util');
 const timeago = require('time-ago');
 
 commander
-    .option('--id <id>', 'filter datasets by id')
-    .option('--search <search>', 'filter datasets by desc')
+    .option('-i, --id <id>', 'filter datasets by id')
+    .option('-s, --search <search>', 'filter datasets by desc')
     .option('-d, --desc, --datatype <datatype>', 'filter datasets by datatype')
-    .option('--tag <datatype tag>', 'filter datasets by datatype tag')
-    .option('--admin <project admin>', 'filter datasets by their project admin')
-    .option('--project <projectid>', 'filter datasets by project id')
-    .option('--subject <subject>', 'filter datasets by subject')
-    .option('--skip <skip>', 'number of results to skip')
-    .option('--limit <limit>', 'maximum number of results to show')
-    .option('--raw', 'output data in raw format (JSON)')
+    .option('-t, --tag <datatype tag>', 'filter datasets by datatype tag')
+    .option('-a, --admin <project admin>', 'filter datasets by their project admin')
+    .option('-p, --project <projectid>', 'filter datasets by project id')
+    .option('-su, --subject <subject>', 'filter datasets by subject')
+    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('-l, --limit <limit>', 'maximum number of results to show')
+    .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {

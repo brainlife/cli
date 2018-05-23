@@ -4,13 +4,13 @@ const argv = require('minimist')(process.argv.slice(2));
 const util = require('./util');
 
 commander
-    .option('--id <id>', 'filter apps by id')
-    .option('--search <search>', 'filter apps by name or description')
-    .option('--input-datatype <type>', 'specify required input type')
-    .option('--output-datatype <type>', 'specify required output type')
-    .option('--skip <skip>', 'number of results to skip')
-    .option('--limit <limit>', 'maximum number of results to show')
-    .option('--raw', 'output data in raw format (JSON)')
+    .option('-i, --id <id>', 'filter apps by id')
+    .option('-s, --search <search>', 'filter apps by name or description')
+    .option('-di, --input-datatype <type>', 'specify required input type')
+    .option('-do, --output-datatype <type>', 'specify required output type')
+    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('-l, --limit <limit>', 'maximum number of results to show')
+    .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {

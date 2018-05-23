@@ -5,14 +5,14 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--id <id>', 'filter projects by id')
-    .option('--search <search>', 'filter projects by name or description')
-    .option('--admin <admin>', 'filter project by admins in it')
-    .option('--member <members>', 'filter project by members in it')
-    .option('--guest <guests>', 'filter project by guests in it')
-    .option('--skip <skip>', 'number of results to skip')
-    .option('--limit <limit>', 'maximum number of results to show')
-    .option('--raw', 'output data in raw format (JSON)')
+    .option('-i, --id <id>', 'filter projects by id')
+    .option('-s, --search <search>', 'filter projects by name or description')
+    .option('-a, --admin <admin>', 'filter project by admins in it')
+    .option('-m, --member <members>', 'filter project by members in it')
+    .option('-g, --guest <guests>', 'filter project by guests in it')
+    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('-l, --limit <limit>', 'maximum number of results to show')
+    .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {

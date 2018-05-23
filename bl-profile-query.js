@@ -5,20 +5,19 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--id <id>', 'filter profiles by id')
-    .option('--search <search>', 'filter profiles by username, full name, or email address')
-    .option('--raw', 'output data in raw format (JSON)')
+    .option('-i, --id <id>', 'filter profiles by id')
+    .option('-s, --search <search>', 'filter profiles by username, full name, or email address')
+    .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
-
-    util.queryProfiles(headers, commander.id, commander.search)
-    .then(profiles => {
-        if (commander.raw) console.log(JSON.stringify(profiles));
-        else formatProfiles(headers, profiles, { all: true }).then(console.log);
-    }).catch(console.error);
+    
+    let profiles = await queryProfiles(headers, commander.id, commander.search);
+    
+    if (commander.raw) console.log(JSON.stringify(profiles));
+    else formatProfiles(headers, profiles, { all: true }).then(console.log);
 }).catch(console.error);
 
 /**

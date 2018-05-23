@@ -12,15 +12,15 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--directory <directory>', 'directory where your dataset is located')
-    .option('--project <projectid>', 'project id to upload dataset to')
-    .option('--datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--datatype-tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
-    .option('--description <description>', 'description of uploaded dataset')
-    .option('--subject <subject>', 'subject of the uploaded dataset')
-    .option('--session <session>', 'session of the uploaded dataset')
-    .option('--tag <tag>', 'add a tag to the uploaded dataset')
-    .option('--meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
+    .option('-f, --directory <directory>', 'directory where your dataset is located', { isDefault: true })
+    .option('-p, --project <projectid>', 'project id to upload dataset to')
+    .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
+    .option('-dt, --datatype-tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
+    .option('--desc, --description <description>', 'description of uploaded dataset')
+    .option('-s, --subject <subject>', 'subject of the uploaded dataset')
+    .option('-se, --session <session>', 'session of the uploaded dataset')
+    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
+    .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
