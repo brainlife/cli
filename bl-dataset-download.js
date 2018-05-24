@@ -6,14 +6,16 @@ const config = require('./config');
 const fs = require('fs');
 const async = require('async');
 const spawn = require('child_process').spawn;
-//const WebSocketClient = require('websocket').client;
+const tar = require('tar');
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
-const chalk = require('chalk');
 const util = require('./util');
+const terminalOverwrite = require('terminal-overwrite');
+const size = require('window-size');
 
 commander
     .option('-i, --id <id>', 'download a dataset with the given id')
+    .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
     .option('-r, --raw', 'output raw (JSON) information about the downloaded dataset')
     .parse(process.argv);
 
@@ -33,13 +35,37 @@ function downloadDataset(headers, query, raw) {
         if (datasets.length != 1) util.errorMaybeRaw(res.body.message, 'Error: invalid dataset id given');
         
         let id = datasets[0]._id;
-        console.log("Streaming dataset to " + id);
+        let contentLength = Infinity, loaded = 0;
+        let dir = commander.directory || datasets[0]._id;
+        
+        if (!commander.raw) console.log("Streaming dataset to " + dir);
+        showProgress(0);
 
-        fs.mkdir(id, err => {
+        fs.mkdir(dir, err => {
             request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
             .on('response', res => {
                 if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, commander.raw);
-            }).pipe(tar.x({ C: id }));
+                contentLength = res.headers['content-length'];
+            })
+            .on('data', chunk => {
+                loaded += chunk.length;
+                showProgress(loaded / contentLength);
+            })
+            .on('end', () => {
+                if (process.stdout.isTTY) terminalOverwrite.done();
+                if (!commander.raw) console.log("Done!");
+            }).pipe(tar.x({ C: dir }));
         });
+        
+        function showProgress(percentage) {
+            let progressBar = '', progressBarLength = size.width - 12;
+            for (let i = 0; i < progressBarLength; i++) {
+                if (i / progressBarLength > percentage) progressBar += ' ';
+                else progressBar += '=';
+            }
+            if (process.stdout.isTTY) {
+                terminalOverwrite(Math.round(percentage*100) + '% done [' + progressBar + ']');
+            }
+        }
     });
 }

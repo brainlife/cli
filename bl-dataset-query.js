@@ -15,7 +15,7 @@ commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-s, --search <search>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
-    .option('-t, --tag <datatype tag>', 'filter datasets by datatype tag')
+    .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
     .option('-a, --admin <project admin>', 'filter datasets by their project admin')
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('-su, --subject <subject>', 'filter datasets by subject')

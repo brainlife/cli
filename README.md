@@ -187,14 +187,14 @@ Status: stored
 Now what's an app that we can run on a t1 image? Let's find one:
 
 ```
-$ bl app query --input-type 'neuro/anat/t1'
+$ bl app query --input-datatype neuro/anat/t1w
 
 ...
 
 Id: 5ac01066029f78002be2c481
 Name: ACPC alignment via ART
-Type: (neuro/anat/t1w -> (neuro/anat/t1w<acpc_aligned>)
-Description: This app uses the Automatic Registration Toolbox (ART) to perform ACPC alignment of the T1 image. See https://www.nitrc.org/projects/art/ for moreinformation.
+Type: (t1: neuro/anat/t1w) -> (t1: neuro/anat/t1w<acpc_aligned>)
+Description: This app uses the Automatic Registration Toolbox (ART) to perform ACPC alignment of the T1 image. See https://www.nitrc.org/projects/art/ for more information.
 
 ...
 
@@ -208,7 +208,7 @@ To run an app, we need the app's id, the ids of the input or inputs we want to s
 ```
 $ bl app run
     --id 5ac01066029f78002be2c481                 \
-    --inputs 5b031990251f5200274d9cc4             \
+    --input t1:5b031990251f5200274d9cc4           \
     --project 5afc2c8de68fc50028e90820            \
     --config '{"reorient" : true, "crop" : true}'
 
@@ -236,7 +236,7 @@ You can monitor the app as it runs using the generated command:
 $ bl app monitor --id 5b031dacc1b8f90044ad6c3b
 ```
 
-Then, after the app has finished, you can download the resulting dataset just by supplying the dataset id:
+Then, after the app has finished (and the dataset has been stored), you can download the resulting dataset just by supplying the resulting dataset id. You can get the resulting dataset id by querying the list of datasets (which will be sorted by date) and then running something like this:
 
 ```
 $ bl dataset download --id 5afddb42251f5200274d9ca1

@@ -219,8 +219,8 @@ function queryProfiles(headers, idSearch, search, skip, limit) {
         let find = {}, orQueries = [];
 
         request.get(config.api.auth + '/profile?limit=' + (limit || -1) + '&offset=' + (skip || 0), { headers, json: true }, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
             else {
                 let profiles = body.profiles;
                 if (idSearch || search) profiles = profiles.filter(profile => {
@@ -283,6 +283,9 @@ function matchProfiles(headers, match) {
 function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags, project, subject, skip, limit) {
     return new Promise(async (resolve, reject) => {
         let datatypes = await matchDatatypes(headers, datatype);
+        // strictly only match datatypes that exactly equal what the user typed in
+        if (datatype && datatype.length > 0) datatypes = datatypes.filter(d => d.name == datatype);
+        
         let projects = await matchProjects(headers, project, admin);
         
         if (datatype && datatypes.length == 0) error("No datatypes found matching '" + datatype + "'");
@@ -312,11 +315,17 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         }
         if (datatype_tags && datatype_tags.length > 0) {
             datatype_tags.forEach(tag => {
-                andQueries.push({ datatype_tags: { $elemMatch: { $in: datatype_tags } } });
+                if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
+                else {
+                    andQueries.push({ datatype_tags: { $elemMatch: { $eq: tag } } });
+                }
             });
         }
         if (projects && projects.length > 0) {
             andQueries.push({ project: { $in: projects.map(p => p._id) } });
+        }
+        if (datatype && datatype.length > 0) {
+            andQueries.push({ datatype: { $in: datatypes } })
         }
         
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
@@ -402,8 +411,8 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
         let url = makeQueryUrl(config.api.warehouse + '/project', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
         
         request.get(url, { headers, json: true }, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
             else {
                 resolve(body.projects);
             }
@@ -472,8 +481,8 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
         let url = makeQueryUrl(config.api.warehouse + '/app', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
         
         request.get(url, { headers, json: true }, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
             else {
                 resolve(body.apps);
             }
@@ -530,8 +539,8 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
 
         let url = makeQueryUrl(config.api.warehouse + '/datatype', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
         request.get(url, { headers, json: true }, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
             else {
                 resolve(body.datatypes);
             }
@@ -621,7 +630,7 @@ function updateProject(headers, id, updates) {
             if (Object.keys(updateValues) == 0) error("Error: no values to update project with");
 
             request.put(config.api.warehouse + "/project/" + projects[0]._id, { json: updateValues, updateValues, headers: headers }, (err, res, body) => resolve(body));
-        })
+        }).catch(error);
     });
 }
 
@@ -639,8 +648,8 @@ function getInstance(headers, instanceName, options) {
         options = options || {};
 
         request.get({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
-            if(err) return reject(err);
-            if(res.statusCode != 200) return reject(res.statusCode);
+            if(err) return error(err);
+            if(res.statusCode != 200) return error(res.statusCode);
             if(body.instances[0]) resolve(body.instances[0]);
             else {
                 // need to create new instance
@@ -652,8 +661,13 @@ function getInstance(headers, instanceName, options) {
 
                 request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
-                    if (err) return reject(err);
-                    else if (res.statusCode != 200) reject(res.body.message);
+                    if (err) return error(err);
+                    else if (res.statusCode != 200) {
+                        if (res.statusMessage == 'not member of the group you have specified') {
+                            error("There was an error during instance creation. Please log in again.");
+                        }
+                        else error(res.body.message);
+                    }
                     else {
                         resolve(body);
                     }
@@ -699,7 +713,7 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
     
     app.inputs.forEach(input => {
         console.log("found app input key '" + input.id + "'");
-        idToAppInputTable[input.id] = input
+        idToAppInputTable[input.id] = input;
     });
     datatypes.forEach(d => datatypeTable[d._id] = d);
     
@@ -715,6 +729,9 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
         
         let dataset = results[0];
         let app_input = idToAppInputTable[file_id];
+        
+        if (dataset.status != "stored") error("Input dataset " + inputSearch + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
+        if (dataset.removed == true) error("Input dataset " + inputSearch + " has been removed and cannot be used.");
         
         if (!app_input) error("Error: This app's config does not include key '" + file_id + "'");
         
@@ -776,8 +793,8 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
     });
 
     request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
-        if (err) reject(err);
-        else if (res.statusCode != 200) reject(res.body.message);
+        if (err) error(err);
+        else if (res.statusCode != 200) error(res.body.message);
 
         let jwt = body.jwt;
         let userInputKeys = Object.keys(inputs);
@@ -834,8 +851,8 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
             desc: "Staging Dataset",
             config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
         }}, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
+            if (err) error(err);
+            else if (res.statusCode != 200) error(res.body.message);
             console.log("Data Staging Task Created (" + body.task._id + ")");
             
             let task = body.task;
@@ -878,8 +895,8 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
                 config: preparedConfig,
                 deps: [ task._id ]
             }}, (err, res, body) => {
-                if (err) reject(err);
-                else if (res.statusCode != 200) reject(res.body.message);
+                if (err) error(err);
+                else if (res.statusCode != 200) error(res.body.message);
 
                 if (res.statusCode != 200) error("Error: " + res.body.message);
 
