@@ -284,7 +284,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
     return new Promise(async (resolve, reject) => {
         let datatypes = await matchDatatypes(headers, datatype);
         // strictly only match datatypes that exactly equal what the user typed in
-        if (datatype && datatype.length > 0) datatypes = datatypes.filter(d => d.name == datatype);
+        if (datatype && datatype.length > 0 && !isValidObjectId(datatype)) datatypes = datatypes.filter(d => d.name == datatype);
         
         let projects = await matchProjects(headers, project, admin);
         
