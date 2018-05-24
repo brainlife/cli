@@ -35,6 +35,7 @@ util.loadJwt().then(jwt => {
     
     if (!commander.project) util.errorMaybeRaw(`Error: no project given to upload dataset to`, commander.raw);
     if (!commander.datatype) util.errorMaybeRaw(`Error: no datatype of dataset given`, commander.raw);
+    if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
     let meta = {};
     if (commander.meta) {

@@ -21,7 +21,13 @@ commander
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    downloadDataset(headers, commander.id, commander.raw);
+    if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
+        commander.id = commander.id || commander.args[0];
+        commander.args = commander.args.slice(1);
+    }
+    if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
+    
+    downloadDataset(headers, commander.id, commander.directory, commander.raw);
 }).catch(console.error);
 
 /**
@@ -29,14 +35,14 @@ util.loadJwt().then(jwt => {
  * @param {string} query
  * @param {any} headers
  */
-function downloadDataset(headers, query, raw) {
+function downloadDataset(headers, query, dir, raw) {
     util.queryDatasets(headers, query)
     .then(datasets => {
         if (datasets.length != 1) util.errorMaybeRaw(res.body.message, 'Error: invalid dataset id given');
         
         let id = datasets[0]._id;
         let contentLength = Infinity, loaded = 0;
-        let dir = commander.directory || datasets[0]._id;
+        dir = dir || datasets[0]._id;
         
         if (!commander.raw) console.log("Streaming dataset to " + dir);
         showProgress(0);

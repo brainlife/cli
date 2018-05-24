@@ -336,6 +336,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
             else {
+                body.datasets.count = body.count;
                 resolve(body.datasets);
             }
         });
@@ -1130,5 +1131,5 @@ module.exports = {
     matchDatatypes, matchApps, matchProfiles, matchProjects, matchDatasets,
     getInstance, runApp,
     updateProject,
-    loadJwt, pluralize, waitForFinish, error, errorMaybeRaw
+    loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };

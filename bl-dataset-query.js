@@ -34,7 +34,7 @@ util.loadJwt().then(async jwt => {
     let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['datatype_tag'], commander.project, commander.subject, commander.skip, commander.limit);
     
     if (commander.raw) console.log(JSON.stringify(datasets));
-    else formatDatasets(headers, datasets, { all: true }).then(console.log);
+    else formatDatasets(headers, datasets, commander.skip, { all: true }).then(console.log);
 }).catch(util.error);
 
 /**
@@ -43,7 +43,7 @@ util.loadJwt().then(async jwt => {
  * @param {Object} whatToShow
  * @returns {Promise<string>}
  */
-function formatDatasets(headers, data, whatToShow) {
+function formatDatasets(headers, data, skip, whatToShow) {
     let projectTable = {}, datatypeTable = {}, profileTable = {};
     return new Promise((resolve, reject) => {
         util.queryProjects(headers, null, null, null, null, null, "0", "0")
@@ -89,7 +89,17 @@ function formatDatasets(headers, data, whatToShow) {
                 return info.join('\n');
             });
             
-            resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+            if (data.count) {
+                skip = +(skip || '');
+                if (skip + data.length >= data.count) resultArray.push("(Showing last " + data.length + " datasets of " + data.count + ")");
+                else if (skip == 0) resultArray.push("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
+                else {
+                    resultArray.push("(Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count + ")");
+                }
+            }
+            else {
+                resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+            }
             resolve(resultArray.join('\n\n'));
 
         }).catch(util.error);
