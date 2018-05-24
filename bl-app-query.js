@@ -57,7 +57,7 @@ function formatApps(headers, data, whatToShow) {
                 let formattedInputs = D.inputs.map(input => {
                     let dtype = datatypeTable[input.datatype] ? datatypeTable[input.datatype].name : input.datatype;
                     let tags = input.datatype_tags.length > 0 ? "<" + input.datatype_tags.join(',') + ">" : '';
-                    let formattedDatatype = dtype + tags;
+                    let formattedDatatype = input.id + ": " + dtype + tags;
                     if (input.multi) formattedDatatype += '[]';
                     if (input.optional) formattedDatatype += '?';
                     
@@ -67,7 +67,7 @@ function formatApps(headers, data, whatToShow) {
                 let formattedOutputs = D.outputs.map(output => {
                     let dtype = datatypeTable[output.datatype] ? datatypeTable[output.datatype].name : output.datatype;
                     let tags = output.datatype_tags.length > 0 ? "<" + output.datatype_tags.join(',') + ">" : '';
-                    let formattedDatatype = dtype + tags;
+                    let formattedDatatype = output.id + ": " + dtype + tags;
                     if (output.multi) formattedDatatype += '[]';
                     if (output.optional) formattedDatatype += '?';
                     
