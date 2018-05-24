@@ -10,6 +10,6 @@ exports.api = {
 }
 
 exports.path = {
-    jwt: process.env.HOME+"/.config/brainlife/.jwt",
+    jwt: process.env.HOME+"/.config/" + host + "/.jwt",
 }
 
