@@ -930,7 +930,6 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
                 if (appInput.multi) {
                     flattenedCalculatedConfig[path] = flattenedCalculatedConfig[path] || [];
                     userInput.forEach(uInput => {
-                        console.log(uInput);
                         let dtype = datatypeTable[uInput.datatype];
                         let idToFile = {};
                         dtype.files.forEach(file => idToFile[file.id] = file);
