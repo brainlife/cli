@@ -14,7 +14,7 @@ const timeago = require('time-ago');
 commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-s, --search <search>', 'filter datasets by desc')
-    .option('-d, --desc, --datatype <datatype>', 'filter datasets by datatype')
+    .option('-d, --datatype <datatype>', 'filter datasets by datatype')
     .option('-t, --tag <datatype tag>', 'filter datasets by datatype tag')
     .option('-a, --admin <project admin>', 'filter datasets by their project admin')
     .option('-p, --project <projectid>', 'filter datasets by project id')
@@ -82,8 +82,8 @@ function formatDatasets(headers, data, whatToShow) {
                 if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
                 if (whatToShow.all || whatToShow.desc) info.push("Description: " + (d.desc||''));
                 if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
-                if (whatToShow.all || whatToShow.storage) info.push("Storage: " + d.storage);
-                if (whatToShow.all || whatToShow.status) info.push("Status: " + d.status);
+                if (whatToShow.all || whatToShow.storage) info.push("Storage: " + (d.storage || 'N/A'));
+                if (whatToShow.all || whatToShow.status) info.push("Status: " + (d.status || 'unknown'));
                 // if (whatToShow.all || whatToShow.meta) info.push("Meta: " + formattedMeta);
 
                 return info.join('\n');

@@ -58,9 +58,7 @@ function formatProjects(headers, data, whatToShow) {
 
             let resultArray = data.map(d => {
                 let info = [];
-                let formattedAdmins = "";
-                let formattedMembers = "";
-                let formattedGuests = "";
+                let formattedAdmins = []; let formattedMembers = []; let formattedGuests = [];
                 
                 if (d.admins) formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
                 if (d.members) formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');

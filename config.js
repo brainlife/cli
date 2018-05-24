@@ -1,5 +1,5 @@
 
-const host = "brainlife.duckdns.org";
+const host = "test.brainlife.io";
 
 exports.api = {
     auth: "https://"+host+"/api/auth",
