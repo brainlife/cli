@@ -583,59 +583,6 @@ function makeQueryUrl(url, options) {
 }
 
 /**
- * Update a project
- * @param {any} updates
- * @param {any} headers
- * @returns {Promise<project>}
- */
-function updateProject(headers, id, updates) {
-    let profileTable = [];
-    return new Promise((resolve, reject) => {
-        queryProfiles(headers)
-        .then(profiles => {
-            profiles.forEach(profile => profileTable[profile.username.trim()] = profileTable[profile.id] = profile);
-            return queryProjects(headers, id);
-        })
-        .then(projects => {
-            if (projects.length != 1) error("Error: invalid project id");
-
-            if (updates.admins && updates.admins.trim().length > 0) {
-                updates.admins = updates.admins.split(",").map(username => {
-                    username = username.trim();
-                    if (profileTable[username]) return profileTable[username].id;
-                    else {
-                        error("Error: no user found with username '" + username + "'when checking admins");
-                    }
-                })
-            }
-            if (updates.members && updates.members.trim().length > 0) {
-                updates.members = updates.members.split(",").map(username => {
-                    username = username.trim();
-                    if (profileTable[username]) return profileTable[username].id;
-                    else {
-                        error("Error: no user found with username '" + username + "'when checking members");
-                    }
-                })
-            }
-            if (updates.guests && updates.guests.trim().length > 0) {
-                username = username.trim();
-                updates.guests = updates.guests.split(",").map(username => {
-                    if (profileTable[username]) return profileTable[username].id;
-                    else {
-                        error("Error: no user found with username '" + username + "'when checking guests");
-                    }
-                })
-            }
-
-            let updateValues = toNonNullObject(updates);
-            if (Object.keys(updateValues) == 0) error("Error: no values to update project with");
-
-            request.put(config.api.warehouse + "/project/" + projects[0]._id, { json: updateValues, updateValues, headers: headers }, (err, res, body) => resolve(body));
-        }).catch(error);
-    });
-}
-
-/**
  * Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
@@ -1130,6 +1077,5 @@ module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
     matchDatatypes, matchApps, matchProfiles, matchProjects, matchDatasets,
     getInstance, runApp,
-    updateProject,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
