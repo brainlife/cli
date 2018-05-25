@@ -71,8 +71,8 @@ function formatDatasets(headers, data, skip, whatToShow) {
         datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
         profiles.forEach(profile => profileTable[profile.id] = profile);
         
-        let info = [];
         let resultArray = data.map(d => {
+            let info = [];
             let createDateObject = new Date(d.create_date);
             let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
             let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
@@ -107,7 +107,7 @@ function formatDatasets(headers, data, skip, whatToShow) {
         
         if (data.count) {
             skip = +(skip || '');
-            if (skip == 0 && data.length == data.count) resultArray.push("(Showing all " + data.length + " of " + data.length + "datasets)");
+            if (skip == 0 && data.length == data.count) resultArray.push("(Showing all " + data.length + " of " + data.length + " datasets)");
             else if (skip + data.length >= data.count) resultArray.push("(Showing last " + data.length + " of " + data.count + " datasets)");
             else if (skip == 0) resultArray.push("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
             else {
