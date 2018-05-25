@@ -19,12 +19,9 @@ commander
     .parse(process.argv);
 
 
-var schema = {
-    properties: {
-        password: {required: true, hidden: true},
-    }
-};
+let schema = { properties: {} };
 if (!commander.username) schema.properties.username = {required: true};
+schema.properties.password = { required: true, hidden: true };
 
 prompt.message = null;
 prompt.start();
