@@ -21,8 +21,5 @@ util.loadJwt().then(jwt => {
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    if (!argv['output']) argv['output'] = [];
-    if (!Array.isArray(argv['output'])) argv['output'] = [ argv['output'] ];
-    
-    util.runApp(headers, commander.id, argv['input'], argv['output'], commander.project, commander.config);
+    util.runApp(headers, commander.id, argv['input'], commander.project, commander.config);
 }).catch(console.error);

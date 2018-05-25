@@ -273,7 +273,7 @@ function matchProfiles(headers, match) {
  * @param {string|string[]} search
  * @param {string|string[]} admin
  * @param {string|string[]} datatype
- * @param {string[]} datatype_tags
+ * @param {string|string[]} datatype_tags
  * @param {string|string[]} project
  * @param {string} subject
  * @param {string|number} skip
@@ -314,6 +314,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
         if (datatype_tags && datatype_tags.length > 0) {
+            if (typeof datatype_tags == 'string') datatype_tags = [ datatype_tags ];
             datatype_tags.forEach(tag => {
                 if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
                 else {
@@ -446,6 +447,8 @@ function matchProjects(headers, match, admins, members, guests) {
  * @param {string|string[]} search
  * @param {string|string[]} inputs
  * @param {string|string[]} outputs
+ * @param {number|string} skip
+ * @param {number|string} limit
  * @returns {Promise<app[]>}
  */
 function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
@@ -512,7 +515,10 @@ function matchApps(headers, match, inputs, outputs) {
 
 /**
  * Query the list of datatypes
- * @param {string} search
+ * @param {string|string[]} idSearch
+ * @param {string|string[]} search
+ * @param {number|string} skip
+ * @param {number|string} limit
  * @returns {Promise<datatype[]>}
  */
 function queryDatatypes(headers, idSearch, search, skip, limit) {
@@ -629,317 +635,325 @@ function getInstance(headers, instanceName, options) {
  * Run a Brain Life application
  * @param {any} headers
  * @param {string} appSearch
+ * @param {string[]} userInputs
  * @param {string} projectSearch
+ * @param {string} userConfig
+ * @param {boolean} raw
  */
-async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch, userConfig) {
-    let datatypeTable = {};
-    let app_inputs = [], app_outputs = [], all_dataset_ids = [];
-    let output_metadata = {};
-    
-    userConfig = userConfig || '{}';
-    try {
-        userConfig = JSON.parse(userConfig);
-    }
-    catch (exception) {
-        error('Error: Could not parse JSON Config Object');
-    }
-    
-    let datatypes = await matchDatatypes(headers);
-    let apps = await matchApps(headers, appSearch);
-    let projects = await matchProjects(headers, projectSearch);
-    
-    if (apps.length == 0) error("Error: No apps found matching '" + appSearch + "'");
-    if (apps.length > 1) error("Error: Multiple apps matching '" + appSearch + "'");
-    
-    if (projects.length == 0) error("Error: No projects found matching '" + projectSearch + "'");
-    if (projects.length > 1) error("Error: Multiple projects matching '" + projectSearch + "'");
-    
-    let inputs = {};
-    let idToAppInputTable = {};
-    let app = apps[0];
-    let project = projects[0];
-    
-    app.inputs.forEach(input => {
-        console.log("found app input key '" + input.id + "'");
-        idToAppInputTable[input.id] = input;
-    });
-    datatypes.forEach(d => datatypeTable[d._id] = d);
-    
-    for (let inputSearch of userInputs) {
-        if (inputSearch.indexOf(':') == -1) error('Error: No key given for dataset ' + inputSearch);
-        let file_id = inputSearch.substring(0, inputSearch.indexOf(":"));
-        let datasetQuery = inputSearch.substring(inputSearch.indexOf(":") + 1);
-        let results = await matchDatasets(headers, datasetQuery);
+function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) {
+    return new Promise(async (resolve, reject) => {
+        let datatypeTable = {};
+        let app_inputs = [], app_outputs = [], all_dataset_ids = [];
+        let output_metadata = {};
         
-        if (results.length == 0) error("Error: No datasets matching '" + datasetQuery + "'");
-        if (results.length > 1) error("Error: Multiple datasets matching '" + datasetQuery + "'");
-        if (all_dataset_ids.indexOf(results[0]._id) == -1) all_dataset_ids.push(results[0]._id);
-        
-        let dataset = results[0];
-        let app_input = idToAppInputTable[file_id];
-        
-        if (dataset.status != "stored") error("Input dataset " + inputSearch + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
-        if (dataset.removed == true) error("Input dataset " + inputSearch + " has been removed and cannot be used.");
-        
-        if (!app_input) error("Error: This app's config does not include key '" + file_id + "'");
-        
-        if (app_input.datatype != dataset.datatype) {
-            error("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + inputSearch);
+        userConfig = userConfig || '{}';
+        try {
+            userConfig = JSON.parse(userConfig);
         }
-        let userInputTags = {};
-        dataset.datatype_tags.forEach(tag => userInputTags[tag] = 1);
-        app_input.datatype_tags.forEach(tag => {
-            if (tag.startsWith("!")) {
-                if (userInputTags[tag.substring(1)]) error("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + inputSearch);
-            }
-            else {
-                if (!userInputTags[tag]) error("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + inputSearch);
-            }
-        });
+        catch (exception) {
+            error('Error: Could not parse JSON Config Object');
+        }
         
-        inputs[file_id] = inputs[file_id] || [];
-        inputs[file_id].push(dataset);
-    }
-    
-    let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
-    let instance = await getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
-    
-    let flattenedConfig = flattenConfig(app.config, []);
-    let flattenedUserConfig = flattenConfig(userConfig, []);
-    let values = {};
-    
-    Object.keys(flattenedConfig).forEach(key => {
-        if (flattenedConfig[key].type != 'input') {
-            let niceLookingKey = JSON.parse(key).join('.');
+        let datatypes = await matchDatatypes(headers);
+        let apps = await matchApps(headers, appSearch);
+        let projects = await matchProjects(headers, projectSearch);
+        
+        if (apps.length == 0) error("Error: No apps found matching '" + appSearch + "'");
+        if (apps.length > 1) error("Error: Multiple apps matching '" + appSearch + "'");
+        
+        if (projects.length == 0) error("Error: No projects found matching '" + projectSearch + "'");
+        if (projects.length > 1) error("Error: Multiple projects matching '" + projectSearch + "'");
+        
+        let inputs = {};
+        let idToAppInputTable = {};
+        let app = apps[0];
+        let project = projects[0];
+        
+        app.inputs.forEach(input => {
+            if (!raw) console.log("found app input key '" + input.id + "'");
+            idToAppInputTable[input.id] = input;
+        });
+        datatypes.forEach(d => datatypeTable[d._id] = d);
+        
+        for (let inputSearch of userInputs) {
+            if (inputSearch.indexOf(':') == -1) error('Error: No key given for dataset ' + inputSearch);
+            let file_id = inputSearch.substring(0, inputSearch.indexOf(":"));
+            let datasetQuery = inputSearch.substring(inputSearch.indexOf(":") + 1);
+            let results = await matchDatasets(headers, datasetQuery);
             
-            if (!flattenedUserConfig[key]) {
-                if (flattenedConfig[key].default) {
-                    console.log("No config entry found for key '" + niceLookingKey +
-                                "'; using the default value in the app's config: " + flattenedConfig[key].default);
+            if (results.length == 0) error("Error: No datasets matching '" + datasetQuery + "'");
+            if (results.length > 1) error("Error: Multiple datasets matching '" + datasetQuery + "'");
+            if (all_dataset_ids.indexOf(results[0]._id) == -1) all_dataset_ids.push(results[0]._id);
+            
+            let dataset = results[0];
+            let app_input = idToAppInputTable[file_id];
+            
+            if (dataset.status != "stored") error("Input dataset " + inputSearch + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
+            if (dataset.removed == true) error("Input dataset " + inputSearch + " has been removed and cannot be used.");
+            
+            if (!app_input) error("Error: This app's config does not include key '" + file_id + "'");
+            
+            if (app_input.datatype != dataset.datatype) {
+                error("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + inputSearch);
+            }
+            let userInputTags = {};
+            dataset.datatype_tags.forEach(tag => userInputTags[tag] = 1);
+            app_input.datatype_tags.forEach(tag => {
+                if (tag.startsWith("!")) {
+                    if (userInputTags[tag.substring(1)]) error("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + inputSearch);
                 }
                 else {
-                    error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " +
-                            (flattenedConfig[key].type) + "). Please provide one and rerun");
+                    if (!userInputTags[tag]) error("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + inputSearch);
                 }
-            }
-
-            if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
-                if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
-                    error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type +
-                            "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
-                }
-            }
-
-            values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
-
-            // flattenedPrompt[key] = {
-            // 	type: flattenedConfig[key].type,
-            // 	default: flattenedConfig[key].default,
-            // 	description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
-            // };
-        }
-    });
-
-    request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
-        if (err) error(err);
-        else if (res.statusCode != 200) error(res.body.message);
-
-        let jwt = body.jwt;
-        let userInputKeys = Object.keys(inputs);
-        if (app.inputs.length != userInputKeys.length) error("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given");
-
-        // type validation
-        // for (let input of app.inputs) {
-            
-        // }
-        
-        let downloads = [], productRawOutputs = [];
-        let datatypeToAppInputTable = {};
-        let inputTable = {};
-        app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
-        Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
-
-        app.inputs.forEach(input => {
-            let user_inputs = inputTable[input.datatype];
-            user_inputs.forEach(user_input => {
-                downloads.push({
-                    url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
-                    untar: 'auto',
-                    dir: user_input._id
-                });
-
-                let output = {
-                    id: input.id,
-                    subdir: user_input._id,
-                    dataset_id: user_input._id,
-                    task_id: user_input.task_id || user_input.prov.task_id,
-                    datatype: user_input.datatype,
-                    datatype_tags: user_input.datatype_tags,
-                    tags: user_input.tags,
-                    meta: user_input.meta,
-                    project: user_input.project
-                };
-                productRawOutputs.push(output);
-                
-                let keys = [];
-                for (let key in app.config) {
-                    if (app.config[key].input_id == input.id) keys.push(key);
-                }
-                
-                app_inputs.push(Object.assign({ keys }, output));
-                
-                Object.assign(output_metadata, user_input.meta);
             });
+            
+            inputs[file_id] = inputs[file_id] || [];
+            inputs[file_id].push(dataset);
+        }
+        
+        let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
+        let instance = await getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
+        
+        let flattenedConfig = flattenConfig(app.config, []);
+        let flattenedUserConfig = flattenConfig(userConfig, []);
+        let values = {};
+        
+        Object.keys(flattenedConfig).forEach(key => {
+            if (flattenedConfig[key].type != 'input') {
+                let niceLookingKey = JSON.parse(key).join('.');
+                
+                if (!flattenedUserConfig[key]) {
+                    if (flattenedConfig[key].default) {
+                        if (!raw) console.log("No config entry found for key '" + niceLookingKey +
+                                    "'; using the default value in the app's config: " + flattenedConfig[key].default);
+                    }
+                    else {
+                        error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " +
+                                (flattenedConfig[key].type) + "). Please provide one and rerun");
+                    }
+                }
+
+                if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
+                    if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
+                        error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type +
+                                "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
+                    }
+                }
+
+                values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
+
+                // flattenedPrompt[key] = {
+                // 	type: flattenedConfig[key].type,
+                // 	default: flattenedConfig[key].default,
+                // 	description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
+                // };
+            }
         });
 
-        request.post({ headers, url: config.api.wf + "/task", json: true, body: {
-            instance_id: instance._id,
-            name: "Staging Dataset",
-            service: "soichih/sca-product-raw",
-            desc: "Staging Dataset",
-            config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
-        }}, (err, res, body) => {
+        request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
-            console.log("Data Staging Task Created (" + body.task._id + ")");
+
+            let jwt = body.jwt;
+            let userInputKeys = Object.keys(inputs);
+            if (app.inputs.length != userInputKeys.length) error("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given");
+
+            // type validation
+            // for (let input of app.inputs) {
+                
+            // }
             
-            let task = body.task;
-            let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
+            let downloads = [], productRawOutputs = [];
+            let datatypeToAppInputTable = {};
+            let inputTable = {};
+            app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
+            Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
 
-            // link task to app inputs
-            app_inputs.forEach(input => input.task_id = task._id);
+            app.inputs.forEach(input => {
+                let user_inputs = inputTable[input.datatype];
+                user_inputs.forEach(user_input => {
+                    downloads.push({
+                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
+                        untar: 'auto',
+                        dir: user_input._id
+                    });
 
-            app.outputs.forEach(output => {
-                app_outputs.push({
-                    id: output.id,
-                    datatype: output.datatype,
-                    datatype_tags: output.datatype_tags,
-                    desc: output.id + " from "+ app.name,
-                    meta: output_metadata,
-                    files: output.files,
-                    archive: {
-                        project: project._id,
-                        desc: output.id + " from " + app.name
-                    },
+                    let output = {
+                        id: input.id,
+                        subdir: user_input._id,
+                        dataset_id: user_input._id,
+                        task_id: user_input.task_id || user_input.prov.task_id,
+                        datatype: user_input.datatype,
+                        datatype_tags: user_input.datatype_tags,
+                        tags: user_input.tags,
+                        meta: user_input.meta,
+                        project: user_input.project
+                    };
+                    productRawOutputs.push(output);
+                    
+                    let keys = [];
+                    for (let key in app.config) {
+                        if (app.config[key].input_id == input.id) keys.push(key);
+                    }
+                    
+                    app_inputs.push(Object.assign({ keys }, output));
+                    
+                    Object.assign(output_metadata, user_input.meta);
                 });
             });
 
-            Object.assign(preparedConfig, {
-                _app: app._id,
-                _tid: 1,
-                _inputs: app_inputs,
-                _outputs: app_outputs,
-            });
-            
-            // console.log(JSON.stringify(preparedConfig));
-            // prepare and run the app task
-
-            request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+            request.post({ headers, url: config.api.wf + "/task", json: true, body: {
                 instance_id: instance._id,
-                name: instanceName,
-                service: app.github,
-                desc: "Running " + app.name,
-                service_branch: app.github_branch,
-                config: preparedConfig,
-                deps: [ task._id ]
+                name: "Staging Dataset",
+                service: "soichih/sca-product-raw",
+                desc: "Staging Dataset",
+                config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
             }}, (err, res, body) => {
                 if (err) error(err);
                 else if (res.statusCode != 200) error(res.body.message);
+                if (!raw) console.log("Data Staging Task Created (" + body.task._id + ")");
+                
+                let task = body.task;
+                let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
 
-                if (res.statusCode != 200) error("Error: " + res.body.message);
+                // link task to app inputs
+                app_inputs.forEach(input => input.task_id = task._id);
 
-                let appTask = body.task;
-                console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
-                            "To monitor the app as it runs, please execute \nbl app wait --id " + appTask._id);
-            });
-        })
-    });
+                app.outputs.forEach(output => {
+                    app_outputs.push({
+                        id: output.id,
+                        datatype: output.datatype,
+                        datatype_tags: output.datatype_tags,
+                        desc: output.id + " from "+ app.name,
+                        meta: output_metadata,
+                        files: output.files,
+                        archive: {
+                            project: project._id,
+                            desc: output.id + " from " + app.name
+                        },
+                    });
+                });
 
-    /**
-     * Flatten a tree config object into an object with depth 1
-     * @param {any} config
-     * @param {string[]} path
-     */
-    function flattenConfig(config, path) {
-        let result = {};
+                Object.assign(preparedConfig, {
+                    _app: app._id,
+                    _tid: 1,
+                    _inputs: app_inputs,
+                    _outputs: app_outputs,
+                });
+                
+                // console.log(JSON.stringify(preparedConfig));
+                // prepare and run the app task
 
-        if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
-        else {
-            Object.keys(config).forEach(key => {
-                let thisPath = path.map(x=>x);
-                thisPath.push(key);
+                request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+                    instance_id: instance._id,
+                    name: instanceName,
+                    service: app.github,
+                    desc: "Running " + app.name,
+                    service_branch: app.github_branch,
+                    config: preparedConfig,
+                    deps: [ task._id ]
+                }}, (err, res, body) => {
+                    if (err) error(err);
+                    else if (res.statusCode != 200) error(res.body.message);
 
-                Object.assign(result, flattenConfig(config[key], thisPath));
-            });
+                    if (res.statusCode != 200) error("Error: " + res.body.message);
+
+                    let appTask = body.task;
+                    if (!raw) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
+                                "To monitor the app as it runs, please execute \nbl app wait --id " + appTask._id);
+                    
+                    console.log(appTask);
+                    resolve(appTask);
+                });
+            })
+        });
+
+        /**
+         * Flatten a tree config object into an object with depth 1
+         * @param {any} config
+         * @param {string[]} path
+         */
+        function flattenConfig(config, path) {
+            let result = {};
+
+            if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
+            else {
+                Object.keys(config).forEach(key => {
+                    let thisPath = path.map(x=>x);
+                    thisPath.push(key);
+
+                    Object.assign(result, flattenConfig(config[key], thisPath));
+                });
+            }
+
+            return result;
         }
 
-        return result;
-    }
+        /**
+         *
+         * @param {any} flattened
+         * @param {any} values
+         * @param {task} download_task
+         * @param {input[]} inputs
+         * @param {datatype[]} datatypeTable
+         * @param {app} app
+         */
+        function expandFlattenedConfig(flattened, values, download_task, inputs, datatypeTable, app) {
+            let idToAppInputTable = {};
+            let idToDatatype = {};
+            let result = {}, flattenedCalculatedConfig = {};
 
-    /**
-     *
-     * @param {any} flattened
-     * @param {any} values
-     * @param {task} download_task
-     * @param {input[]} inputs
-     * @param {datatype[]} datatypeTable
-     * @param {app} app
-     */
-    function expandFlattenedConfig(flattened, values, download_task, inputs, datatypeTable, app) {
-        let idToAppInputTable = {};
-        let idToDatatype = {};
-        let result = {}, flattenedCalculatedConfig = {};
+            app.inputs.forEach(input => idToAppInputTable[input.id] = input);
+            app.inputs.forEach(input => idToDatatype[input.id] = input.datatype);
 
-        app.inputs.forEach(input => idToAppInputTable[input.id] = input);
-        app.inputs.forEach(input => idToDatatype[input.id] = input.datatype);
-
-        Object.keys(flattened).forEach(path => {
-            if (flattened[path].type == 'input') {
-                let userInput = inputs[flattened[path].input_id];
-                let appInput = idToAppInputTable[flattened[path].input_id];
-                
-                if (appInput.multi) {
-                    flattenedCalculatedConfig[path] = flattenedCalculatedConfig[path] || [];
-                    userInput.forEach(uInput => {
-                        let dtype = datatypeTable[uInput.datatype];
+            Object.keys(flattened).forEach(path => {
+                if (flattened[path].type == 'input') {
+                    let userInput = inputs[flattened[path].input_id];
+                    let appInput = idToAppInputTable[flattened[path].input_id];
+                    
+                    if (appInput.multi) {
+                        flattenedCalculatedConfig[path] = flattenedCalculatedConfig[path] || [];
+                        userInput.forEach(uInput => {
+                            let dtype = datatypeTable[uInput.datatype];
+                            let idToFile = {};
+                            dtype.files.forEach(file => idToFile[file.id] = file);
+                            
+                            let inputDtypeFile = idToFile[flattened[path].file_id];
+                            
+                            flattenedCalculatedConfig[path].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
+                        });
+                    }
+                    else {
+                        let dtype = datatypeTable[userInput[0].datatype];
                         let idToFile = {};
                         dtype.files.forEach(file => idToFile[file.id] = file);
                         
                         let inputDtypeFile = idToFile[flattened[path].file_id];
                         
-                        flattenedCalculatedConfig[path].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
-                    });
+                        flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
+                    }
+                } else {
+                    flattenedCalculatedConfig[path] = values[path];
                 }
-                else {
-                    let dtype = datatypeTable[userInput[0].datatype];
-                    let idToFile = {};
-                    dtype.files.forEach(file => idToFile[file.id] = file);
-                    
-                    let inputDtypeFile = idToFile[flattened[path].file_id];
-                    
-                    flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
-                }
-            } else {
-                flattenedCalculatedConfig[path] = values[path];
-            }
-        });
-        // this split up is required to maintain soft copying on recurring properties
-        Object.keys(flattened).forEach(path => {
-            var recurObj = result;
-            var rightBefore = null, nextKey = '';
-            JSON.parse(path).forEach(key => {
-                if (!recurObj[key]) recurObj[key] = {};
-                nextKey = key;
-                rightBefore = recurObj;
-
-                recurObj = recurObj[key];
             });
-            // object references are almost like pointers
-            rightBefore[nextKey] = flattenedCalculatedConfig[path];
-        });
-        // console.log(result);
-        return result;
-    }
+            // this split up is required to maintain soft copying on recurring properties
+            Object.keys(flattened).forEach(path => {
+                var recurObj = result;
+                var rightBefore = null, nextKey = '';
+                JSON.parse(path).forEach(key => {
+                    if (!recurObj[key]) recurObj[key] = {};
+                    nextKey = key;
+                    rightBefore = recurObj;
+
+                    recurObj = recurObj[key];
+                });
+                // object references are almost like pointers
+                rightBefore[nextKey] = flattenedCalculatedConfig[path];
+            });
+            // console.log(result);
+            return result;
+        }
+    });
 }
 
 /**
@@ -948,8 +962,9 @@ async function runApp(headers, appSearch, userInputs, userOutputs, projectSearch
  * @param {task} task
  * @param {number} gear
  * @param {(error: string, task: task) => any} cb
+ * @param {boolean} silent
  */
-function waitForFinish(headers, task, gear, cb) {
+function waitForFinish(headers, task, gear, cb, silent) {
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
@@ -957,7 +972,7 @@ function waitForFinish(headers, task, gear, cb) {
         
         let task = body.tasks[0];
         
-        if (!process.stdout.isTTY) {
+        if (!process.stdout.isTTY || silent) {
             if (task.status == "finished") return cb(null, task);
             else if (task.status == "failed") return cb("Error: " + task.status_msg, null);
             else {
