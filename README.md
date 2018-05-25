@@ -241,3 +241,43 @@ Then, after the app has finished (and the dataset has been stored), you can down
 ```
 $ bl dataset download --id 5afddb42251f5200274d9ca1
 ```
+
+## Brain-Life JavaScript API
+
+Here's an example of running an app with the brainlife javascript api:
+
+```javascript
+const fs = require('fs');
+const brainlife = require('brainlife');
+
+(async () => {
+
+// log in
+let jwt = await brainlife.login('stevengeeky', fs.readFileSync('my.password', 'ascii'));
+let headers = { 'Authorization': 'Bearer ' + jwt };
+
+// retrieve the correct datatype tag and project
+let datatypes = await brainlife.queryDatatypes(headers, null, 'neuro/anat/t1w', '0', '0');
+let projects = await brainlife.queryProjects(headers, null, 'Test Project');
+
+let t1w = datatypes[0]._id;
+let myProject = projects[0]._id;
+
+// get a dataset and an app to run using that dataset
+let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject._id);
+let apps = await brainlife.queryApps(headers, null, null, t1w, t1w);
+
+let myDataset = datasets.reverse()[0]._id;
+let appACPCAlignment = apps[0]._id;
+
+// run the app
+let appTask = await brainlife.runApp(headers, appACPCAlignment, myProject, { t1: myDataset });
+
+// wait until it's finished
+brainlife.waitForFinish(headers, appTask, 0, err => {
+	if (err) throw err;
+	console.log('Done!');
+});
+
+})();
+```

@@ -10,7 +10,7 @@ commander
     .option('-a, --admin <admin>', 'filter project by admins in it')
     .option('-m, --member <members>', 'filter project by members in it')
     .option('-g, --guest <guests>', 'filter project by guests in it')
-    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('--sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);

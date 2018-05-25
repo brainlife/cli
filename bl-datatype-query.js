@@ -14,7 +14,7 @@ const util = require('./util');
 commander
     .option('-i, --id <id>', 'filter datatype by id')
     .option('-s, --search <search>', 'filter datatype by name or description')
-    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('--sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in raw format (JSON)')
     .parse(process.argv);
