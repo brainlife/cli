@@ -862,7 +862,6 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                     if (!raw) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
                                 "To monitor the app as it runs, please execute \nbl app wait --id " + appTask._id);
                     
-                    console.log(appTask);
                     resolve(appTask);
                 });
             })
