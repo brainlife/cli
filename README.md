@@ -264,7 +264,7 @@ let t1w = datatypes[0]._id;
 let myProject = projects[0]._id;
 
 // get a dataset and an app to run using that dataset
-let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject._id);
+let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject);
 let apps = await brainlife.queryApps(headers, null, null, t1w, t1w);
 
 let myDataset = datasets.reverse()[0]._id;
