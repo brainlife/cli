@@ -28,11 +28,13 @@ bl login
 And type in your username and password when prompted. You will then be logged in.
 
 ```
-$ bl login
+$ bl login --ttl 7
 username:  stevengeeky
 password:
 Successfully logged in!
 ```
+
+`--ttl 7` sets the my login expiration time to 7 days (so after 7 days, I will be logged out and will have to relogin again)
 
 We would like to accomplish the following workflow:
 
