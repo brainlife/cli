@@ -25,8 +25,7 @@ util.loadJwt().then(jwt => {
         commander.id = commander.id || commander.args[0];
         commander.args = commander.args.slice(1);
     }
-    if (commander.args.length > 0) commander.id = commander.id || commander.args[0];
-    if (commander.args.length > 1) commander.directory = commander.directory || commander.args[1];
+    if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
     downloadDataset(headers, commander.id, commander.directory, commander.raw);
 }).catch(console.error);
