@@ -22,6 +22,7 @@ commander
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-r, --raw', 'output raw information about the uploaded dataset')
+    .option('--force', 'force the dataset to be uploaded, even if no validator is present')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
@@ -51,7 +52,7 @@ util.loadJwt().then(jwt => {
     function doUpload() {
         uploadDataset(headers, commander.datatype, commander.project,
             { directory: commander.directory, description: commander.description, datatype_tags: argv['datatype_tag'],
-                subject: commander.subject, session: commander.session, tags: argv['tag'], meta, raw: commander.raw });
+                subject: commander.subject, session: commander.session, tags: argv['tag'], meta, raw: commander.raw, force: commander.force });
     }
 }).catch(console.error);
 
@@ -115,7 +116,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                 }
             });
         }, err => {
-            if(err) error(err);
+            if(err) util.error(err);
 
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
@@ -125,42 +126,83 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                 service: noopService,
             }},
             (err, res, body) => {
-                if(err) error("Error: " + res.body.message);
+                if(err) util.error("Error: " + res.body.message);
                 let task = body.task;
 
                 if (!options.raw) console.log("Waiting for upload task to be ready...");
                 util.waitForFinish(headers, task, 0, function(err) {
-                    if(err) error(err);
-
-                    if (!options.raw) console.log("Starting upload");
-
+                    if(err) util.error(err);
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     let tar = spawn('tar', taropts, { cwd: directory });
                     tar.stdout.pipe(req);
-
+                    
                     req.on('response', res => {
-                        if(res.statusCode != "200") error("Error: " + res.body.message);
-                        if (!options.raw) console.log("Dataset successfully uploaded!\nNow registering dataset...");
+                        if(res.statusCode != "200") util.error("Error: " + res.body.message);
+                        if (!options.raw) console.log("Dataset successfully uploaded");
+                        
+                        if (datatype.validator && !datatype.force) {
+                            if (!options.raw) console.log("Validating data... (" + datatype.validator + ")");
+                            let validationConfig = {};
+                            datatype.files.forEach(file => {
+                                validationConfig[file.id] = "../" + task._id + "/" + file.filename;
+                            });
+                            
+                            request.post({ url: config.api.wf + '/task', headers, json: true, body: {
+                                instance_id: instance._id,
+                                name: "validation",
+                                service: datatype.validator,
+                                config: validationConfig,
+                                deps: [ task._id ]
+                            }},
+                            (err, res, body) => {
+                                if (err) util.error(err);
+                                else if (res.statusCode != 200) util.error(res.body.message);
+                                else {
+                                    let validationTask = body.task;
+                                    util.waitForFinish(headers, validationTask, 0, (err, task) => {
+                                        if (err) util.error(err);
+                                        if (task.product) {
+                                            if (!options.raw) {
+                                                if (task.product.warnings && task.product.warnings.length > 0) {
+                                                    task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                                }
+                                                else {
+                                                    console.log("Your data looks good!");
+                                                }
+                                            }
+                                        }
+                                        registerDataset();
+                                    });
+                                }
+                            });
+                        } else {
+                            if (!options.raw && !options.force) util.error("Warning: There currently exists no validator for this dataset's datatype. If you would like to upload your data anyways, use bl dataset upload --force");
+                            registerDataset();
+                        }
+                        
+                        function registerDataset() {
+                            if (!options.raw) console.log("Registering dataset...");
 
-                        request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
-                            project: project._id,
-                            desc: description,
-                            datatype: datatype._id,
-                            datatype_tags,
-                            tags: tags,
+                            request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
+                                project: project._id,
+                                desc: description,
+                                datatype: datatype._id,
+                                datatype_tags,
+                                tags: tags,
 
-                            meta: metadata,
+                                meta: metadata,
 
-                            instance_id: instance._id,
-                            task_id: task._id, // we archive data from copy task
-                            output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
-                        }}, (err, res, body) => {
-                            if(err) error(err);
-                            if(res.statusCode != "200") error("Failed to upload: " + res.body.message);
-                            if (!options.raw) console.log("Finished dataset registration!\n\nYour dataset has been uploaded and registered on Brain Life but requires time to successfully archive. You can view its storage status by running bl dataset query --id " + body._id);
-                            else console.log(JSON.stringify(body));
-                            resolve(body);
-                        });
+                                instance_id: instance._id,
+                                task_id: task._id, // we archive data from copy task
+                                output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+                            }}, (err, res, body) => {
+                                if(err) util.error(err);
+                                if(res.statusCode != "200") util.error("Failed to upload: " + res.body.message);
+                                if (!options.raw) console.log("Finished dataset registration!\n\nYour dataset has been uploaded and registered on Brain Life but requires time to successfully archive. You can view its storage status by running bl dataset query --id " + body._id);
+                                else console.log(JSON.stringify(body));
+                                resolve(body);
+                            });
+                        }
                     });
                 });
             });
