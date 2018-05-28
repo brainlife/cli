@@ -28,13 +28,11 @@ bl login
 And type in your username and password when prompted. You will then be logged in.
 
 ```
-$ bl login --ttl 7
+$ bl login
 username:  stevengeeky
 password:
 Successfully logged in!
 ```
-
-`--ttl 7` sets the my login expiration time to 7 days (so after 7 days, I will be logged out and will have to relogin again)
 
 We would like to accomplish the following workflow:
 
@@ -286,24 +284,58 @@ brainlife.waitForFinish(headers, appTask, 0, err => {
 
 ## Bash Script Example
 
+Here is a sample bash script to run app-pRF by first uploading datasets and submitting the app itself.
+
 ```bash
 #!/bin/bash
 
-# bl login
-functasks=(5b0858869f3e2c0028ab45f5 5b0858869f3e2c0028ab45f5) # ...
-stimuli=(5b0858669f3e2c0028ab45f4 5b0858669f3e2c0028ab45f4) # ...
+# login (you only need to run this once every 30 days) 
+bl login --ttl 30
+# change --ttl (time-to-live) value to a desired days you'd like to keep your token alive 
 
-myProject=`bl project query --admin stevengeeky --search 'Test' --raw | jq -r '.[0]._id'` # this returns 5afc2c8de68fc50028e90820
-type_t1w=`bl datatype query --search neuro/anat/t1w --raw | jq -r '.[0]._id'` # returns 58c33bcee13a50849b25879a
-app=`bl app query --input-datatype neuro/func/task --input-datatype neuro/stimulus --raw | jq -r '.[0]._id'` # returns 5b084f4d9f3e2c0028ab45e4
+# upload input
 
-echo $app
+# Let's assume you have following files
+# /somewhere/stimulus/stim.nii.gz
+# /somewhere/task/bold.nii.gz
 
-for (( i=0; i<${#functasks[@]}; i++ )); do
-	stimulus=${stimuli[i]}
-	functask=${functasks[i]}
-	
-	echo Running App Instance $((i+1))
-	bl app run --id $app --project $myProject --input "0:$functask" --input "1:$stimulus"
+bl dataset upload --datatype 5afc7c555858d874a40c6dda --project 5afc2c8de68fc50028e90820 --subject "soichi1" --raw /somewhere/stimulus 2>> upload.err | jq -r '._id' > stim.id
+bl dataset upload --datatype 59b685a08e5d38b0b331ddc5 --project 5afc2c8de68fc50028e90820 --subject "soichi1" --datatype_tag "prf" --raw /somewhere/task 2>> upload.err | jq -r '._id' > func.id
+
+# For -d (datatype) ID, you can query it by `bl datatype query -s stimulus` or `bl datatype query -s func`
+# For -p (project) ID, you can query project by `bl project query -s "project name"`
+
+# If you have func/task sidecard file, you can store them in a json file (like "dataset.json") and load them to your dataset by adding `--meta dataset.json` to the upload command.
+
+# Running the App!
+bl app run --id 5b084f4d9f3e2c0028ab45e4--project 5afc2c8de68fc50028e90820 --input tseries:$(cat func.id) --input stimimage:$(cat stim.id) --config '{"frameperiod": "1.3"}' --raw | jq -r '._id' > task.id
+
+# You can query app by `bl app query -s "prf"`
+
+# --config is where you pass JSON object containing config for your App. 
+
+# Waiting for the App to finish
+bl app wait $(cat task.id)
+if [ ! $? -eq 0 ];
+   echo "app failed"
+   exit 1
+fi
+echo "finished!"
+
+# Wait for the output datasets to be archived
+taskid=$(cat task.id)
+while [ ! $(bl dataset query --taskid $taskid --raw | jq -r ".[0].status" ) == "stored" ]; do
+    echo "output dataset not archived yet.."
+    sleep 10
 done
+
+# Download the ouput dataset
+bl dataset download -i  
+for id in $(bl dataset query --taskid $taskid --raw | jq -r ".[]._id"); do
+    echo "downloading $id"
+    bl dataset download $id
+done
+
+# Now you should see directories containing each output dataset under the dataset ID as a directory name.
+
 ```
