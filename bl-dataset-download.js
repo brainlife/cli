@@ -38,7 +38,7 @@ util.loadJwt().then(jwt => {
 function downloadDataset(headers, query, dir, raw) {
     util.queryDatasets(headers, query)
     .then(datasets => {
-        if (datasets.length != 1) util.errorMaybeRaw(res.body.message, 'Error: invalid dataset id given');
+        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', commander.raw);
         
         let id = datasets[0]._id;
         let contentLength = Infinity, loaded = 0;
