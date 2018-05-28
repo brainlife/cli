@@ -280,7 +280,7 @@ function matchProfiles(headers, match) {
  * @param {string|number} limit
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags, project, subject, skip, limit) {
+function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags, project, subject, skip, limit, taskid) {
     return new Promise(async (resolve, reject) => {
         let datatypes = await matchDatatypes(headers, datatype);
         // strictly only match datatypes that exactly equal what the user typed in
@@ -333,6 +333,9 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         }
         if (andQueries.length > 0) {
             find.$and = andQueries;
+        }
+        if (taskid && taskid.length > 0) {
+            andQueries.push({ 'prov.task_id': taskid });
         }
         
         request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {

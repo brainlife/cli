@@ -18,6 +18,7 @@ commander
     .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
     .option('-a, --admin <project admin>', 'filter datasets by their project admin')
     .option('-p, --project <projectid>', 'filter datasets by project id')
+    .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-su, --subject <subject>', 'filter datasets by subject')
     .option('-sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
@@ -32,7 +33,7 @@ util.loadJwt().then(async jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['datatype_tag'], commander.project, commander.subject, commander.skip, commander.limit);
+    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['datatype_tag'], commander.project, commander.subject, commander.skip, commander.limit, commander.taskid);
     
     if (commander.product) getProductJSON(headers, datasets).then(console.log);
     else if (commander.raw) console.log(JSON.stringify(datasets));
