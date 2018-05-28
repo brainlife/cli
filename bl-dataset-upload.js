@@ -44,8 +44,7 @@ util.loadJwt().then(jwt => {
             meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
             doUpload();
         });
-    }
-    else {
+    } else {
         doUpload();
     }
     

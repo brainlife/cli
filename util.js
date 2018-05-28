@@ -299,8 +299,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid dataset id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
-            }
-            else {
+            } else {
                 if (!isValidObjectId(idSearch)) error('Not a valid dataset id: ' + idSearch);
                 orQueries.push({ _id: idSearch });
             }
@@ -389,8 +388,7 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid project id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
-            }
-            else {
+            } else {
                 if (!isValidObjectId(idSearch)) error('Not a valid project id: ' + idSearch);
                 orQueries.push({ _id: idSearch });
             }
@@ -461,8 +459,7 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid app id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
-            }
-            else {
+            } else {
                 if (!isValidObjectId(idSearch)) error('Not a valid app id: ' + idSearch);
                 orQueries.push({ _id: idSearch });
             }
@@ -528,8 +525,7 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a datatype id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
-            }
-            else {
+            } else {
                 if (!isValidObjectId(idSearch)) error('Not a datatype id: ' + idSearch);
                 orQueries.push({ _id: idSearch });
             }
@@ -621,8 +617,7 @@ function getInstance(headers, instanceName, options) {
                             error("There was an error during instance creation. Please log in again.");
                         }
                         else error(res.body.message);
-                    }
-                    else {
+                    } else {
                         resolve(body);
                     }
                 });
@@ -701,8 +696,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             app_input.datatype_tags.forEach(tag => {
                 if (tag.startsWith("!")) {
                     if (userInputTags[tag.substring(1)]) error("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + inputSearch);
-                }
-                else {
+                } else {
                     if (!userInputTags[tag]) error("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + inputSearch);
                 }
             });
@@ -726,8 +720,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                     if (flattenedConfig[key].default) {
                         if (!raw) console.log("No config entry found for key '" + niceLookingKey +
                                     "'; using the default value in the app's config: " + flattenedConfig[key].default);
-                    }
-                    else {
+                    } else {
                         error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " +
                                 (flattenedConfig[key].type) + "). Please provide one and rerun");
                     }
@@ -921,8 +914,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                             
                             flattenedCalculatedConfig[path].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
                         });
-                    }
-                    else {
+                    } else {
                         let dtype = datatypeTable[userInput[0].datatype];
                         let idToFile = {};
                         dtype.files.forEach(file => idToFile[file.id] = file);
@@ -979,23 +971,20 @@ function waitForFinish(headers, task, gear, cb, silent) {
                     waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
                 }, 1000);
             }
-        }
-        else {
+        } else {
             if (task.status == "finished") {
                 terminalOverwrite.clear();
                 terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
                                     "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
                 return cb(null, task);
-            }
-            else if (task.status == "failed") {
+            } else if (task.status == "failed") {
                 terminalOverwrite.clear();
                 terminalOverwrite("SERVICE: " + task.service + "\n" +
                                     "STATUS: failed");
                 terminalOverwrite.done();
                 return cb("Error: " + task.status_msg, null);
-            }
-            else {
+            } else {
                 terminalOverwrite.clear();
                 terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
                                     "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
