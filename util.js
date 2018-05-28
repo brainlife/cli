@@ -985,7 +985,7 @@ function waitForFinish(headers, task, gear, cb, silent) {
             else if (task.status == "failed") return cb("Error: " + task.status_msg, null);
             else {
                 setTimeout(function() {
-                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
+                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb, silent);
                 }, 1000);
             }
         } else {
@@ -1007,7 +1007,7 @@ function waitForFinish(headers, task, gear, cb, silent) {
                                     "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
         
                 setTimeout(function() {
-                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb);
+                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb, silent);
                 }, 1000);
             }
         }

@@ -172,7 +172,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                             }
                                         }
                                         registerDataset();
-                                    });
+                                    }, options.raw);
                                 }
                             });
                         } else {
@@ -203,8 +203,8 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                 resolve(body);
                             });
                         }
-                    });
-                });
+                    }, options.raw);
+                }, options.raw);
             });
         });
     });
