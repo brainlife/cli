@@ -331,8 +331,11 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
         if (andQueries.length > 0) find.$and = andQueries;
         
-        let url = makeQueryUrl(config.api.warehouse + '/dataset', { find, skip: skip || 0, limit: limit || 100 });
-        request.get(url, { json: true, headers }, (err, res, body) => {
+        request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+            find: JSON.stringify(find),
+            skip: skip || 0,
+            limit: limit || 100
+        } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
             else {
@@ -408,14 +411,15 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
         if (andQueries.length > 0) find.$and = andQueries;
 
-        let url = makeQueryUrl(config.api.warehouse + '/project', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
-        
-        request.get(url, { headers, json: true }, (err, res, body) => {
+        request.get(config.api.warehouse + '/project', { headers, json: true, qs: {
+            find: JSON.stringify(find),
+            sort: JSON.stringify({ name: 1 }),
+            skip: skip || 0,
+            limit: limit || 100
+        } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
-            else {
-                resolve(body.projects);
-            }
+            else resolve(body.projects);
         });
     });
 }
@@ -479,9 +483,12 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
         if (andQueries.length > 0) find.$and = andQueries;
 
-        let url = makeQueryUrl(config.api.warehouse + '/app', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
-        
-        request.get(url, { headers, json: true }, (err, res, body) => {
+        request.get(config.api.warehouse + '/app', { headers, json: true, qs: {
+            find: JSON.stringify(find),
+            sort: JSON.stringify({ name: 1 }),
+            skip: skip || 0,
+            limit: limit || 100
+        } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
             else {
@@ -540,8 +547,11 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
         }
         if (orQueries.length > 0) find.$or = orQueries;
 
-        let url = makeQueryUrl(config.api.warehouse + '/datatype', { find, sort: { name: 1 }, skip: skip || 0, limit: limit || 100 });
-        request.get(url, { headers, json: true }, (err, res, body) => {
+        request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
+            find: JSON.stringify(find),
+            sort: JSON.stringify({ name: 1 }),
+            limit, skip
+        } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
             else {
@@ -565,23 +575,6 @@ function matchDatatypes(headers, match) {
     let queries = options.filter(o => !isValidObjectId(o));
 
     return queryDatatypes(headers, ids, queries, "0", "0");
-}
-
-/**
- * Make a query url out of the given options
- * @param {{find: any, sort: any, select: string, limit: number, skip: number}} options
- */
-function makeQueryUrl(url, options) {
-    let params = Object.keys(options).map(key => {
-        if (/find|sort|where/.test(key)) return key + "=" + JSON.stringify(options[key]);
-        else if (/limit|skip/.test(key)) return key + "=" + (+options[key]);
-        else {
-            return key + "=" + options[key];
-        }
-    }).join('&');
-
-    if (params.length > 0) params = '?' + params;
-    return url + params;
 }
 
 /**
