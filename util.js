@@ -491,10 +491,10 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
         
-        if (inputs) {
+        if (inputs && inputs.length > 0) {
             andQueries = andQueries.concat(inputDatatypes.map(datatype => { return { inputs: { $elemMatch: { datatype } } }; }));
         }
-        if (outputs) {
+        if (outputs && outputs.length > 0) {
             andQueries = andQueries.concat(outputDatatypes.map(datatype => { return { outputs: { $elemMatch: { datatype } } }; }));
         }
 
