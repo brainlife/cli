@@ -9,6 +9,7 @@ commander
     .option('--output <output id>', 'add an output to the application (by output id)')
     .option('--project <project id>', 'the project to store the output dataset from an app')
     .option('--config <json string>', 'config to use for running the app')
+    .option('-r, --raw', 'only output task id')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
@@ -21,5 +22,7 @@ util.loadJwt().then(jwt => {
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    util.runApp(headers, commander.id, argv['input'], commander.project, commander.config);
+    util.runApp(headers, commander.id, argv['input'], commander.project, commander.config, commander.raw).then(task => {
+        if (commander.raw) console.log(task);
+    });
 }).catch(console.error);
