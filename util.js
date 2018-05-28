@@ -328,8 +328,12 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
             andQueries.push({ datatype: { $in: datatypes } })
         }
         
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
+        if (orQueries.length > 0) {
+            andQueries.push({ $or: orQueries });
+        }
+        if (andQueries.length > 0) {
+            find.$and = andQueries;
+        }
         
         request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
             find: JSON.stringify(find),
@@ -404,12 +408,22 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
-        if (adminSearch && projectAdminIds.length > 0) andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
-        if (memberSearch && projectMemberIds.length > 0) andQueries.push({ members: { $elemMatch: { $in: projectMemberIds } } });
-        if (guestSearch && projectGuestIds.length > 0) andQueries.push({ guests: { $elemMatch: { $in: projectGuestIds } } });
+        if (adminSearch && projectAdminIds.length > 0) {
+            andQueries.push({ admins: { $elemMatch: { $in: projectAdminIds } } });
+        }
+        if (memberSearch && projectMemberIds.length > 0) {
+            andQueries.push({ members: { $elemMatch: { $in: projectMemberIds } } });
+        }
+        if (guestSearch && projectGuestIds.length > 0) {
+            andQueries.push({ guests: { $elemMatch: { $in: projectGuestIds } } });
+        }
 
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
+        if (orQueries.length > 0) {
+            andQueries.push({ $or: orQueries });
+        }
+        if (andQueries.length > 0) {
+            find.$and = andQueries;
+        }
 
         request.get(config.api.warehouse + '/project', { headers, json: true, qs: {
             find: JSON.stringify(find),
@@ -477,11 +491,19 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
         
-        if (inputs && inputs.length > 0) inputDatatypes.forEach(datatype => andQueries.push({ inputs: { $elemMatch: { datatype } } }));
-        if (outputs && outputs.length > 0) outputDatatypes.forEach(datatype => andQueries.push({ outputs: { $elemMatch: { datatype } } }));
+        if (inputs && inputs.length > 0) {
+            andQueries = andQueries.concat(inputDatatypes.map(datatype => { return { inputs: { $elemMatch: { datatype } } }; }));
+        }
+        if (outputs && outputs.length > 0) {
+            andQueries = andQueries.concat(outputDatatypes.map(datatype => { return { outputs: { $elemMatch: { datatype } } }; }));
+        }
 
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
+        if (orQueries.length > 0) {
+            andQueries.push({ $or: orQueries });
+        }
+        if (andQueries.length > 0) {
+            find.$and = andQueries;
+        }
 
         request.get(config.api.warehouse + '/app', { headers, json: true, qs: {
             find: JSON.stringify(find),
@@ -545,7 +567,9 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
-        if (orQueries.length > 0) find.$or = orQueries;
+        if (orQueries.length > 0) {
+            find.$or = orQueries;
+        }
 
         request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
             find: JSON.stringify(find),
