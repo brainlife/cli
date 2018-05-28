@@ -165,8 +165,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                             if (!options.raw) {
                                                 if (task.product.warnings && task.product.warnings.length > 0) {
                                                     task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                                }
-                                                else {
+                                                } else {
                                                     console.log("Your data looks good!");
                                                 }
                                             }
