@@ -12,7 +12,8 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('-d, --directory <directory>', 'directory where your dataset is located')
+    .usage('[options] (directory)')
+    .option('--dir, --directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
     .option('--dt, --datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
