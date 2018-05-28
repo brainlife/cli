@@ -1,5 +1,5 @@
 
-const host = "brainlife.io";
+const host = "test.brainlife.io";
 
 exports.api = {
     auth: "https://"+host+"/api/auth",
@@ -10,6 +10,6 @@ exports.api = {
 }
 
 exports.path = {
-    jwt: process.env.HOME+"/.config/brainlife/.jwt",
+    jwt: process.env.HOME+"/.config/" + host + "/.jwt",
 }
 

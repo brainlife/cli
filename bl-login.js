@@ -8,57 +8,51 @@ const path = require('path');
 const prompt = require('prompt');
 const colors = require('colors/safe');
 const jwt = require('jsonwebtoken');
+const timediff = require('datetime-difference');
 const config = require('./config');
+const util = require('./util');
 
 commander
-    .option('-u --username <username>', 'BrainLife username')
-    .option('-p --password <password>', 'BrainLife password')
-    .option('-l --ldap', 'use LDAP')
+    .option('ldap', 'login using ldap')
+    .option('--username <username>', 'your username')
+    .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 1)', 1)
     .parse(process.argv);
 
-var schema = {
-    properties: {
-        username: {required: true},
-        password: {required: true, hidden: true},
-    }
-};
+
+let schema = { properties: {} };
+if (!commander.username) schema.properties.username = {required: true};
+schema.properties.password = { required: true, hidden: true };
+
 prompt.message = null;
-prompt.override = commander;
 prompt.start();
 prompt.get(schema, function(err, results) {
-    if(err) throw err; 
-    for(var k in results) {
-        commander[k] = results[k];
-    }
-    dorequest();
-});
+    if(err) util.error(err);
 
-function dorequest() {
-    var url = config.api.auth;
-    if(commander.l) url+="/ldap/auth";
-    else url+="/local/auth";
-
-    console.log(url);
-    request.post({
-        url,
-        json: true,
-        body: {username: commander.username, password: commander.password}
-    }, function(err, res, body) {
-        if(err) throw err;
-        if(res.statusCode != 200) return console.error(body);
+    let url = config.api.auth;
+    if(commander.ldap) url += "/ldap/auth";
+    else url += "/local/auth";
+    
+    request.post({ url, json: true, body: {username: commander.username || results.username, password: results.password, ttl: 1000*60*60*24*(commander.ttl || 1)} }, (err, res, body) => {
+        if(res.statusCode != 200) util.error("Error: " + res.body.message);
 
         //make sure .sca/keys directory exists
-        var dirname = path.dirname(config.path.jwt);
+        let dirname = path.dirname(config.path.jwt);
         mkdirp(dirname, function (err) {
-            if (err) throw err;
+            if (err) util.error(err);
+
             fs.chmodSync(dirname, '700');
             fs.writeFileSync(config.path.jwt, body.jwt);
             fs.chmodSync(config.path.jwt, '600');
-            var token = jwt.decode(body.jwt);
-            console.log("success!");
-            console.error(token);
+            let token = jwt.decode(body.jwt);
+            let ttl = timediff(new Date(token.exp*1000), new Date());
+            let formattedTime = Object.keys(ttl).map(units => {
+                let time = ttl[units];
+                if (time == 0 || units == 'milliseconds') return '';
+                return time + " " + units;
+            }).filter(t => t.trim().length > 0).join(", ");
+            
+            console.log("Successfully logged in!");
+            console.log("Your jwt token will last for " + formattedTime);
         });
     });
-}
-
-
+});

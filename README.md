@@ -3,69 +3,339 @@
 ## Dependency
 
 1. npm from https://www.npmjs.com/get-npm
-2. brainlife account at https://brain-life.org/auth
+2. a brainlife account at https://brainlife.io/auth
 
 ## Installation
 
-$ sudo npm install -g brainlife
-
-## Login
-
-Generate temporary access token used by brainlife command line.
-
 ```
-$ bl login 
+npm install -g brainlife
 ```
 
-If successful, you will see the content of your JWT token displayed. 
+## Usage
 
-## Import Dataset
-
-Import data from local directory to brain-life
-
-For each datatype, you must have correct file names for each files. I normally setup directories just for importing purpose with symlinks to the actual data files on my file system. If you have a lot of datasets to upload, you should create a bash script which will create such symlink directories.
-
-Let say you have t1.nii.gz stored inside `/home/userid/mydata/12345/t1` directory. You can upload it by running something like following.
+All brainlife CLI commands obey the following structure:
 
 ```
-$ bl import \
-    --desc "description of datset" \
-    --type neuro/anat/t1w \
-    --project_id xxxxxxxxxxxxxxxxxx \
-    --subject 12345 \
-    /home/userid/mydata/12345/t1
+bl <object> [method] [arguments]
 ```
 
---type is where you specify the datatype that you are uploading. 
-
-`neuro/anat/t1w` `neuro/anat/t2w` should have .. `t1.nii.gz`
-
-`neuro/dwi` should have `dwi.nii.gz` `dwi.bvecs` `dwi.bvals`
-
-`neuro/track` should have `track.tck
-
-`neuro/freesurfer` should have `output` directory containing freesufer output directories (like mri, label, etc..)
-
-
---project_id can be found by going to https://brain-life.org/warehouse/#/projects and clicking on the project. The project id can be found as part of the URL.
-
-Once imported, you should be able to find your datasets on brain-life.org. If your dataset is incorrectly uploaded, you can remove them at brain-life.org.
-
-## Export Dataset
-
-Export dataset by dataset ID
+The first thing we need to do is log in. After you've created your brainlife account, execute:
 
 ```
-$ bl export \
-    --id <datasetid>
+bl login
 ```
 
-It will create a directory on cwd and download and untar files for specified dataset
+And type in your username and password when prompted. You will then be logged in.
 
-###  Other Options
+```
+$ bl login
+username:  stevengeeky
+password:
+Successfully logged in!
+```
 
-Sometime you need to set datatype tags like `--datatype_tag "acpc_aligned" \`  Different datatype has different set of datatype tags. If you are not sure, please consult through github issues.
+We would like to accomplish the following workflow:
 
-You can also set *user* tags like..  `--tag "xyz" --tag "anothertag" \`. User tags are used to help searching data. 
+* Upload a dataset to brainlife
+* Run a brainlife application with that dataset
+* Download the result
 
+In order to store a dataset, brainlife requires that you supply a project and datatype associated with it.
 
+A datatype is used so that brainlife can guarantee that a certain type of dataset will always contain a given set of files. For example, the dataset we will be uploading–a t1 weighted image–must contain a file called 't1.nii.gz' in order to be successfully stored.
+
+Before following along with this readme, you will need to make your own project on [brainlife.io](https://brainlife.io).
+
+Have you made one? Then let's begin:
+
+### Querying the Project
+
+To search through the list of projects, we can use `bl project query`
+
+My username is `stevengeeky`, so I'll query all of the projects I'm the admin of:
+
+```
+$ bl project query --admin stevengeeky
+Id: 5afc2c8de68fc50028e90820
+Name: Test Project
+Admins: stevengeeky
+Members: stevengeeky
+Guests:
+Access: Access: private (but listed for all users)
+Description: test
+
+(Returned 1 result)
+```
+
+Keep the id in mind for later. To specifically extrapolate the id from the query, install `jq` and run something similar to the following (using the previous query as an example):
+
+```
+$ bl project query --admin stevengeeky --raw | jq -r '.[0]._id'
+```
+
+Which returns `5afc2c8de68fc50028e90820`.
+
+Also, if you don't know what to run or how to run something, simply attach --help to the end of any command:
+
+```
+$ bl project query --help
+
+  Usage: bl-project-query [options]
+
+  Options:
+
+    --id <id>           filter projects by id
+    --search <search>   filter projects by name or description
+    --admin <admin>     filter project by admins in it
+    --member <members>  filter project by members in it
+    --guest <guests>    filter project by guests in it
+    --skip <skip>       number of results to skip
+    --limit <limit>     maximum number of results to show
+    --raw               output data in raw format (JSON)
+    -h, --help          output usage information
+```
+
+Now, we need a datatype for our dataset. Since I will be uploading a t1 weighted image, I'll query for the list of datatypes which might match what I want:
+
+```
+$ bl datatype query --search t1
+Id: 58c33bcee13a50849b25879a
+Name: neuro/anat/t1w
+Description: T1 Weighted
+Files: [(required) t1: t1.nii.gz]
+
+(Returned 1 result)
+```
+
+The single result returned happens to be exactly what we want. This will be the datatype for our uploaded dataset.
+
+Now, it's time to actually upload our data. I have a file named `t1.nii.gz` in a directory called `t1/`, and to upload it I need to supply a few things. Let's run `bl dataset upload --help` to figure out what those things are:
+
+```
+$ bl dataset upload --help
+
+  Usage: bl-dataset-upload [options]
+
+  Options:
+
+    --directory <directory>          directory where your dataset is located
+    --project <projectid>            project id to upload dataset to
+    --datatype <datatype>            datatype of uploaded dataset
+    --datatype_tags <datatype_tags>  datatype_tags of uploaded dataset
+    --description <description>      description of uploaded dataset
+    --subject <subject>              subject of uploaded dataset
+    --session <session>              session of uploaded dataset
+    --tags <tags>                    tags of uploaded dataset
+    --meta <metadata>                name of file containing metadata (JSON) of uploaded dataset
+    -h, --help                       output usage information
+```
+
+All that is required to upload a dataset is a directory to upload, a project id, and a datatype id. But you can also supply other options to provide additional information about it, such as applicable datatype tags, search tags, and which session and subject the data is from.
+
+I will upload my dataset by using the following command, given the id of my project and datatype of my dataset:
+
+```
+$ bl dataset upload --directory t1/      \
+    --project 5afc2c8de68fc50028e90820   \
+    --datatype 58c33bcee13a50849b25879a  \
+    --description 'My t1 weighted image' \
+    --subject 12345                      \
+    --session 1                          \
+    --tag "t1"                           \
+    --tag "image"
+```
+
+Notice that I supplied `--tag` twice to add more than one search tag to my dataset. This works the same way with `datatype_tags`.
+
+```
+Looking for /path/to/t1/t1.nii.gz
+Waiting for upload task to be ready...
+SERVICE: soichih/sca-service-noop    Brain Life
+STATUS: Synchronously running service
+(running since 13 seconds ago)
+```
+
+You can see the process update in real time. When it has finally finished it should output:
+
+```
+Dataset successfully uploaded!
+Now registering dataset...
+Finished dataset registration!
+```
+
+Now that we've uploaded a dataset, we can view it by querying the list of datasets:
+
+```
+$ bl dataset query --subject 12345
+
+Id: 5b031990251f5200274d9cc4
+Project: Test Project
+Admins: stevengeeky
+Members: stevengeeky
+Guests:
+Subject: 12345
+Session: 1
+Datatype: neuro/anat/t1w
+Description: My t1 weighted image
+Create Date: 5/21/2018, 3:10:08 PM (2 minutes ago)
+Storage: jetstream
+Status: stored
+
+(Returned 1 result)
+```
+
+Now what's an app that we can run on a t1 image? Let's find one:
+
+```
+$ bl app query --input-datatype neuro/anat/t1w
+
+...
+
+Id: 5ac01066029f78002be2c481
+Name: ACPC alignment via ART
+Type: (t1: neuro/anat/t1w) -> (t1: neuro/anat/t1w<acpc_aligned>)
+Description: This app uses the Automatic Registration Toolbox (ART) to perform ACPC alignment of the T1 image. See https://www.nitrc.org/projects/art/ for more information.
+
+...
+
+(Returned 6 results)
+```
+
+We can run this app to align our t1 image to the ACPC axial plane. It then outputs a new dataset with datatype `neuro/anat/t1w` and a datatype tag `acpc_aligned`, signifying that the data has been acpc aligned.
+
+To run an app, we need the app's id, the ids of the input or inputs we want to supply it with, the id of the project to save it to, and a config JSON string for any additional input parameters required.
+
+```
+$ bl app run
+    --id 5ac01066029f78002be2c481                 \
+    --input t1:5b031990251f5200274d9cc4           \
+    --project 5afc2c8de68fc50028e90820            \
+    --config '{"reorient" : true, "crop" : true}'
+
+Data Staging Task Created, PROCESS:
+SERVICE: soichih/sca-product-raw
+STATUS: Waiting to be processed by task handler
+(running since 5 seconds ago)
+```
+
+After staging has completed, you should see the following output in the terminal:
+
+```
+Data Staging Task Created, PROCESS:
+SERVICE: soichih/sca-product-raw
+STATUS: Successfully finished
+(538 ms ago)
+ACPC alignment via ART Task for app 'ACPC alignment via ART' has begun.
+To monitor the app as it runs, please execute
+bl app monitor --id 5b031dacc1b8f90044ad6c3b
+```
+
+You can monitor the app as it runs using the generated command:
+
+```
+$ bl app monitor --id 5b031dacc1b8f90044ad6c3b
+```
+
+Then, after the app has finished (and the dataset has been stored), you can download the resulting dataset just by supplying the resulting dataset id. You can get the resulting dataset id by querying the list of datasets (which will be sorted by date) and then running something like this:
+
+```
+$ bl dataset download --id 5afddb42251f5200274d9ca1
+```
+
+## Brain-Life JavaScript API
+
+Here's an example of running an app with the brainlife javascript api:
+
+```javascript
+const fs = require('fs');
+const brainlife = require('brainlife');
+
+(async () => {
+
+// log in
+let jwt = await brainlife.login('stevengeeky', fs.readFileSync('my.password', 'ascii'));
+let headers = { 'Authorization': 'Bearer ' + jwt };
+
+// retrieve the correct datatype tag and project
+let datatypes = await brainlife.queryDatatypes(headers, null, 'neuro/anat/t1w', '0', '0');
+let projects = await brainlife.queryProjects(headers, null, 'Test Project');
+
+let t1w = datatypes[0]._id;
+let myProject = projects[0]._id;
+
+// get a dataset and an app to run using that dataset
+let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject);
+let apps = await brainlife.queryApps(headers, null, null, t1w, t1w);
+
+let myDataset = datasets.reverse()[0]._id;
+let appACPCAlignment = apps[0]._id;
+
+// run the app
+let appTask = await brainlife.runApp(headers, appACPCAlignment, myProject, { t1: myDataset });
+
+// wait until it's finished
+brainlife.waitForFinish(headers, appTask, 0, err => {
+	if (err) throw err;
+	console.log('Done!');
+});
+
+})();
+```
+
+## Bash Script Example
+
+Here is a sample bash script to run app-pRF by first uploading datasets and submitting the app itself.
+
+```bash
+#!/bin/bash
+
+# login (you only need to run this once every 30 days) 
+bl login --ttl 30
+# change --ttl (time-to-live) value to a desired days you'd like to keep your token alive 
+
+# upload input
+
+# Let's assume you have following files
+# /somewhere/stimulus/stim.nii.gz
+# /somewhere/task/bold.nii.gz
+
+bl dataset upload --datatype 5afc7c555858d874a40c6dda --project 5afc2c8de68fc50028e90820 --subject "soichi1" --raw /somewhere/stimulus 2>> upload.err | jq -r '._id' > stim.id
+bl dataset upload --datatype 59b685a08e5d38b0b331ddc5 --project 5afc2c8de68fc50028e90820 --subject "soichi1" --datatype_tag "prf" --raw /somewhere/task 2>> upload.err | jq -r '._id' > func.id
+
+# For -d (datatype) ID, you can query it by `bl datatype query -s stimulus` or `bl datatype query -s func`
+# For -p (project) ID, you can query project by `bl project query -s "project name"`
+
+# If you have func/task sidecard file, you can store them in a json file (like "dataset.json") and load them to your dataset by adding `--meta dataset.json` to the upload command.
+
+# Running the App!
+bl app run --id 5b084f4d9f3e2c0028ab45e4--project 5afc2c8de68fc50028e90820 --input tseries:$(cat func.id) --input stimimage:$(cat stim.id) --config '{"frameperiod": "1.3"}' --raw | jq -r '._id' > task.id
+
+# You can query app by `bl app query -s "prf"`
+
+# --config is where you pass JSON object containing config for your App. 
+
+# Waiting for the App to finish
+bl app wait $(cat task.id)
+if [ ! $? -eq 0 ];
+   echo "app failed"
+   exit 1
+fi
+echo "finished!"
+
+# Wait for the output datasets to be archived
+taskid=$(cat task.id)
+while [ ! $(bl dataset query --taskid $taskid --raw | jq -r ".[0].status" ) == "stored" ]; do
+    echo "output dataset not archived yet.."
+    sleep 10
+done
+
+# Download the ouput dataset
+bl dataset download -i  
+for id in $(bl dataset query --taskid $taskid --raw | jq -r ".[]._id"); do
+    echo "downloading $id"
+    bl dataset download $id
+done
+
+# Now you should see directories containing each output dataset under the dataset ID as a directory name.
+
+```

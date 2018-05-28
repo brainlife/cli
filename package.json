@@ -14,13 +14,17 @@
   "dependencies": {
     "async": "^2.6.0",
     "colors": "^1.2.1",
-    "commander": "^2.15.0",
+    "commander": "^2.15.1",
+    "datetime-difference": "^1.0.0",
     "jsonwebtoken": "^8.2.0",
     "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
     "prompt": "^1.0.0",
     "request": "^2.85.0",
     "tar": "^4.4.0",
-    "websocket": "^1.0.25"
+    "terminal-overwrite": "^2.0.1",
+    "time-ago": "^0.2.1",
+    "websocket": "^1.0.25",
+    "window-size": "^1.1.0"
   }
 }

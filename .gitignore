@@ -1,1 +1,8 @@
 node_modules
+output.json
+package-lock.json
+typings
+typings.json
+my.password
+example.js
+example.sh
