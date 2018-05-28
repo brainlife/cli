@@ -302,6 +302,6 @@ for (( i=0; i<${#functasks[@]}; i++ )); do
 	functask=${functasks[i]}
 	
 	echo Running App Instance $((i+1))
-	bl app run --id $app --project $myProject --input 0:$functask --input 1:$stimulus
+	bl app run --id $app --project $myProject --input "0:$functask" --input "1:$stimulus"
 done
 ```
