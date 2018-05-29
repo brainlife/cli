@@ -206,7 +206,7 @@ We can run this app to align our t1 image to the ACPC axial plane. It then outpu
 To run an app, we need the app's id, the ids of the input or inputs we want to supply it with, the id of the project to save it to, and a config JSON string for any additional input parameters required.
 
 ```
-$ bl app run
+$ bl app run                                      \
     --id 5ac01066029f78002be2c481                 \
     --input t1:5b031990251f5200274d9cc4           \
     --project 5afc2c8de68fc50028e90820            \
@@ -274,7 +274,7 @@ let appACPCAlignment = apps[0]._id;
 let appTask = await brainlife.runApp(headers, appACPCAlignment, myProject, { t1: myDataset });
 
 // wait until it's finished
-brainlife.waitForFinish(headers, appTask, 0, err => {
+brainlife.waitForFinish(headers, appTask, process.stdout.isTTY, err => {
 	if (err) throw err;
 	console.log('Done!');
 });
@@ -314,7 +314,7 @@ bl app run --id 5b084f4d9f3e2c0028ab45e4--project 5afc2c8de68fc50028e90820 --inp
 
 # --config is where you pass JSON object containing config for your App. 
 
-# Waiting for the App to finish
+# Waiting for the App to finish (and archive output datasets)
 bl app wait $(cat task.id)
 if [ ! $? -eq 0 ];
    echo "app failed"
@@ -322,20 +322,13 @@ if [ ! $? -eq 0 ];
 fi
 echo "finished!"
 
-# Wait for the output datasets to be archived
-taskid=$(cat task.id)
-while [ ! $(bl dataset query --taskid $taskid --raw | jq -r ".[0].status" ) == "stored" ]; do
-    echo "output dataset not archived yet.."
-    sleep 10
-done
-
 # Download the ouput dataset
 bl dataset download -i  
 for id in $(bl dataset query --taskid $taskid --raw | jq -r ".[]._id"); do
-    echo "downloading $id"
+    echo "downloading dataset $id"
     bl dataset download $id
 done
 
-# Now you should see directories containing each output dataset under the dataset ID as a directory name.
+# Now you should see directories containing each output dataset with the dataset ID as a directory name.
 
 ```

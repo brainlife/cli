@@ -131,7 +131,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                 let task = body.task;
 
                 if (!options.raw) console.log("Waiting for upload task to be ready...");
-                util.waitForFinish(headers, task, 0, function(err) {
+                util.waitForFinish(headers, task, process.stdout.isTTY && !options.raw, function(err) {
                     if(err) util.error(err);
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     let tar = spawn('tar', taropts, { cwd: directory });
@@ -160,7 +160,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                 else if (res.statusCode != 200) util.error(res.body.message);
                                 else {
                                     let validationTask = body.task;
-                                    util.waitForFinish(headers, validationTask, 0, (err, task) => {
+                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.raw, (err, task) => {
                                         if (err) util.error(err);
                                         if (task.product) {
                                             if (!options.raw) {
@@ -172,7 +172,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                             }
                                         }
                                         registerDataset();
-                                    }, options.raw);
+                                    });
                                 }
                             });
                         } else {
@@ -203,8 +203,8 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                 resolve(body);
                             });
                         }
-                    }, options.raw);
-                }, options.raw);
+                    });
+                });
             });
         });
     });

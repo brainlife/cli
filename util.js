@@ -873,7 +873,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
 
                     let appTask = body.task;
                     if (!raw) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
-                                "To monitor the app as it runs, please execute \nbl app wait --id " + appTask._id);
+                                "To monitor the app as it runs, please execute \nbl app wait " + appTask._id);
                     
                     resolve(appTask);
                 });
@@ -967,52 +967,74 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
     });
 }
 
+
+function waitForDatasets(headers, task, verbose, cb) {
+    let expected_outputs = task.config._outputs.filter(output=>output.archive);
+    if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
+    request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+        find: JSON.stringify({'prov.task_id': task._id}),
+    } }, (err, res, body) => {
+        if (err) return cb(err);
+        if (res.statusCode != 200) return cb(res.body.message);
+        let stored_datasets = body.datasets.filter(dataset=>dataset.status = "stored");
+        if(stored_datasets.length < expected_outputs.length) {
+            if(verbose) console.log(expected_output.length+" of "+stored_datasets.length+" datasets archived");
+            //not all datasets archived yet.. wait
+            return setTimeout(()=>{
+                waitForDatasets(header, task, verbose, cb); 
+            }, 1000 * 5);
+        } else {
+            if(verbose) console.log("All output datasets archived!");
+        }
+    });
+}
+
+
 /**
  *
  * @param {any} headers
  * @param {task} task
  * @param {number} gear
  * @param {(error: string, task: task) => any} cb
- * @param {boolean} silent
  */
-function waitForFinish(headers, task, gear, cb, silent) {
+let wait_gear = 0;
+function waitForFinish(headers, task, verbose, cb) {
+    if(wait_gear++ > gearFrames.length) wait_gear = 0;
+
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
         if (res.statusCode != 200) error("Error: " + res.body.message);
         
         let task = body.tasks[0];
-        
-        if (!process.stdout.isTTY || silent) {
-            if (task.status == "finished") return cb(null, task);
-            else if (task.status == "failed") return cb("Error: " + task.status_msg, null);
-            else {
-                setTimeout(function() {
-                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb, silent);
-                }, 1000);
-            }
-        } else {
-            if (task.status == "finished") {
+        if (task.status == "finished") {
+            if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
+                terminalOverwrite("SERVICE: " + task.service + gearFrames[wait_gear] + "\n" +
                                     "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
-                return cb(null, task);
-            } else if (task.status == "failed") {
+            }
+            return waitForDatasets(headers, task, verbose, err=>{
+                cb(err, task);
+            });
+        } else if (task.status == "failed") {
+            if(verbose) {
                 terminalOverwrite.clear();
                 terminalOverwrite("SERVICE: " + task.service + "\n" +
                                     "STATUS: failed");
                 terminalOverwrite.done();
-                return cb("Error: " + task.status_msg, null);
-            } else {
+            }
+            return cb("Error: " + task.status_msg, null);
+        } else {
+            if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite("SERVICE: " + task.service + gearFrames[gear] + "\n" +
+                terminalOverwrite("SERVICE: " + task.service + gearFrames[wait_gear] + "\n" +
                                     "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
         
-                setTimeout(function() {
-                    waitForFinish(headers, task, (gear + 1) % gearFrames.length, cb, silent);
-                }, 1000);
             }
+            return setTimeout(function() {
+                waitForFinish(headers, task, verbose, cb);
+            }, 1000*10);
         }
     });
 }

@@ -143,6 +143,4 @@ exports.getInstance = util.getInstance;
  * @param {task} task
  * @param {(error: string, task: task) => any} cb
  */
-exports.waitForFinish = function(headers, task, cb) {
-	return util.waitForFinish(headers, task, 0, cb, true);
-}
+exports.waitForFinish = util.waitForFinish;
