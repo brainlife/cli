@@ -1,5 +1,5 @@
 
-const host = "test.brainlife.io";
+const host = process.env.BLHOST || "brainlife.io";
 
 exports.api = {
     auth: "https://"+host+"/api/auth",
