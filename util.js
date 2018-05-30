@@ -997,7 +997,7 @@ function waitForDatasets(headers, task, verbose, cb) {
 
 
 /**
- *
+ * Wait for task to be finished
  * @param {any} headers
  * @param {task} task
  * @param {number} gear
