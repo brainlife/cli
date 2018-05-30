@@ -967,7 +967,13 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
     });
 }
 
-
+/**
+ * Wait for datasets from task to be archived
+ * @param {any} headers 
+ * @param {task} task 
+ * @param {boolean} verbose 
+ * @param {(err) => any} cb 
+ */
 function waitForDatasets(headers, task, verbose, cb) {
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
     if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
