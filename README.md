@@ -307,10 +307,6 @@ bl dataset upload --datatype 59b685a08e5d38b0b331ddc5 --project 5afc2c8de68fc500
 
 # If you have func/task sidecard file, you can store them in a json file (like "dataset.json") and load them to your dataset by adding `--meta dataset.json` to the upload command.
 
-bl dataset query ----- > dataset.json
-
-./submit_app.py
-
 cmd="bl app run --id 5b084f4d9f3e2c0028ab45e4 --project 5afc2c8de68fc50028e90820 "
 for id $ids
 do
