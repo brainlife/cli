@@ -198,7 +198,7 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                             }}, (err, res, body) => {
                                 if(err) util.error(err);
                                 if(res.statusCode != "200") util.error("Failed to upload: " + res.body.message);
-                                if (!options.raw) console.log("Your dataset has been officially uploaded and archived! It has id " + body._id);
+                                if (!options.raw) console.log("Finished dataset registration!\n\nYour dataset has been uploaded and registered on Brain Life but requires time to successfully archive. You can view its storage status by running bl dataset query --id " + body._id);
                                 else console.log(JSON.stringify(body));
                                 resolve(body);
                             });
