@@ -975,6 +975,8 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
  * @param {(err) => any} cb 
  */
 function waitForDatasets(headers, task, verbose, cb) {
+    if (!task.config || !task.config._outputs) return success();
+    
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
     if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
     request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
@@ -990,9 +992,14 @@ function waitForDatasets(headers, task, verbose, cb) {
                 waitForDatasets(header, task, verbose, cb); 
             }, 1000 * 5);
         } else {
-            if(verbose) console.log("All output datasets archived!");
+            return success();
         }
     });
+    
+    function success() {
+        if(verbose) console.log("All output datasets archived!");
+        return cb();
+    }
 }
 
 
