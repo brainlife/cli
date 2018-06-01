@@ -9,6 +9,7 @@ commander
     .option('--output <output id>', 'add an output to the application (by output id)')
     .option('--project <project id>', 'the project to store the output dataset from an app')
     .option('--preferred-resource <resource id>', 'user-preferred resource to use to run an app')
+    .option('--branch <resource id>', 'github branch to use to run this app (default: master)')
     .option('--config <json string>', 'config to use for running the app')
     .option('-r, --raw', 'output resulting app task in json format')
     .option('-r, --json', 'output resulting app task in json format')
@@ -27,7 +28,7 @@ util.loadJwt().then(jwt => {
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    util.runApp(headers, commander.id, argv['input'], commander.project, commander.preferredResource, commander.config, commander.raw).then(task => {
+    util.runApp(headers, commander.id, argv['input'], commander.project, commander.preferredResource, commander.branch, commander.config, commander.raw).then(task => {
         if (commander.raw) console.log(task);
     });
 }).catch(console.error);

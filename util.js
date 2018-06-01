@@ -754,7 +754,7 @@ function getInstance(headers, instanceName, options) {
  * @param {string} userConfig
  * @param {boolean} raw
  */
-function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, userConfig, raw) {
+function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, raw) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
         let app_inputs = [], app_outputs = [], all_dataset_ids = [];
@@ -763,8 +763,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, u
         userConfig = userConfig || '{}';
         try {
             userConfig = JSON.parse(userConfig);
-        }
-        catch (exception) {
+        } catch (exception) {
             errorMaybeRaw('Error: Could not parse JSON Config Object', raw);
         }
         
@@ -783,6 +782,23 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, u
         let app = apps[0];
         let project = projects[0];
         let resource;
+        
+        // check user-inputted branch
+        let branch = app.github_branch;
+        if (serviceBranch && serviceBranch.length > 0) {
+            try {
+                let probe = await queryGithub(app.github, serviceBranch);
+                if (probe.statusCode == 200) {
+                    if (!raw) console.log("Using user-inputted branch: " + serviceBranch);
+                    branch = serviceBranch;
+                }
+                else {
+                    errorMaybeRaw('Error: The given github branch (' + serviceBranch + ') does not exist for ' + app.github, raw);
+                }
+            } catch (exception) {
+                errorMaybeRaw(exception, raw);
+            }
+        }
         
         // setting user-preferred resource
         let bestResource = await getResource(headers, app.github);
@@ -1105,6 +1121,20 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, u
                     if (err) reject(err);
                     else if (res.statusCode != 200) reject("Error: " + res.body.message || res.statusMessage);
                     resolve(body);
+                });
+            });
+        }
+        
+        /**
+         * Query github with the given service and branch
+         * @param {string} service 
+         * @param {string} branch 
+         */
+        function queryGithub(service, branch) {
+            return new Promise((resolve, reject) => {
+                request.get('https://github.com/' + service + '/tree/' + branch, {}, (err, res, body) => {
+                    if (err) reject(err);
+                    resolve(res);
                 });
             });
         }
