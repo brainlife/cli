@@ -660,7 +660,7 @@ function queryResources(headers, idSearch, search, status, service, skip, limit)
             andQueries.push({ status: status });
         }
         if (service && service.length > 0) {
-            andQueries.push({ services: { $elemMatch: { "name": service } } });
+            andQueries.push({ "config.services": { $elemMatch: { "name": service } } });
         }
         
         if (orQueries.length > 0) {
