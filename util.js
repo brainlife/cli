@@ -241,7 +241,7 @@ function loadJwt() {
             let jwt = fs.readFileSync(config.path.jwt);
             let dec = jsonwebtoken.decode(jwt);
             if(!dec) return reject("Failed to decode you access token. Please try logging in by running 'bl login'");
-            if(dec.exp < Date.now()) return reject("You access token is expired. Please try logging in by running 'bl login'.");
+            if(dec.exp < Date.now()/1000) return reject("You access token is expired. Please try logging in by running 'bl login'.");
             
             resolve(jwt); 
         });
@@ -338,7 +338,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         let projectIds = projects.map(p => p._id);
         let find = { removed: false }, andQueries = [], orQueries = [];
         
-        if (idSearch && idSearch.length > 0) {
+        if (idSearch) {
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid dataset id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
@@ -347,7 +347,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
                 orQueries.push({ _id: idSearch });
             }
         }
-        if (search && search.length > 0) {
+        if (search) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
             else pattern = escapeRegExp(search);
@@ -364,11 +364,14 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
                 }
             });
         }
-        if (projects && projects.length > 0) {
+        if (project && projects.length > 0) {
             andQueries.push({ project: { $in: projects.map(p => p._id) } });
         }
-        if (datatype && datatype.length > 0) {
+        if (datatype && datatypes.length > 0) {
             andQueries.push({ datatype: { $in: datatypes } })
+        }
+        if (subject) {
+            andQueries.push({ "meta.subject": subject });
         }
         
         if (orQueries.length > 0) {
