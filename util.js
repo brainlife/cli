@@ -329,7 +329,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -428,7 +428,7 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -510,7 +510,7 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -587,7 +587,7 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -651,7 +651,7 @@ function queryResources(headers, idSearch, search, status, service, skip, limit)
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
