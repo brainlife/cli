@@ -26,7 +26,7 @@ util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
 
-    util.queryResources(headers, commander.id, commander.search, commander.skip, commander.limit)
+    util.queryResources(headers, commander.id, commander.search, commander.status, commander.service, commander.skip, commander.limit)
     .then(resources => {
         if (commander.raw) console.log(JSON.stringify(resources));
         else formatResources(headers, resources, { all: true }).then(console.log);
