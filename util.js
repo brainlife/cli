@@ -806,8 +806,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, u
             if (userResourceIsValid) {
                 if (!raw) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
                 resource = userResource._id;
-            }
-            else {
+            } else {
                 errorMaybeRaw("Error: The given preferred resource (" + userResource.name + ") is unable to run this application", raw);
             }
         }
