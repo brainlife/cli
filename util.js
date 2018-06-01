@@ -1151,7 +1151,7 @@ function waitForDatasets(headers, task, verbose, cb) {
         if (res.statusCode != 200) return cb(res.body.message);
         let stored_datasets = body.datasets.filter(dataset=>dataset.status = "stored");
         if(stored_datasets.length < expected_outputs.length) {
-            if(verbose) console.log(expected_output.length+" of "+stored_datasets.length+" datasets archived");
+            if(verbose) console.log(expected_outputs.length+" of "+stored_datasets.length+" datasets archived");
             //not all datasets archived yet.. wait
             return setTimeout(()=>{
                 waitForDatasets(header, task, verbose, cb); 

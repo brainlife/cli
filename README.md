@@ -230,14 +230,12 @@ SERVICE: soichih/sca-product-raw
 STATUS: Successfully finished
 (538 ms ago)
 ACPC alignment via ART Task for app 'ACPC alignment via ART' has begun.
-To monitor the app as it runs, please execute
-bl app monitor --id 5b031dacc1b8f90044ad6c3b
 ```
 
-You can monitor the app as it runs using the generated command:
+You can wait for the app to finish by..
 
 ```
-$ bl app monitor --id 5b031dacc1b8f90044ad6c3b
+$ bl app wait --id 5b031dacc1b8f90044ad6c3b
 ```
 
 Then, after the app has finished (and the dataset has been stored), you can download the resulting dataset just by supplying the resulting dataset id. You can get the resulting dataset id by querying the list of datasets (which will be sorted by date) and then running something like this:
