@@ -14,7 +14,7 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    let profiles = await queryProfiles(headers, commander.id, commander.search);
+    let profiles = await util.queryProfiles(headers, commander.id, commander.search);
     
     if (commander.raw) console.log(JSON.stringify(profiles));
     else formatProfiles(headers, profiles, { all: true }).then(console.log);
@@ -28,7 +28,6 @@ util.loadJwt().then(async jwt => {
  */
 function formatProfiles(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        console.log(data);
         data = data.sort((a, b) => a.id > b.id);
 
         let resultArray = data.map(d => {
