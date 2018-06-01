@@ -10,11 +10,13 @@ commander
     .option('--project <project id>', 'the project to store the output dataset from an app')
     .option('--preferred-resource <resource id>', 'user-preferred resource to use to run an app')
     .option('--config <json string>', 'config to use for running the app')
-    .option('-r, --raw', 'only output task id')
+    .option('-r, --raw', 'output resulting app task in json format')
+    .option('-r, --json', 'output resulting app task in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
