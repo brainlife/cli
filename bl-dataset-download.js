@@ -16,11 +16,13 @@ const size = require('window-size');
 commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
-    .option('-r, --raw', 'output raw (JSON) information about the downloaded dataset')
+    .option('-r, --raw', 'output info about downloaded dataset in json format')
+    .option('-r, --json', 'output info about downloaded dataset in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
