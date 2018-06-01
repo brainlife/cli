@@ -18,7 +18,6 @@ commander
     .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 1)', 1)
     .parse(process.argv);
 
-
 let schema = { properties: {} };
 if (!commander.username) schema.properties.username = {required: true};
 schema.properties.password = { required: true, hidden: true };
