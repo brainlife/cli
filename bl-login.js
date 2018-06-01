@@ -50,8 +50,7 @@ prompt.get(schema, function(err, results) {
                 return time + " " + units;
             }).filter(t => t.trim().length > 0).join(", ");
             
-            console.log("Successfully logged in!");
-            console.log("Your jwt token will last for " + formattedTime);
+            console.log("Successfully logged in for " + formattedTime);
         });
     });
 });

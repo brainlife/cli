@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+/**
+ * Common functions used across CLI scripts
+ */
+
 'use strict';
 
 const request = require('request');
@@ -15,7 +19,6 @@ const prompt = require('prompt');
 
 const delimiter = ',';
 
-// const gearFrames = ['', '.', '..', '...'];
 const gearFrames = [
     '               ',
     ' e             ',
@@ -223,9 +226,27 @@ const gearFrames = [
  * @prop {string} username
  */
 
+
 /**
- * Common functions used across CLI scripts
+ * Load the user's jwt token
+ * @returns {Promise<string>}
  */
+function loadJwt() {
+    return new Promise((resolve, reject) => {
+        fs.stat(config.path.jwt, (err, stat) => {
+            if (err) {
+                error("Error: Couldn't find your access token. Please try logging in by running 'bl login'");
+                process.exit(1);
+            }
+            let jwt = fs.readFileSync(config.path.jwt);
+            let dec = jsonwebtoken.decode(jwt);
+            if(!dec) return reject("Failed to decode you access token. Please try logging in by running 'bl login'");
+            if(dec.exp < Date.now()) return reject("You access token is expired. Please try logging in by running 'bl login'.");
+            
+            resolve(jwt); 
+        });
+    });
+}
 
 /**
  * Query the list of profiles
@@ -1196,21 +1217,6 @@ function waitForFinish(headers, task, verbose, cb) {
     });
 }
 
-/**
- * Load the user's jwt token
- * @returns {Promise<string>}
- */
-function loadJwt() {
-    return new Promise((resolve, reject) => {
-        fs.stat(config.path.jwt, (err, stat) => {
-            if (err) {
-                error("Error: Couldn't find your jwt token. You're probably not logged in");
-                process.exit(1);
-            }
-            resolve(fs.readFileSync(config.path.jwt));
-        });
-    });
-}
 
 /**
  * Converts object with maybe null entries to an object with all nonnull values
