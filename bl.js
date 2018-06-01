@@ -10,6 +10,7 @@ program
     .version(pkg.version)
     .command('login', 'login to brainlife and generate a temporary access token')
     .command('profile', 'query the available list of profiles')
+    .command('resource', 'query the available list of resources')
     .command('datatype', 'query the available list of datatypes')
     .command('project', 'create and view brainlife projects')
     .command('dataset', 'view and utilize stored datasets')

@@ -13,9 +13,11 @@ commander
     .option('--sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
     let projects = await util.queryProjects(headers, commander.id, commander.search, commander.admin, commander.member, commander.guest, commander.skip, commander.limit);

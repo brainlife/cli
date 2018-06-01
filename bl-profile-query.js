@@ -8,9 +8,11 @@ commander
     .option('-i, --id <id>', 'filter profiles by id')
     .option('-s, --search <search>', 'filter profiles by username, full name, or email address')
     .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     

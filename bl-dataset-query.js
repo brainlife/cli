@@ -24,9 +24,11 @@ commander
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in raw format (JSON)')
     .option('--product', 'get all product.json information')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     

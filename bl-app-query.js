@@ -11,9 +11,11 @@ commander
     .option('-sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
@@ -76,6 +78,7 @@ function formatApps(headers, data, whatToShow) {
 
                 if (whatToShow.all || whatToShow.id) info.push("Id: " + D._id);
                 if (whatToShow.all || whatToShow.name) info.push("Name: " + D.name);
+                if (whatToShow.all || whatToShow.service) info.push("Service: " + D.github);
                 if (whatToShow.all || whatToShow.datatypes) info.push("Type: (" + formattedInputs + ") -> (" + formattedOutputs + ")");
                 if (whatToShow.all || whatToShow.desc) info.push("Description: " + D.desc);
 
