@@ -7,11 +7,13 @@ const util = require('./util');
 commander
     .option('-i, --id <id>', 'filter profiles by id')
     .option('-s, --search <search>', 'filter profiles by username, full name, or email address')
-    .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-r, --raw', 'output data in json format')
+    .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};

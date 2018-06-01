@@ -22,12 +22,14 @@ commander
     .option('--se, --session <session>', 'session of the uploaded dataset')
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
-    .option('-r, --raw', 'output raw information about the uploaded dataset')
+    .option('-r, --raw', 'output uploaded dataset information in json format')
+    .option('-j, --json', 'output uploaded dataset information in json format')
     .option('--force', 'force the dataset to be uploaded, even if no validator is present')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     

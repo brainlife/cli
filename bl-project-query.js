@@ -12,11 +12,13 @@ commander
     .option('-g, --guest <guests>', 'filter project by guests in it')
     .option('--sk, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
-    .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-r, --raw', 'output data in json format')
+    .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
