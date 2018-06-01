@@ -11,6 +11,8 @@
 npm install -g brainlife
 ```
 
+> For IU users, brainlife CLI is already installed on Karst / Carbonate / BigRed2. Please do `module load nodejs` to use it.
+
 ## Usage
 
 All brainlife CLI commands obey the following structure:
@@ -74,6 +76,8 @@ $ bl project query --admin stevengeeky --raw | jq -r '.[0]._id'
 ```
 
 Which returns `5afc2c8de68fc50028e90820`.
+
+`--raw` instructs the CLI to output results in JSON format so that jq can parse the output.
 
 Also, if you don't know what to run or how to run something, simply attach --help to the end of any command:
 
