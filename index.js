@@ -42,13 +42,12 @@ exports.login = function (username, password) {
  * @param {any} headers
  * @param {string|string[]} appSearch
  * @param {string|string[]} projectSearch
+ * @param {string|string[]} resourceSearch
  * @param {any} userInputs
- * @param {any} userOutputs
  * @param {any} userConfig
- * @param {boolean} raw
  * @returns {Promise<task>} Task of the running application
  */
-exports.runApp = function (headers, appSearch, projectSearch, userInputs, userConfig) {
+exports.runApp = function (headers, appSearch, projectSearch, resourceSearch, userInputs, userConfig) {
 	let arrangedInputs = [];
 	Object.keys(userInputs).forEach(key => {
 		if (key.indexOf(':') != -1) util.error("Error: key '" + key + "' should not contain ':'");
@@ -56,7 +55,7 @@ exports.runApp = function (headers, appSearch, projectSearch, userInputs, userCo
 	});
 	if (typeof userConfig == 'object') userConfig = JSON.stringify(userConfig);
 	
-	return util.runApp(headers, appSearch, arrangedInputs, projectSearch, userConfig, true);
+	return util.runApp(headers, appSearch, arrangedInputs, projectSearch, resourceSearch, userConfig, true);
 }
 
 /**
@@ -69,6 +68,18 @@ exports.runApp = function (headers, appSearch, projectSearch, userInputs, userCo
  * @returns {Promise<profile[]>} The list of profiles that match the given query
  */
 exports.queryProfiles = util.queryProfiles;
+
+/**
+ * Query the list of resources
+ * @param {string|string[]} idSearch
+ * @param {string|string[]} search
+ * @param {string|string[]} status
+ * @param {string|string[]} service
+ * @param {number|string} skip
+ * @param {number|string} limit
+ * @returns {Promise<resource[]>} The list of resources that match the given query
+ */
+exports.queryResources = util.queryResources;
 
 /**
  * Query the list of datatypes

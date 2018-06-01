@@ -202,6 +202,28 @@ const gearFrames = [
  */
 
 /**
+ * @typedef {Object} resource
+ * @prop {string} _id
+ * @prop {string} resource_id
+ * @prop {string} name
+ * @prop {string} type
+ * @prop {string} update_date
+ * @prop {string} create_date
+ * @prop {string[]} gids
+ * @prop {boolean} active
+ * @prop {string} status
+ * @prop {string} status_msg
+ * @prop {string} status_update
+ * @prop {string} lastok_date
+ * @prop {any} envs
+ * @prop {Object} config
+ * @prop {string} ssh_public
+ * @prop {string} resources
+ * @prop {string} hostname
+ * @prop {string} username
+ */
+
+/**
  * Common functions used across CLI scripts
  */
 
@@ -307,7 +329,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -406,7 +428,7 @@ function queryProjects(headers, idSearch, search, adminSearch, memberSearch, gue
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -488,7 +510,7 @@ function queryApps(headers, idSearch, search, inputs, outputs, skip, limit) {
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -565,7 +587,7 @@ function queryDatatypes(headers, idSearch, search, skip, limit) {
         if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
-            else pattern = escapeRegExp(search || '');
+            else pattern = escapeRegExp(search);
 
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
@@ -605,6 +627,83 @@ function matchDatatypes(headers, match) {
 }
 
 /**
+ * Query the list of resources
+ * @param {string|string[]} idSearch
+ * @param {string|string[]} search
+ * @param {string} status
+ * @param {string} service
+ * @param {number|string} skip
+ * @param {number|string} limit
+ * @returns {Promise<resource[]>}
+ */
+function queryResources(headers, idSearch, search, status, service, skip, limit) {
+    return new Promise(async (resolve, reject) => {
+        let find = {}, orQueries = [], andQueries = [];
+        if (idSearch && idSearch.length > 0) {
+            if (Array.isArray(idSearch)) {
+                idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid resource id: ' + id); });
+                orQueries.push({ _id: { $in: idSearch } });
+            } else {
+                if (!isValidObjectId(idSearch)) error('Not a valid resource id: ' + idSearch);
+                orQueries.push({ _id: idSearch });
+            }
+        }
+        if (search && search.length > 0) {
+            let pattern;
+            if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
+            else pattern = escapeRegExp(search);
+
+            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
+            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+        }
+        if (status && status.length > 0) {
+            andQueries.push({ status: status });
+        }
+        if (service && service.length > 0) {
+            andQueries.push({ "config.services": { $elemMatch: { "name": service } } });
+        }
+        
+        if (orQueries.length > 0) {
+            andQueries.push({ $or: orQueries });
+        }
+        if (andQueries.length > 0) {
+            find.$and = andQueries;
+        }
+
+        request.get(config.api.wf + '/resource', { headers, json: true, qs: {
+            find: JSON.stringify(find),
+            sort: JSON.stringify({ name: 1 }),
+            limit, skip
+        } }, (err, res, body) => {
+            if (err) reject(err);
+            else if (res.statusCode != 200) reject(res.statusCode + ": " + res.statusMessage);
+            else {
+                resolve(body.resources);
+            }
+        });
+    });
+}
+
+/**
+ * Flexibly match resources
+ * @param {any} headers
+ * @param {string} match
+ * @param {string} status
+ * @param {string} service
+ * @returns {Promise<resource[]>}
+ */
+function matchResources(headers, match, status, service) {
+    let options = match;
+    if (!Array.isArray(options)) options = (options || '').split(delimiter);
+    options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
+
+    let ids = options.filter(isValidObjectId);
+    let queries = options.filter(o => !isValidObjectId(o));
+
+    return queryResources(headers, ids, queries, status, service, "0", "0");
+}
+
+/**
  * Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
@@ -618,8 +717,8 @@ function getInstance(headers, instanceName, options) {
         options = options || {};
 
         request.get({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
-            if(err) return error(err);
-            if(res.statusCode != 200) return error(res.statusCode);
+            if(err) return reject(err);
+            if(res.statusCode != 200) return reject(res.statusCode);
             if(body.instances[0]) resolve(body.instances[0]);
             else {
                 // need to create new instance
@@ -631,12 +730,12 @@ function getInstance(headers, instanceName, options) {
 
                 request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
-                    if (err) return error(err);
+                    if (err) return reject(err);
                     else if (res.statusCode != 200) {
                         if (res.statusMessage == 'not member of the group you have specified') {
-                            error("There was an error during instance creation. Please log in again.");
+                            reject("There was an error during instance creation. Please log in again.");
                         }
-                        else error(res.body.message);
+                        else reject(res.body.message);
                     } else {
                         resolve(body);
                     }
@@ -655,7 +754,7 @@ function getInstance(headers, instanceName, options) {
  * @param {string} userConfig
  * @param {boolean} raw
  */
-function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) {
+function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, userConfig, raw) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
         let app_inputs = [], app_outputs = [], all_dataset_ids = [];
@@ -666,24 +765,53 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             userConfig = JSON.parse(userConfig);
         }
         catch (exception) {
-            error('Error: Could not parse JSON Config Object');
+            errorMaybeRaw('Error: Could not parse JSON Config Object', raw);
         }
         
         let datatypes = await matchDatatypes(headers);
         let apps = await matchApps(headers, appSearch);
         let projects = await matchProjects(headers, projectSearch);
         
-        if (apps.length == 0) error("Error: No apps found matching '" + appSearch + "'");
-        if (apps.length > 1) error("Error: Multiple apps matching '" + appSearch + "'");
+        if (apps.length == 0) errorMaybeRaw("Error: No apps found matching '" + appSearch + "'", raw);
+        if (apps.length > 1) errorMaybeRaw("Error: Multiple apps matching '" + appSearch + "'", raw);
         
-        if (projects.length == 0) error("Error: No projects found matching '" + projectSearch + "'");
-        if (projects.length > 1) error("Error: Multiple projects matching '" + projectSearch + "'");
+        if (projects.length == 0) errorMaybeRaw("Error: No projects found matching '" + projectSearch + "'", raw);
+        if (projects.length > 1) errorMaybeRaw("Error: Multiple projects matching '" + projectSearch + "'", raw);
         
         let inputs = {};
         let idToAppInputTable = {};
         let app = apps[0];
         let project = projects[0];
+        let resource;
         
+        // setting user-preferred resource
+        let bestResource = await getResource(headers, app.github);
+        if (bestResource.resource) resource = bestResource.resource._id;
+        
+        if (bestResource.considered && resourceSearch && resourceSearch.length > 0) {
+            
+            let resources = await matchResources(headers, resourceSearch);
+            if (resources.length == 0) {
+                errorMaybeRaw("Error: No resources found matching '" + resourceSearch + "'", raw);
+            }
+            if (resources.length > 1) {
+                errorMaybeRaw("Error: Multiple resources matching '" + resourceSearch + "'", raw);
+            }
+            let userResource = resources[0];
+            let userResourceIsValid = false;
+            bestResource.considered.forEach(resource => {
+                if (resource.id == userResource._id) userResourceIsValid = true;
+            });
+            
+            if (userResourceIsValid) {
+                if (!raw) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
+                resource = userResource._id;
+            } else {
+                errorMaybeRaw("Error: The given preferred resource (" + userResource.name + ") is unable to run this application", raw);
+            }
+        }
+        
+        // create tables to get from id -> appInput and id -> datatype
         app.inputs.forEach(input => {
             if (!raw) console.log("found app input key '" + input.id + "'");
             idToAppInputTable[input.id] = input;
@@ -691,33 +819,37 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
         datatypes.forEach(d => datatypeTable[d._id] = d);
         
         for (let inputSearch of userInputs) {
-            if (inputSearch.indexOf(':') == -1) error('Error: No key given for dataset ' + inputSearch);
+            // get dataset for each input
+            if (inputSearch.indexOf(':') == -1) errorMaybeRaw('Error: No key given for dataset ' + inputSearch, raw);
             let file_id = inputSearch.substring(0, inputSearch.indexOf(":"));
             let datasetQuery = inputSearch.substring(inputSearch.indexOf(":") + 1);
             let results = await matchDatasets(headers, datasetQuery);
             
-            if (results.length == 0) error("Error: No datasets matching '" + datasetQuery + "'");
-            if (results.length > 1) error("Error: Multiple datasets matching '" + datasetQuery + "'");
+            if (results.length == 0) errorMaybeRaw("Error: No datasets matching '" + datasetQuery + "'", raw);
+            if (results.length > 1) errorMaybeRaw("Error: Multiple datasets matching '" + datasetQuery + "'", raw);
             if (all_dataset_ids.indexOf(results[0]._id) == -1) all_dataset_ids.push(results[0]._id);
             
             let dataset = results[0];
             let app_input = idToAppInputTable[file_id];
             
-            if (dataset.status != "stored") error("Input dataset " + inputSearch + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
-            if (dataset.removed == true) error("Input dataset " + inputSearch + " has been removed and cannot be used.");
+            // validate dataset
+            if (dataset.status != "stored") errorMaybeRaw("Input dataset " + inputSearch + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.", raw);
+            if (dataset.removed == true) errorMaybeRaw("Input dataset " + inputSearch + " has been removed and cannot be used.", raw);
             
-            if (!app_input) error("Error: This app's config does not include key '" + file_id + "'");
+            if (!app_input) errorMaybeRaw("Error: This app's config does not include key '" + file_id + "'", raw);
             
             if (app_input.datatype != dataset.datatype) {
-                error("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + inputSearch);
+                errorMaybeRaw("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + inputSearch, raw);
             }
+            
+            // validate dataset's datatype tags
             let userInputTags = {};
             dataset.datatype_tags.forEach(tag => userInputTags[tag] = 1);
             app_input.datatype_tags.forEach(tag => {
                 if (tag.startsWith("!")) {
-                    if (userInputTags[tag.substring(1)]) error("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + inputSearch);
+                    if (userInputTags[tag.substring(1)]) errorMaybeRaw("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + inputSearch, raw);
                 } else {
-                    if (!userInputTags[tag]) error("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + inputSearch);
+                    if (!userInputTags[tag]) errorMaybeRaw("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + inputSearch, raw);
                 }
             });
             
@@ -725,9 +857,11 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             inputs[file_id].push(dataset);
         }
         
+        // create instance
         let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
         let instance = await getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
         
+        // prepare config to submit the app
         let flattenedConfig = flattenConfig(app.config, []);
         let flattenedUserConfig = flattenConfig(userConfig, []);
         let values = {};
@@ -736,45 +870,34 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             if (flattenedConfig[key].type != 'input') {
                 let niceLookingKey = JSON.parse(key).join('.');
                 
+                // validate each user-given config parameter
                 if (!flattenedUserConfig[key]) {
                     if (flattenedConfig[key].default) {
                         if (!raw) console.log("No config entry found for key '" + niceLookingKey +
                                     "'; using the default value in the app's config: " + flattenedConfig[key].default);
                     } else {
-                        error( 	"Error: no config entry found for key'" + niceLookingKey + "' (type: " +
-                                (flattenedConfig[key].type) + "). Please provide one and rerun");
+                        errorMaybeRaw("Error: no config entry found for key'" + niceLookingKey + "' (type: " + (flattenedConfig[key].type) + "). Please provide one and rerun", raw);
                     }
                 }
 
                 if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
                     if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
-                        error( 	"Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type +
-                                "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
+                        errorMaybeRaw("Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'", raw);
                     }
                 }
 
                 values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
-
-                // flattenedPrompt[key] = {
-                // 	type: flattenedConfig[key].type,
-                // 	default: flattenedConfig[key].default,
-                // 	description: JSON.parse(key).join('->') + " (" + (flattenedConfig[key].description||'null') + ") (type: " + flattenedConfig[key].type
-                // };
             }
         });
 
+        // create token for user-inputted datasets
         request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
-
+            
             let jwt = body.jwt;
             let userInputKeys = Object.keys(inputs);
-            if (app.inputs.length != userInputKeys.length) error("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given");
-
-            // type validation
-            // for (let input of app.inputs) {
-                
-            // }
+            if (app.inputs.length != userInputKeys.length) error("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); // validate app
             
             let downloads = [], productRawOutputs = [];
             let datatypeToAppInputTable = {};
@@ -782,6 +905,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
             Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
 
+            // prepare staging task
             app.inputs.forEach(input => {
                 let user_inputs = inputTable[input.datatype];
                 user_inputs.forEach(user_input => {
@@ -804,6 +928,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                     };
                     productRawOutputs.push(output);
                     
+                    // more config preparation
                     let keys = [];
                     for (let key in app.config) {
                         if (app.config[key].input_id == input.id) keys.push(key);
@@ -815,6 +940,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                 });
             });
 
+            // submit staging task
             request.post({ headers, url: config.api.wf + "/task", json: true, body: {
                 instance_id: instance._id,
                 name: "Staging Dataset",
@@ -846,7 +972,8 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                         },
                     });
                 });
-
+                
+                // finalize app config object
                 Object.assign(preparedConfig, {
                     _app: app._id,
                     _tid: 1,
@@ -854,10 +981,8 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                     _outputs: app_outputs,
                 });
                 
-                // console.log(JSON.stringify(preparedConfig));
                 // prepare and run the app task
-
-                request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+                let submissionParams = {
                     instance_id: instance._id,
                     name: instanceName,
                     service: app.github,
@@ -865,11 +990,11 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
                     service_branch: app.github_branch,
                     config: preparedConfig,
                     deps: [ task._id ]
-                }}, (err, res, body) => {
+                };
+                if (resource) submissionParams.preferred_resource_id = resource;
+                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
                     if (err) error(err);
-                    else if (res.statusCode != 200) error(res.body.message);
-
-                    if (res.statusCode != 200) error("Error: " + res.body.message);
+                    else if (res.statusCode != 200) error("Error: " + res.body.message);
 
                     let appTask = body.task;
                     if (!raw) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
@@ -964,11 +1089,38 @@ function runApp(headers, appSearch, userInputs, projectSearch, userConfig, raw) 
             // console.log(result);
             return result;
         }
+        
+        /**
+         * Get resources that the given service can run on
+         * @param {any} headers
+         * @param {string} service 
+         */
+        function getResource(headers, service) {
+            return new Promise((resolve, reject) => {
+                request.get(config.api.wf + '/resource/best', {
+                    headers,
+                    qs: { service: service },
+                    json: true
+                }, (err, res, body) => {
+                    if (err) reject(err);
+                    else if (res.statusCode != 200) reject("Error: " + res.body.message || res.statusMessage);
+                    resolve(body);
+                });
+            });
+        }
     });
 }
 
-
+/**
+ * Wait for datasets from task to be archived
+ * @param {any} headers 
+ * @param {task} task 
+ * @param {boolean} verbose 
+ * @param {(err) => any} cb 
+ */
 function waitForDatasets(headers, task, verbose, cb) {
+    if (!task.config || !task.config._outputs) return success();
+    
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
     if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
     request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
@@ -984,14 +1136,19 @@ function waitForDatasets(headers, task, verbose, cb) {
                 waitForDatasets(header, task, verbose, cb); 
             }, 1000 * 5);
         } else {
-            if(verbose) console.log("All output datasets archived!");
+            return success();
         }
     });
+    
+    function success() {
+        if(verbose) console.log("All output datasets archived!");
+        return cb();
+    }
 }
 
 
 /**
- *
+ * Wait for task to be finished
  * @param {any} headers
  * @param {task} task
  * @param {number} gear
@@ -1119,8 +1276,8 @@ function errorMaybeRaw(message, raw) {
 }
 
 module.exports = {
-    queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets,
-    matchDatatypes, matchApps, matchProfiles, matchProjects, matchDatasets,
+    queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
+    matchDatatypes, matchApps, matchProfiles, matchProjects, matchDatasets, matchResources,
     getInstance, runApp,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };

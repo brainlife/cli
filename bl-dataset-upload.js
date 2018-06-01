@@ -24,9 +24,11 @@ commander
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-r, --raw', 'output raw information about the uploaded dataset')
     .option('--force', 'force the dataset to be uploaded, even if no validator is present')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
     if (!argv['tag']) argv['tag'] = [];

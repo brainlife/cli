@@ -6,9 +6,11 @@ const request = require('request');
 commander
     .usage('[options] <task_id>')
     .option('-i, --id <task_id>', 'id of task to wait for')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0) commander.id = commander.id || commander.args[0];
     

@@ -4,15 +4,18 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .option('--id <appid>', 'id of app to run')
+    .option('--id <app id>', 'id of app to run')
     .option('--input <input id>', 'add an input to the application (by input id)')
     .option('--output <output id>', 'add an output to the application (by output id)')
     .option('--project <project id>', 'the project to store the output dataset from an app')
+    .option('--preferred-resource <resource id>', 'user-preferred resource to use to run an app')
     .option('--config <json string>', 'config to use for running the app')
     .option('-r, --raw', 'only output task id')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
@@ -22,7 +25,7 @@ util.loadJwt().then(jwt => {
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    util.runApp(headers, commander.id, argv['input'], commander.project, commander.config, commander.raw).then(task => {
+    util.runApp(headers, commander.id, argv['input'], commander.project, commander.preferredResource, commander.config, commander.raw).then(task => {
         if (commander.raw) console.log(task);
     });
 }).catch(console.error);

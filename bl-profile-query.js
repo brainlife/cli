@@ -8,13 +8,15 @@ commander
     .option('-i, --id <id>', 'filter profiles by id')
     .option('-s, --search <search>', 'filter profiles by username, full name, or email address')
     .option('-r, --raw', 'output data in raw format (JSON)')
+    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
+    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    let profiles = await queryProfiles(headers, commander.id, commander.search);
+    let profiles = await util.queryProfiles(headers, commander.id, commander.search);
     
     if (commander.raw) console.log(JSON.stringify(profiles));
     else formatProfiles(headers, profiles, { all: true }).then(console.log);
@@ -28,7 +30,6 @@ util.loadJwt().then(async jwt => {
  */
 function formatProfiles(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        console.log(data);
         data = data.sort((a, b) => a.id > b.id);
 
         let resultArray = data.map(d => {
