@@ -28,8 +28,6 @@ util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    if (commander.id) commander.id = [commander.id];
-    if (commander.search) commander.search = [commander.search];
     util.queryResources(headers, commander.id, commander.search, commander.status, commander.service, commander.skip, commander.limit)
     .then(resources => {
         if (commander.raw) console.log(JSON.stringify(resources));
