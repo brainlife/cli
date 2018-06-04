@@ -295,10 +295,8 @@ function queryProfiles(headers, ids, searches, skip, limit) {
  */
 function matchProfiles(headers, matches) {
     matches = matches || [];
-    if (!Array.isArray(options)) options = (options || '').split(delimiter);
-    options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
-    let ids = options.filter(isValidObjectId);
-    let queries = options.filter(o => !isValidObjectId(o));
+    let ids = matches.filter(isValidObjectId);
+    let queries = matches.filter(o => !isValidObjectId(o));
 
     return queryProfiles(headers, ids, queries, "0", "-1");
 }
@@ -402,8 +400,8 @@ function queryDatasets(headers, ids, searches, admin, datatype, datatype_tags, p
  */
 function matchDatasets(headers, matches, admin, datatype, datatype_tags, project, subject) {
     matches = matches || [];
-    let ids = options.filter(isValidObjectId);
-    let queries = options.filter(o => !isValidObjectId(o));
+    let ids = matches.filter(isValidObjectId);
+    let queries = matches.filter(o => !isValidObjectId(o));
     
     return queryDatasets(headers, ids, queries, admin, datatype, datatype_tags, project, subject, "0", "0");
 }
@@ -551,8 +549,8 @@ function queryApps(headers, ids, searches, inputs, outputs, skip, limit) {
  */
 function matchApps(headers, matches, inputs, outputs) {
     matches = matches || [];
-    let ids = options.filter(isValidObjectId);
-    let queries = options.filter(o => !isValidObjectId(o));
+    let ids = matches.filter(isValidObjectId);
+    let queries = matches.filter(o => !isValidObjectId(o));
 
     return queryApps(headers, ids, queries, inputs, outputs, "0", "0");
 }
