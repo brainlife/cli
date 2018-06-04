@@ -338,7 +338,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
         let projectIds = projects.map(p => p._id);
         let find = { removed: false }, andQueries = [], orQueries = [];
         
-        if (idSearch) {
+        if (idSearch && idSearch.length > 0) {
             if (Array.isArray(idSearch)) {
                 idSearch.forEach(id => { if (!isValidObjectId(id)) error('Not a valid dataset id: ' + id); });
                 orQueries.push({ _id: { $in: idSearch } });
@@ -347,7 +347,7 @@ function queryDatasets(headers, idSearch, search, admin, datatype, datatype_tags
                 orQueries.push({ _id: idSearch });
             }
         }
-        if (search) {
+        if (search && search.length > 0) {
             let pattern;
             if (Array.isArray(search)) pattern = search.map(s => escapeRegExp(s)).join('|');
             else pattern = escapeRegExp(search);
