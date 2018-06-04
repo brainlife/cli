@@ -202,9 +202,23 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                             }}, (err, res, body) => {
                                 if(err) util.error(err);
                                 if(res.statusCode != "200") util.error("Failed to upload: " + res.body.message);
-                                if (!options.raw) console.log("Finished dataset registration!\n\nYour dataset has been uploaded and registered on Brain Life but requires time to successfully archive. You can view its storage status by running bl dataset query --id " + body._id);
-                                else console.log(JSON.stringify(body));
-                                resolve(body);
+                                if(!options.raw) console.log("Waiting for dataset to archive");
+                                waitForArchive(body._id);
+                            });
+                        }
+
+                        function waitForArchive(id) {
+                            request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+                                find: JSON.stringify({'_id': id}),
+                            } }, (err, res, body) => {
+                                if(err) return reject(err); 
+                                if(body.datasets.length != 1) return reject("couldn't find exactly 1 dataset");
+                                if(body.datasets[0].status != "stored") return setTimeout(function() {
+                                    waitForArchive(id);
+                                }, 5000);
+
+                                if(!options.raw) console.log("Done archiving. dataset id:"+id);
+                                resolve(body.datasets[0]);
                             });
                         }
                     });

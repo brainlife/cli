@@ -1121,9 +1121,8 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, s
  * @param {boolean} verbose 
  * @param {(err) => any} cb 
  */
-function waitForDatasets(headers, task, verbose, cb) {
+function waitForArchivedDatasets(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
-    
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
     if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
     request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
@@ -1136,10 +1135,10 @@ function waitForDatasets(headers, task, verbose, cb) {
             if(verbose) console.log(expected_outputs.length+" of "+stored_datasets.length+" datasets archived");
             //not all datasets archived yet.. wait
             return setTimeout(()=>{
-                waitForDatasets(header, task, verbose, cb); 
+                waitForArchivedDatasets(header, task, verbose, cb); 
             }, 1000 * 5);
         } else {
-            if(verbose) console.log("All output datasets archived!");
+            if(verbose) console.log("Done archiving");
             return cb();
         }
     });
@@ -1170,7 +1169,7 @@ function waitForFinish(headers, task, verbose, cb) {
                                     "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
             }
-            return waitForDatasets(headers, task, verbose, err=>{
+            return waitForArchivedDatasets(headers, task, verbose, err=>{
                 cb(err, task);
             });
         } else if (task.status == "failed") {
