@@ -18,6 +18,8 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
+    if (commander.id) commander.id = [commander.id];
+    if (commander.search) commander.search = [commander.search];
     let profiles = await util.queryProfiles(headers, commander.id, commander.search);
     
     if (commander.raw) console.log(JSON.stringify(profiles));

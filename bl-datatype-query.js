@@ -25,7 +25,9 @@ util.loadJwt().then(jwt => {
     commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
-
+    
+    if (commander.id) commander.id = [commander.id];
+    if (commander.search) commander.search = [commander.search];
     util.queryDatatypes(headers, commander.id, commander.search, commander.skip, commander.limit)
     .then(datatypes => {
         if (commander.raw) console.log(JSON.stringify(datatypes));

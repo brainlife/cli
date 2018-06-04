@@ -30,15 +30,21 @@ util.loadJwt().then(async jwt => {
     argv['input-datatype'].forEach(checkSingleDatatypeQuery);
     argv['output-datatype'].forEach(checkSingleDatatypeQuery);
     
+    if (commander.id) commander.id = [commander.id];
+    if (commander.search) commander.search = [commander.search];
     let apps = await util.queryApps(headers, commander.id, commander.search, argv['input-datatype'], argv['output-datatype'], commander.skip, commander.limit);
     
     if (commander.raw) console.log(JSON.stringify(apps));
     else formatApps(headers, apps, { all : true }).then(console.log);
     
     async function checkSingleDatatypeQuery(query) {
-        let datatypes = await util.matchDatatypes(headers, query);
-        if (datatypes.length == 0) util.error("Error: No datatype matching '" + query + "'");
-        if (datatypes.length > 1) util.error("Error: Multiple datatypes matching '" + query + "'");
+        let datatypes = await util.matchDatatypes(headers, [query]);
+        if (datatypes.length == 0) {
+            util.errorMaybeRaw("Error: No datatype matching '" + query + "'", commander.raw);
+        }
+        if (datatypes.length > 1) {
+            util.errorMaybeRaw("Error: Multiple datatypes matching '" + query + "'", commander.raw);
+        }
     }
 }).catch(console.error);
 

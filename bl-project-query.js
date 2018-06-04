@@ -22,6 +22,8 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
+    if (commander.id) commander.id = [commander.id];
+    if (commander.search) commander.search = [commander.search];
     let projects = await util.queryProjects(headers, commander.id, commander.search, commander.admin, commander.member, commander.guest, commander.skip, commander.limit);
     
     if (commander.raw) console.log(JSON.stringify(projects));
