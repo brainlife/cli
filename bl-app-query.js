@@ -5,11 +5,11 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter apps by id')
-    .option('-s, --search <search>', 'filter apps by name or description')
-    .option('-di, --input-datatype <type>', 'specify required input type')
-    .option('-do, --output-datatype <type>', 'specify required output type')
-    .option('-sk, --skip <skip>', 'number of results to skip')
-    .option('-l, --limit <limit>', 'maximum number of results to show')
+    .option('-q, --search <search>', 'filter apps by name or description')
+    .option('--input-datatype <type>', 'specify required input type')
+    .option('--output-datatype <type>', 'specify required output type')
+    .option('-s, --skip <skip>', 'number of results to skip', parseInt)
+    .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
     .option('-r, --raw', 'output data in json format')
     .option('-r, --json', 'output data in json format')
     .option('-h, --h')
@@ -21,24 +21,30 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    if (!argv['input-datatype']) argv['input-datatype'] = [];
-    if (!Array.isArray(argv['input-datatype'])) argv['input-datatype'] = [ argv['input-datatype'] ];
+    let inputs = argv['input-datatype'];
+    if(inputs && !Array.isArray(inputs)) inputs = [ inputs ];
+
+    let outputs = argv['output-datatype'];
+    if(outputs && !Array.isArray(outputs)) outputs = [ outputs ];
     
-    if (!argv['output-datatype']) argv['output-datatype'] = [];
-    if (!Array.isArray(argv['output-datatype'])) argv['output-datatype'] = [ argv['output-datatype'] ];
+    //validating to make sure datatype resolves to a single item - I don't think we need this
+    if(inputs) inputs.forEach(ensureUniqueDatatype);
+    if(outputs) outputs.forEach(ensureUniqueDatatype);
     
-    argv['input-datatype'].forEach(checkSingleDatatypeQuery);
-    argv['output-datatype'].forEach(checkSingleDatatypeQuery);
-    
-    if (commander.id) commander.id = [commander.id];
-    if (commander.search) commander.search = [commander.search];
-    let apps = await util.queryApps(headers, commander.id, commander.search, argv['input-datatype'], argv['output-datatype'], commander.skip, commander.limit);
+    let apps = await util.queryApps(headers, {
+        id: commander.id, 
+        search: commander.search, 
+        inputs, outputs, 
+    }, {
+        skip: commander.skip, 
+        limit: commander.limit
+    });
     
     if (commander.raw) console.log(JSON.stringify(apps));
     else formatApps(headers, apps, { all : true }).then(console.log);
     
-    async function checkSingleDatatypeQuery(query) {
-        let datatypes = await util.matchDatatypes(headers, [query]);
+    async function ensureUniqueDatatype(query) {
+        let datatypes = await util.resolveDatatypes(headers, [query]);
         if (datatypes.length == 0) {
             util.errorMaybeRaw("Error: No datatype matching '" + query + "'", commander.raw);
         }
@@ -46,6 +52,7 @@ util.loadJwt().then(async jwt => {
             util.errorMaybeRaw("Error: Multiple datatypes matching '" + query + "'", commander.raw);
         }
     }
+
 }).catch(console.error);
 
 /**

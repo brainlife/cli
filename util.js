@@ -293,14 +293,20 @@ function queryProfiles(headers, ids, searches, skip, limit) {
  * @param {string[]} matches
  * @returns {Promise<profile[]>}
  */
-function matchProfiles(headers, matches) {
+function resolveProfiles(headers, searches) {
+    if(!searches) {
+        return new Promise(r=>r([]));
+    }
+
+    //TODO - update similar to resolveDatatypes
+    /*
     matches = matches || [];
     if (!Array.isArray(options)) options = (options || '').split(delimiter);
     options = options.map(opt => opt.trim()).filter(opt => opt.length > 0);
     let ids = options.filter(isValidObjectId);
     let queries = options.filter(o => !isValidObjectId(o));
-
     return queryProfiles(headers, ids, queries, "0", "-1");
+    */
 }
 
 /**
@@ -319,7 +325,7 @@ function matchProfiles(headers, matches) {
  */
 function queryDatasets(headers, ids, searches, admin, datatype, datatype_tags, project, subject, skip, limit, taskid) {
     return new Promise(async (resolve, reject) => {
-        let datatypes = await matchDatatypes(headers, [datatype]);
+        let datatypes = await resolveDatatypes(headers, [datatype]);
         let projects = await matchProjects(headers, [project], admin);
         
         if (datatype) {
@@ -422,9 +428,9 @@ function matchDatasets(headers, matches, admin, datatype, datatype_tags, project
  */
 function queryProjects(headers, ids, searches, adminSearch, memberSearch, guestSearch, skip, limit) {
     return new Promise(async (resolve, reject) => {
-        let projectAdminIds = (await matchProfiles(headers, adminSearch)).map(u => u.id);
-        let projectMemberIds = (await matchProfiles(headers, memberSearch)).map(u => u.id);
-        let projectGuestIds = (await matchProfiles(headers, guestSearch)).map(u => u.id);
+        let projectAdminIds = (await resolveProfiles(headers, adminSearch)).map(u => u.id);
+        let projectMemberIds = (await resolveProfiles(headers, memberSearch)).map(u => u.id);
+        let projectGuestIds = (await resolveProfiles(headers, guestSearch)).map(u => u.id);
         let find = { removed: false }, andQueries = [], orQueries = [];
         
         if (ids && ids.length > 0) {
@@ -486,7 +492,7 @@ function matchProjects(headers, matches, admins, members, guests) {
 }
 
 /**
- * Query the list of apps
+ * Query the list of apps. with empty query, returns none
  * @param {string[]} ids
  * @param {string[]} searches
  * @param {string[]} inputs
@@ -495,42 +501,46 @@ function matchProjects(headers, matches, admins, members, guests) {
  * @param {number|string} limit
  * @returns {Promise<app[]>}
  */
-function queryApps(headers, ids, searches, inputs, outputs, skip, limit) {
+//function queryApps(headers, ids, search, inputs, outputs, skip, limit) {
+
+function queryApps(headers, query, opt) {
+    if(query === undefined) query = {};
+    if(opt === undefined) opt = {};
+
     return new Promise(async (resolve, reject) => {
-        let inputDatatypes = (await matchDatatypes(headers, inputs)).map(d => d._id);
-        let outputDatatypes = (await matchDatatypes(headers, outputs)).map(d => d._id);
+
+        let input_datatypes = await resolveDatatypes(headers, query.inputs);
+        let output_datatypes = await resolveDatatypes(headers, query.outputs);
         
-        let find = { removed: false }, andQueries = [], orQueries = [];
-        if (ids && ids.length > 0) {
-            ids.forEach(id => { if (!isValidObjectId(id)) return reject('Not a valid app id: ' + id); });
-            orQueries.push({ _id: { $in: ids } });
-        }
-        if (searches && searches.length > 0) {
-            let pattern = searches.map(s => escapeRegExp(s)).join('|');
+        let andQueries = [];
+        let orQueries = [];
 
-            orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
-            orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
+        if (query.id) orQueries.push({ _id: query.id });
+        if (query.search) {
+            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
         }
-        
-        if (inputs && inputs.length > 0) {
-            andQueries = andQueries.concat(inputDatatypes.map(datatype => { return { inputs: { $elemMatch: { datatype } } }; }));
+        if (input_datatypes.length > 0) {
+            andQueries = andQueries.concat(input_datatypes.map(datatype => { 
+                return { inputs: { $elemMatch: { datatype: datatype._id } } }; 
+            }));
         }
-        if (outputs && outputs.length > 0) {
-            andQueries = andQueries.concat(outputDatatypes.map(datatype => { return { outputs: { $elemMatch: { datatype } } }; }));
-        }
-
-        if (orQueries.length > 0) {
-            andQueries.push({ $or: orQueries });
-        }
-        if (andQueries.length > 0) {
-            find.$and = andQueries;
+        if (output_datatypes.length > 0) {
+            andQueries = andQueries.concat(output_datatypes.map(datatype => { 
+                return { outputs: { $elemMatch: { datatype: datatype._id } } }; 
+            }));
         }
 
+        let find = {
+            removed: false,
+        }
+        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+        if (andQueries.length > 0) find.$and = andQueries;
         request.get(config.api.warehouse + '/app', { headers, json: true, qs: {
             find: JSON.stringify(find),
-            sort: JSON.stringify({ name: 1 }),
-            skip: skip || 0,
-            limit: limit || 100
+            sort: "name",
+            skip: opt.skip || 0,
+            limit: opt.limit || 100
         } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
@@ -565,7 +575,8 @@ function matchApps(headers, matches, inputs, outputs) {
  * @param {number|string} limit
  * @returns {Promise<datatype[]>}
  */
-function queryDatatypes(headers, ids, searches, skip, limit) {
+function queryDatatypes(headers, ids, searches, opts) {
+    if(!opts) opts = {};
     return new Promise((resolve, reject) => {
         let find = {}, orQueries = [];
         if (ids && ids.length > 0) {
@@ -574,7 +585,6 @@ function queryDatatypes(headers, ids, searches, skip, limit) {
         }
         if (searches && searches.length > 0) {
             let pattern = searches.map(s => escapeRegExp(s)).join('|');
-
             orQueries.push({ name: { $regex: pattern, $options: 'ig' } });
             orQueries.push({ desc: { $regex: pattern, $options: 'ig' } });
         }
@@ -585,34 +595,41 @@ function queryDatatypes(headers, ids, searches, skip, limit) {
         request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
             find: JSON.stringify(find),
             sort: JSON.stringify({ name: 1 }),
-            limit, skip
+            skip: opts.skip||0,
+            limit: opts.limit||100,
         } }, (err, res, body) => {
             if (err) error(err);
             else if (res.statusCode != 200) error(res.body.message);
-            else {
-                resolve(body.datatypes);
-            }
+            else resolve(body.datatypes);
         });
     });
 }
 
 /**
- * Flexibly match datatypes
+ * Resolves a list of datatype id or name into array of datatypes. 
+ * If matches is undefined, returns empty array (if you want *all* datatypes, call queryDatatypes)
  * @param {any} headers
  * @param {string[]} matches
  */
-function matchDatatypes(headers, matches) {
-    matches = matches || [];
-    let ids = matches.filter(isValidObjectId);
-    let queries = matches.filter(o => !isValidObjectId(o));
+function resolveDatatypes(headers, searches) {
+    if(!searches) {
+        return new Promise(r=>r([]));
+    }
 
-    return queryDatatypes(headers, ids, queries, "0", "0");
+    let ids = [];
+    let texts = [];
+    searches.forEach(d=>{
+        if(!d) return;
+        if(isValidObjectId(d)) ids.push(d);
+        else texts.push(d);
+    });
+    return queryDatatypes(headers, ids, texts);
 }
 
 /**
  * Query the list of resources
  * @param {string[]} ids
- * @param {string[]} searches
+ * @param {string[]} search
  * @param {string} status
  * @param {string} service
  * @param {number|string} skip
@@ -727,6 +744,17 @@ function getInstance(headers, instanceName, options) {
  * @param {string} userConfig
  * @param {boolean} raw
  */
+
+function queryAllDatatypes(headers) {
+    return new Promise((resolve, reject)=>{
+        request.get(config.api.warehouse + '/datatype', { headers }, (err, res, body)=>{
+            if(err) reject(err);
+            else if (res.statusCode != 200) (res.body.message);
+            else resolve(body.datatypes);
+        });
+    });
+}
+
 function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, raw) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
@@ -740,7 +768,7 @@ function runApp(headers, appSearch, userInputs, projectSearch, resourceSearch, s
             errorMaybeRaw('Error: Could not parse JSON Config Object', raw);
         }
         
-        let datatypes = await matchDatatypes(headers);
+        let datatypes = await queryAllDatatypes(headers);
         let apps = await matchApps(headers, appSearch);
         let projects = await matchProjects(headers, projectSearch);
         
@@ -1260,7 +1288,7 @@ function errorMaybeRaw(message, raw) {
 
 module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
-    matchDatatypes, matchApps, matchProfiles, matchProjects, matchDatasets, matchResources,
+    resolveDatatypes, matchApps, resolveProfiles, matchProjects, matchDatasets, matchResources,
     getInstance, runApp,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
