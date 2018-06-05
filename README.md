@@ -320,15 +320,15 @@ bl login --ttl 30
 bl dataset upload --datatype 5afc7c555858d874a40c6dda --project 5afc2c8de68fc50028e90820 --subject "soichi1" --json /somewhere/stimulus 2>> upload.err | jq -r '._id' > stim.id
 bl dataset upload --datatype 59b685a08e5d38b0b331ddc5 --project 5afc2c8de68fc50028e90820 --subject "soichi1" --datatype_tag "prf" --json /somewhere/task 2>> upload.err | jq -r '._id' > func.id
 
-# For -d (datatype) ID, you can query it by `bl datatype query -s stimulus` or `bl datatype query -s func`
-# For -p (project) ID, you can query project by `bl project query -s "project name"`
+# For -d (datatype) ID, you can query it by `bl datatype query -q stimulus` or `bl datatype query -q func`
+# For -p (project) ID, you can query project by `bl project query -q "project name"`
 
 # If you have func/task sidecard file, you can store them in a json file (like "dataset.json") and load them to your dataset by adding `--meta dataset.json` to the upload command.
 
 # Running the App!
 bl app run --id 5b084f4d9f3e2c0028ab45e4 --project 5afc2c8de68fc50028e90820 --input tractogram_static:$(cat func.id) --input stimimage:$(cat stim.id) --config '{"frameperiod": "1.3"}' --json | jq -r '._id' > task.id
 
-# You can query app by `bl app query -s "prf"`
+# You can query app by `bl app query -q "prf"`
 
 # --config is where you pass JSON object containing config for your App. 
 

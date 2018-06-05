@@ -16,7 +16,7 @@ commander
     .option('--dir, --directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--dt, --datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
+    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
     .option('--desc, --description <description>', 'description of uploaded dataset')
     .option('-s, --subject <subject>', 'subject of the uploaded dataset')
     .option('--se, --session <session>', 'session of the uploaded dataset')

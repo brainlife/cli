@@ -12,7 +12,7 @@ commander
     .option('-k, --skip <skip>', 'number of results to skip', parseInt)
     .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
     .option('-r, --raw', 'output data in json format')
-    .option('-r, --json', 'output data in json format')
+    .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 

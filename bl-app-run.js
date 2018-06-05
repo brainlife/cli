@@ -12,7 +12,7 @@ commander
     .option('--branch <resource id>', 'github branch to use to run this app (default: master)')
     .option('--config <json string>', 'config to use for running the app')
     .option('-r, --raw', 'output resulting app task in json format')
-    .option('-r, --json', 'output resulting app task in json format')
+    .option('-j, --json', 'output resulting app task in json format')
     .option('-h, --h')
     .parse(process.argv);
 

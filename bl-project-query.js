@@ -8,9 +8,9 @@ const util = require('./util');
 commander
     .option('-i, --id <id>', 'filter projects by id')
     .option('-q, --search <search>', 'filter projects by name or description')
-    .option('-a, --admin <admin>', 'filter project by admins in it')
-    .option('-m, --member <members>', 'filter project by members in it')
-    .option('-g, --guest <guests>', 'filter project by guests in it')
+    .option('-a, --admin <admin>', 'filter project with a given admin')
+    .option('-m, --member <members>', 'filter project with a given member')
+    .option('-g, --guest <guests>', 'filter project with a given guest')
     .option('-k, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')

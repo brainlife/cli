@@ -17,7 +17,7 @@ commander
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
     .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
     .option('-p, --project <projectid>', 'filter datasets by project id')
-    .option('-su, --subject <subject>', 'filter datasets by subject')
+    .option('--sub, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-k, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')

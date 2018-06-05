@@ -17,7 +17,7 @@ commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
     .option('-r, --raw', 'output info about downloaded dataset in json format')
-    .option('-r, --json', 'output info about downloaded dataset in json format')
+    .option('-j, --json', 'output info about downloaded dataset in json format')
     .option('-h, --h')
     .parse(process.argv);
 
