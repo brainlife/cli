@@ -298,27 +298,6 @@ function queryProfiles(headers, query, opt) {
 }
 
 /**
- * Flexibly match profiles
- * @param {any} headers
- * @param {string[]} matches
- * @returns {Promise<profile[]>}
- */
-function resolveProfiles(headers, searches) {
-    if(!searches) {
-        return new Promise(r=>r([]));
-    }
-    
-    let ids = [];
-    let texts = [];
-    searches.forEach(d=>{
-        if(!d) return;
-        if(isValidObjectId(d)) ids.push(d);
-        else texts.push(d);
-    });
-    return queryProfiles(headers, ids, texts);
-}
-
-/**
  * Query the list of datasets
  * @param {any} headers
  * @param {string[]} ids
@@ -422,25 +401,6 @@ function queryDatasets(headers, query, opt) {
 }
 
 /**
- * Flexibly match datasets
- * @param {any} headers
- * @param {string[]} matches
- * @param {string[]} admin
- * @param {string} datatype
- * @param {string[]} datatype_tags
- * @param {string} project
- * @param {string} subject
- * @returns {Promise<dataset[]>}
- */
-function matchDatasets(headers, matches, admin, datatype, datatype_tags, project, subject) {
-    matches = matches || [];
-    let ids = matches.filter(isValidObjectId);
-    let queries = matches.filter(o => !isValidObjectId(o));
-    
-    return queryDatasets(headers, ids, queries, admin, datatype, datatype_tags, project, subject, "0", "0");
-}
-
-/**
  * Query all projects
  * @param {any} headers
  * @param {string[]} ids
@@ -519,23 +479,6 @@ function queryProjects(headers, query, opt) {
             }
         });
     }
-}
-
-/**
- * Flexibly match projects
- * @param {any} headers
- * @param {string[]} matches
- * @param {string[]} admins
- * @param {string[]} members
- * @param {string[]} guests
- * @returns {Promise<project[]>}
- */
-function matchProjects(headers, matches, admins, members, guests) {
-    matches = matches || [];
-    let ids = matches.filter(isValidObjectId);
-    let queries = matches.filter(o => !isValidObjectId(o));
-    
-    return queryProjects(headers, ids, queries, admins, members, guests, "0", "0");
 }
 
 /**
@@ -641,22 +584,6 @@ function queryApps(headers, query, opt) {
 }
 
 /**
- * Flexibly match apps
- * @param {any} headers
- * @param {string[]} match
- * @param {string[]} inputs
- * @param {string[]} outputs
- * @returns {Promise<app[]>}
- */
-function matchApps(headers, matches, inputs, outputs) {
-    matches = matches || [];
-    let ids = matches.filter(isValidObjectId);
-    let queries = matches.filter(o => !isValidObjectId(o));
-
-    return queryApps(headers, ids, queries, inputs, outputs, "0", "0");
-}
-
-/**
  * Query the list of datatypes
  * @param {any} headers
  * @param {Object} query
@@ -751,22 +678,6 @@ function queryResources(headers, query, opt) {
 }
 
 /**
- * Flexibly match resources
- * @param {any} headers
- * @param {string} matches
- * @param {string} status
- * @param {string} service
- * @returns {Promise<resource[]>}
- */
-function matchResources(headers, matches, status, service) {
-    matches = matches || [];
-    let ids = matches.filter(isValidObjectId);
-    let queries = matches.filter(o => !isValidObjectId(o));
-
-    return queryResources(headers, ids, queries, status, service, "0", "0");
-}
-
-/**
  * Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
@@ -804,16 +715,6 @@ function getInstance(headers, instanceName, options) {
                     }
                 });
             }
-        });
-    });
-}
-
-function requestPromise(url, opts) {
-    return new Promise((resolve, reject)=>{
-        request.get(url, opts, (err, res, body)=>{
-            if(err) reject(err);
-            else if (res.statusCode != 200) reject(res.body.message);
-            else resolve(body);
         });
     });
 }
@@ -1323,20 +1224,6 @@ function waitForFinish(headers, task, verbose, cb) {
     });
 }
 
-
-/**
- * Converts object with maybe null entries to an object with all nonnull values
- * @param {any} o
- * @returns {any}
- */
-function toNonNullObject(o) {
-    let result = {};
-    Object.keys(o).forEach(k => {
-        if (o[k] && (typeof o[k] != 'string' || o[k].trim().length > 0)) result[k] = o[k];
-    });
-    return result;
-}
-
 /**
  * Escapes a user input string to make it safe for regex matching
  * @param {string} str
@@ -1389,7 +1276,6 @@ function errorMaybeRaw(message, raw) {
 
 module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
-    matchApps, resolveProfiles, matchProjects, matchDatasets, matchResources,
     getInstance, runApp,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
