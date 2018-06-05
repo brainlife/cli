@@ -17,8 +17,14 @@ const spawn = require('child_process').spawn;
 const terminalOverwrite = require('terminal-overwrite');
 const prompt = require('prompt');
 
+/**
+ * @constant {string} delimiter
+ */
 const delimiter = ',';
 
+/**
+ * @constant {string[]} gearFrames
+ */
 const gearFrames = [
     '               ',
     ' e             ',
@@ -300,15 +306,16 @@ function queryProfiles(headers, query, opt) {
 /**
  * Query the list of datasets
  * @param {any} headers
- * @param {string[]} ids
- * @param {string[]} searches
- * @param {string[]} admin
- * @param {string} datatype
- * @param {string[]} datatype_tags
- * @param {string} project
- * @param {string} subject
- * @param {string|number} skip
- * @param {string|number} limit
+ * @param {Object} query
+ * @param {string} query.id
+ * @param {string} query.search
+ * @param {string} query.datatype
+ * @param {string[]} query.datatypeTags
+ * @param {string} query.project
+ * @param {string} query.subject
+ * @param {Object} opt
+ * @param {number} opt.skip
+ * @param {number} opt.limit
  * @returns {Promise<dataset[]>}
  */
 function queryDatasets(headers, query, opt) {
@@ -401,15 +408,17 @@ function queryDatasets(headers, query, opt) {
 }
 
 /**
- * Query all projects
+ * Query the list of projects
  * @param {any} headers
- * @param {string[]} ids
- * @param {string[]} searches
- * @param {string[]} adminSearch
- * @param {string[]} memberSearch
- * @param {string[]} guestSearch
- * @param {string|number} skip
- * @param {string|number} limit
+ * @param {Object} query
+ * @param {string} query.id
+ * @param {string} query.search
+ * @param {string} query.admin
+ * @param {string} query.member
+ * @param {string} query.guest
+ * @param {Object} opt
+ * @param {number} opt.skip
+ * @param {number} opt.limit
  * @returns {Promise<project[]>}
  */
 function queryProjects(headers, query, opt) {
@@ -461,6 +470,13 @@ function queryProjects(headers, query, opt) {
         });
     });
     
+    /**
+     * Ensure that the given user string corresponds
+     * to exactly one profile
+     * @param {any} headers 
+     * @param {string} profile 
+     * @returns {Promise<profile>}
+     */
     function ensureUniqueProfile(headers, profile) {
         return new Promise(async (resolve, reject) => {
             let profiles;
@@ -482,17 +498,18 @@ function queryProjects(headers, query, opt) {
 }
 
 /**
- * Query the list of apps. with empty query, returns none
- * @param {string[]} ids
- * @param {string[]} searches
- * @param {string[]} inputs
- * @param {string[]} outputs
- * @param {number|string} skip
- * @param {number|string} limit
+ * Query the list of apps
+ * @param {any} headers
+ * @param {Object} query
+ * @param {string} query.id
+ * @param {string} query.search
+ * @param {string[]} query.inputs
+ * @param {string[]} query.outputs
+ * @param {Object} opt
+ * @param {number} opt.skip
+ * @param {number} opt.limit
  * @returns {Promise<app[]>}
  */
-//function queryApps(headers, ids, search, inputs, outputs, skip, limit) {
-
 function queryApps(headers, query, opt) {
     if(query === undefined) query = {};
     if(opt === undefined) opt = {};
@@ -559,6 +576,13 @@ function queryApps(headers, query, opt) {
         resolve(body.apps);
     });
     
+    /**
+     * Ensure that the given user string corresponds
+     * to exactly one datatype
+     * @param {any} headers 
+     * @param {string} query 
+     * @returns {Promise<datatype>}
+     */
     function ensureUniqueDatatype(headers, query) {
         return new Promise(async (resolve, reject) => {
             let datatypes;
@@ -627,12 +651,15 @@ function queryDatatypes(headers, query, opt) {
 
 /**
  * Query the list of resources
- * @param {string[]} ids
- * @param {string[]} search
- * @param {string} status
- * @param {string} service
- * @param {number|string} skip
- * @param {number|string} limit
+ * @param {any} headers
+ * @param {Object} query
+ * @param {string} query.id
+ * @param {string} query.search
+ * @param {string[]} query.status
+ * @param {string[]} query.service
+ * @param {Object} opt
+ * @param {number} opt.skip
+ * @param {number} opt.limit
  * @returns {Promise<resource[]>}
  */
 function queryResources(headers, query, opt) {
@@ -681,7 +708,9 @@ function queryResources(headers, query, opt) {
  * Get an instance for a service
  * @param {any} headers
  * @param {string} instanceName
- * @param {project} project
+ * @param {Object} options
+ * @param {project} options.project
+ * @param {string} options.desc
  * @returns {Promise<instance>}
  */
 function getInstance(headers, instanceName, options) {
@@ -722,11 +751,15 @@ function getInstance(headers, instanceName, options) {
 /**
  * Run a Brain Life application
  * @param {any} headers
- * @param {string} appSearch
- * @param {string[]} userInputs
- * @param {string} projectSearch
- * @param {string} userConfig
- * @param {boolean} raw
+ * @param {Object} opt
+ * @param {string} opt.app
+ * @param {string} opt.project
+ * @param {string[]} opt.inputs
+ * @param {any} opt.config
+ * @param {string} opt.resource
+ * @param {string} opt.branch
+ * @param {boolean} opt.raw
+ * @returns {Promise<task>} The resulting app task
  */
 function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, raw) {
     return new Promise(async (resolve, reject) => {
@@ -1053,6 +1086,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
          * @param {input[]} inputs
          * @param {datatype[]} datatypeTable
          * @param {app} app
+         * @returns {any}
          */
         function expandFlattenedConfig(flattened, values, download_task, inputs, datatypeTable, app) {
             let idToAppInputTable = {};
@@ -1113,6 +1147,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
          * Get resources that the given service can run on
          * @param {any} headers
          * @param {string} service 
+         * @returns {Promise<{ resource: string, considered: resource[] }>}
          */
         function getResource(headers, service) {
             return new Promise((resolve, reject) => {
@@ -1132,6 +1167,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
          * Query github with the given service and branch
          * @param {string} service 
          * @param {string} branch 
+         * @returns {Promise<Response>}
          */
         function queryGithub(service, branch) {
             return new Promise((resolve, reject) => {
@@ -1149,7 +1185,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
  * @param {any} headers 
  * @param {task} task 
  * @param {boolean} verbose 
- * @param {(err) => any} cb 
+ * @param {(error: string) => any} cb 
  */
 function waitForArchivedDatasets(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
@@ -1227,6 +1263,7 @@ function waitForFinish(headers, task, verbose, cb) {
 /**
  * Escapes a user input string to make it safe for regex matching
  * @param {string} str
+ * @returns {string}
  */
 function escapeRegExp(str) {
     return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\/\^\$\|]/g, "\\$&");
@@ -1235,6 +1272,7 @@ function escapeRegExp(str) {
 /**
  * Returns whether or not a given string is a valid object ID
  * @param {string} str
+ * @returns {boolean}
  */
 function isValidObjectId(str) {
     return /^[a-f\d]{24}$/i.test(str);
@@ -1244,6 +1282,7 @@ function isValidObjectId(str) {
  * Return a pluralized string whether or not there are multiple objects
  * @param {string} string
  * @param {any[]} objects
+ * @returns {string}
  */
 function pluralize(string, objects) {
     if (objects.length == 1) return string;
