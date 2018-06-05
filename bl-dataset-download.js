@@ -39,8 +39,8 @@ util.loadJwt().then(jwt => {
  * @param {string} query
  * @param {any} headers
  */
-function downloadDataset(headers, query, dir, raw) {
-    util.queryDatasets(headers, query)
+function downloadDataset(headers, id, dir, raw) {
+    util.queryDatasets(headers, { id })
     .then(datasets => {
         if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', commander.raw);
         

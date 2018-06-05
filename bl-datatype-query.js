@@ -14,25 +14,28 @@ const util = require('./util');
 commander
     .option('-i, --id <id>', 'filter datatype by id')
     .option('-s, --search <search>', 'filter datatype by name or description')
-    .option('--sk, --skip <skip>', 'number of results to skip')
+    .option('-k, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    if (commander.id) commander.id = [commander.id];
-    if (commander.search) commander.search = [commander.search];
-    util.queryDatatypes(headers, commander.id, commander.search, commander.skip, commander.limit)
-    .then(datatypes => {
-        if (commander.raw) console.log(JSON.stringify(datatypes));
-        else formatDatatypes(headers, datatypes, { all: true }).then(console.log);
-    }).catch(console.error);
+    let datatypes = await util.queryDatatypes(headers, {
+        id: commander.id,
+        search: commander.search
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
+    
+    if (commander.raw) console.log(JSON.stringify(datatypes));
+    else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
 }).catch(console.error);
 
 /**

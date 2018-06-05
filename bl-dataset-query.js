@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request');
+const request = require('request-promise-native');
 const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
@@ -13,14 +13,13 @@ const timeago = require('time-ago');
 
 commander
     .option('-i, --id <id>', 'filter datasets by id')
-    .option('-s, --search <search>', 'filter datasets by desc')
+    .option('-q, --search <search>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
     .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
-    .option('-a, --admin <project admin>', 'filter datasets by their project admin')
     .option('-p, --project <projectid>', 'filter datasets by project id')
-    .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-su, --subject <subject>', 'filter datasets by subject')
-    .option('-sk, --skip <skip>', 'number of results to skip')
+    .option('--taskid <projectid>', 'filter datasets by provenance task id')
+    .option('-k, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -37,7 +36,18 @@ util.loadJwt().then(async jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    let datasets = await util.queryDatasets(headers, commander.id, commander.search, commander.admin, commander.datatype, argv['datatype_tag'], commander.project, commander.subject, commander.skip, commander.limit, commander.taskid);
+    let datasets = await util.queryDatasets(headers, {
+        id: commander.id,
+        search: commander.search,
+        datatype: commander.datatype,
+        datatypeTags: argv['datatype_tag'],
+        project: commander.project,
+        subject: commander.subject,
+        taskId: commander.taskid
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
     
     if (commander.product) getProductJSON(headers, datasets).then(console.log);
     else if (commander.raw) console.log(JSON.stringify(datasets));
@@ -67,9 +77,22 @@ function getProductJSON(headers, data) {
  */
 function formatDatasets(headers, data, skip, whatToShow) {
     return new Promise(async (resolve, reject) => {
-        let projects = await util.queryProjects(headers, null, null, null, null, null, "0", "0");
-        let datatypes = await util.matchDatatypes(headers);
-        let profiles = await util.queryProfiles(headers);
+        let queryParams = {
+            headers,
+            json: true,
+            qs: {
+                skip: 0,
+                limit: 0
+            }
+        };
+        let projectBody = await request.get(config.api.warehouse + '/project', queryParams);
+        let datatypeBody = await request.get(config.api.warehouse + '/datatype', queryParams);
+        let profileBody = await request.get(config.api.auth + '/profile', queryParams);
+        
+        let projects = projectBody.projects;
+        let datatypes = datatypeBody.datatypes;
+        let profiles = profileBody.profiles;
+        
         let projectTable = {}, datatypeTable = {}, profileTable = {};
         
         projects.forEach(project => projectTable[project._id] = project);

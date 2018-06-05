@@ -16,7 +16,7 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
@@ -28,7 +28,15 @@ util.loadJwt().then(jwt => {
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    util.runApp(headers, commander.id, argv['input'], commander.project, commander.preferredResource, commander.branch, commander.config, commander.raw).then(task => {
-        if (commander.raw) console.log(task);
+    let task = await util.runApp(headers, {
+        app: commander.id,
+        inputs: argv['input'],
+        project: commander.project,
+        resource: commander.preferredResource,
+        branch: commander.branch,
+        config: commander.config,
+        raw: commander.raw
     });
+    
+    if (commander.raw) console.log(task);
 }).catch(console.error);

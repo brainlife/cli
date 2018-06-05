@@ -259,21 +259,37 @@ let jwt = await brainlife.login('stevengeeky', fs.readFileSync('my.password', 'a
 let headers = { 'Authorization': 'Bearer ' + jwt };
 
 // retrieve the correct datatype tag and project
-let datatypes = await brainlife.queryDatatypes(headers, null, 'neuro/anat/t1w', '0', '0');
-let projects = await brainlife.queryProjects(headers, null, 'Test Project');
+let datatypes = await brainlife.queryDatatypes(headers, {
+    search: 'neuro/anat/t1w'
+});
+let projects = await brainlife.queryProjects(headers, {
+    search: 'Test Project'
+});
 
 let t1w = datatypes[0]._id;
 let myProject = projects[0]._id;
 
 // get a dataset and an app to run using that dataset
-let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject);
-let apps = await brainlife.queryApps(headers, null, null, t1w, t1w);
+let datasets = await brainlife.queryDatasets(headers, {
+    admin: 'stevengeeky',
+    datatype: t1w,
+    datatypeTags: [ '!acpc_aligned' ],
+    project: myProject
+});
+let apps = await brainlife.queryApps(headers, {
+    inputs: [ t1w ],
+    outputs: [ t1w ]
+});
 
 let myDataset = datasets.reverse()[0]._id;
 let appACPCAlignment = apps[0]._id;
 
 // run the app
-let appTask = await brainlife.runApp(headers, appACPCAlignment, myProject, { t1: myDataset });
+let appTask = await brainlife.runApp(headers, {
+    app: appACPCAlignment,
+    project: myProject,
+    inputs: ["t1:" + myDataset]
+});
 
 // wait until it's finished
 brainlife.waitForFinish(headers, appTask, process.stdout.isTTY, err => {
