@@ -1068,10 +1068,14 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     }
                 }
 
-                if (opt.config[key] && /boolean|string|number/.test(app.config[key].type)) {
-                    if (typeof opt.config[key] != app.config[key].type) {
-                        return reject("Error: config key '" + key + "': expected type '" + app.config[key].type + "' but given value of type '" + (typeof opt.config[key]) + "'");
-                    }
+                switch (app.config[key].type) {
+                    case "boolean":
+                    case "string":
+                    case "number":
+                        if (typeof opt.config[key] != app.config[key].type) {
+                            return reject("Error: config key '" + key + "': expected type '" + app.config[key].type + "' but given value of type '" + (typeof opt.config[key]) + "'");
+                        }
+                        break;
                 }
 
                 values[key] = opt.config[key] || app.config[key].default;
