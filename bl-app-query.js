@@ -82,14 +82,13 @@ function formatApps(headers, data, whatToShow) {
                 return formattedDatatype;
             }).join(', ');
             
-            let flattenedConfig = !D.config ? {} : flattenConfig(D.config, []);
-            let formattedConfig = Object.keys(flattenedConfig)
-            .filter(key => flattenedConfig[key].type != 'input')
+            let formattedConfig = Object.keys(D.config)
+            .filter(key => D.config[key].type != 'input')
             .map(key => {
-                let resultString = "    " + JSON.parse(key).join(".") + ":";
+                let resultString = "    " + key + ":";
                 
-                if (flattenedConfig[key].type) resultString += " (type: " + flattenedConfig[key].type + ")";
-                if (flattenedConfig[key].default) resultString += " (default: " + flattenedConfig[key].default + ")";
+                if (D.config[key].type) resultString += " (type: " + D.config[key].type + ")";
+                if (D.config[key].default) resultString += " (default: " + D.config[key].default + ")";
                 return resultString;
             }).join('\n');
             
@@ -106,25 +105,4 @@ function formatApps(headers, data, whatToShow) {
         resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
         resolve(resultArray.join('\n\n'));
     });
-}
-
-/**
- * Flatten a tree config object into an object with depth 1
- * @param {any} config
- * @param {string[]} path
- */
-function flattenConfig(config, path) {
-    let result = {};
-
-    if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
-    else {
-        Object.keys(config).forEach(key => {
-            let thisPath = path.map(x=>x);
-            thisPath.push(key);
-
-            Object.assign(result, flattenConfig(config[key], thisPath));
-        });
-    }
-
-    return result;
 }
