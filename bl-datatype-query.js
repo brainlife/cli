@@ -52,15 +52,15 @@ util.loadJwt().then(async jwt => {
  */
 function formatDatatypes(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        let resultArray = data.map(d => {
+        let resultArray = data.map(datatype => {
             let info = [];
-            let formattedFiles = d.files.map(file => {
+            let formattedFiles = datatype.files.map(file => {
                 return "[" + (file.required?'(required) ':'') + file.id + ": " + (file.filename||file.dirname) + "]";
             }).join('  ');
 
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + d.name);
-            if (whatToShow.all || whatToShow.desc) info.push("Description: " + d.desc);
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + datatype._id);
+            if (whatToShow.all || whatToShow.name) info.push("Name: " + datatype.name);
+            if (whatToShow.all || whatToShow.desc) info.push("Description: " + datatype.desc);
             if (whatToShow.all || whatToShow.files) info.push("Files: " + formattedFiles);
 
             return info.join('\n');

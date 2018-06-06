@@ -56,13 +56,13 @@ util.loadJwt().then(async jwt => {
  */
 function formatResources(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
-        let resultArray = data.map(d => {
+        let resultArray = data.map(resource => {
             let info = [];
 
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + d.name);
-            if (whatToShow.all || whatToShow.files) info.push("Type: " + d.type);
-            if (d.config && (whatToShow.all || whatToShow.files)) info.push(d.type + ": " + d.config.username + "@" + (d.config.hostname || '[' + d.resource_id + ']'));
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + resource._id);
+            if (whatToShow.all || whatToShow.name) info.push("Name: " + resource.name);
+            if (whatToShow.all || whatToShow.files) info.push("Type: " + resource.type);
+            if (resource.config && (whatToShow.all || whatToShow.files)) info.push(resource.type + ": " + resource.config.username + "@" + (resource.config.hostname || '[' + resource.resource_id + ']'));
 
             return info.join('\n');
         });

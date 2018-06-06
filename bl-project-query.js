@@ -75,26 +75,26 @@ function formatProjects(headers, data, whatToShow) {
         let profileTable = {};
         profiles.forEach(profile => profileTable[profile.id] = profile);
 
-        let resultArray = data.map(d => {
+        let resultArray = data.map(project => {
             let info = [];
             let formattedAdmins = [];
             let formattedMembers = [];
             let formattedGuests = [];
             
-            if (d.admins) formattedAdmins = d.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-            if (d.members) formattedMembers = d.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-            if (d.guests) formattedGuests = d.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+            if (project.admins) formattedAdmins = project.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+            if (project.members) formattedMembers = project.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+            if (project.guests) formattedGuests = project.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
             
-            let formattedAccess = "Access: " + d.access;
-            if (d.listed) formattedAccess += " (but listed for all users)";
+            let formattedAccess = "Access: " + project.access;
+            if (project.listed) formattedAccess += " (but listed for all users)";
 
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + d.name);
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + project._id);
+            if (whatToShow.all || whatToShow.name) info.push("Name: " + project.name);
             if (whatToShow.all || whatToShow.admins) info.push("Admins: " + formattedAdmins.join(', '));
             if (whatToShow.all || whatToShow.members) info.push("Members: " + formattedMembers.join(', '));
             if (whatToShow.all || whatToShow.guests) info.push("Guests: " + formattedGuests.join(', '));
             if (whatToShow.all || whatToShow.access) info.push("Access: " + formattedAccess);
-            if (whatToShow.all || whatToShow.desc) info.push("Description: " + d.desc);
+            if (whatToShow.all || whatToShow.desc) info.push("Description: " + project.desc);
 
             return info.join('\n');
         });

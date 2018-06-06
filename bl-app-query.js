@@ -60,9 +60,9 @@ function formatApps(headers, data, whatToShow) {
 
         datatypes.forEach(d => datatypeTable[d._id] = d);
 
-        let resultArray = data.map(D => {
+        let resultArray = data.map(app => {
             let info = [];
-            let formattedInputs = D.inputs.map(input => {
+            let formattedInputs = app.inputs.map(input => {
                 let dtype = datatypeTable[input.datatype] ? datatypeTable[input.datatype].name : input.datatype;
                 let tags = input.datatype_tags.length > 0 ? "<" + input.datatype_tags.join(',') + ">" : '';
                 let formattedDatatype = input.id + ": " + dtype + tags;
@@ -72,7 +72,7 @@ function formatApps(headers, data, whatToShow) {
                 return formattedDatatype;
             }).join(', ');
             
-            let formattedOutputs = D.outputs.map(output => {
+            let formattedOutputs = app.outputs.map(output => {
                 let dtype = datatypeTable[output.datatype] ? datatypeTable[output.datatype].name : output.datatype;
                 let tags = output.datatype_tags.length > 0 ? "<" + output.datatype_tags.join(',') + ">" : '';
                 let formattedDatatype = output.id + ": " + dtype + tags;
@@ -82,21 +82,21 @@ function formatApps(headers, data, whatToShow) {
                 return formattedDatatype;
             }).join(', ');
             
-            let formattedConfig = Object.keys(D.config)
-            .filter(key => D.config[key].type != 'input')
+            let formattedConfig = Object.keys(app.config)
+            .filter(key => app.config[key].type != 'input')
             .map(key => {
                 let resultString = "    " + key + ":";
                 
-                if (D.config[key].type) resultString += " (type: " + D.config[key].type + ")";
-                if (D.config[key].default) resultString += " (default: " + D.config[key].default + ")";
+                if (app.config[key].type) resultString += " (type: " + app.config[key].type + ")";
+                if (app.config[key].default) resultString += " (default: " + app.config[key].default + ")";
                 return resultString;
             }).join('\n');
             
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + D._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + D.name);
-            if (whatToShow.all || whatToShow.service) info.push("Service: " + D.github);
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + app._id);
+            if (whatToShow.all || whatToShow.name) info.push("Name: " + app.name);
+            if (whatToShow.all || whatToShow.service) info.push("Service: " + app.github);
             if (whatToShow.all || whatToShow.datatypes) info.push("Type: (" + formattedInputs + ") -> (" + formattedOutputs + ")");
-            if (whatToShow.all || whatToShow.desc) info.push("Description: " + D.desc);
+            if (whatToShow.all || whatToShow.desc) info.push("Description: " + app.desc);
             if (whatToShow.all || whatToShow.desc) info.push("Config:\n" + formattedConfig);
 
             return info.join('\n');
