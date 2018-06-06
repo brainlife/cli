@@ -1057,35 +1057,38 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         let values = {};
         
         for (let key in app.config) {
-            if (app.config[key].type != 'input') {
+            let appParam = app.config[key];
+            let userParam = opt.config[key];
+            
+            if (appParam.type != 'input') {
                 // validate each user-given config parameter
-                if (typeof opt.config[key] == 'undefined') {
-                    if (app.config[key].default) {
+                if (typeof userParam == 'undefined') {
+                    if (appParam.default) {
                         if (!opt.raw) console.log("No config entry found for key '" + key + "'; " + 
-                                                    "using the default value in the app's config: " + app.config[key].default);
-                        opt.config[key] = app.config[key].default;
+                                                    "using the default value in the app's config: " + appParam.default);
+                        userParam = appParam.default;
                     } else {
                         return reject("Error: no config entry found for key'" + key +
-                                        "' (type: " + (app.config[key].type) + "). " + 
+                                        "' (type: " + (appParam.type) + "). " + 
                                         "Please provide one and rerun");
                     }
                 }
                 
-                switch (app.config[key].type) {
+                switch (appParam.type) {
                     case "boolean":
                     case "string":
                     case "number":
-                        if (typeof opt.config[key] != app.config[key].type) {
+                        if (typeof userParam != appParam.type) {
                             return reject("Error: config key '" + key + "': " +
-                                            "expected type '" + app.config[key].type +
-                                            "' but given value of type '" + (typeof opt.config[key]) + "'");
+                                            "expected type '" + appParam.type +
+                                            "' but given value of type '" + (typeof userParam) + "'");
                         }
                         break;
                     case "enum":
-                        let validOptions = app.config[key].options.map(o => o.value);
-                        if (validOptions.indexOf(opt.config[key]) == -1) {
+                        let validOptions = appParam.options.map(o => o.value);
+                        if (validOptions.indexOf(userParam) == -1) {
                             return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
-                                            "but given value " + opt.config[key]);
+                                            "but given value " + userParam);
                         }
                         break;
                 }
