@@ -22,21 +22,27 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    if (!commander.project) throw "Error: No project given to store output dataset";
-    if (!commander.id) throw "Error: No app id given";
+    if (!commander.project) util.errorMaybeRaw("Error: No project given to store output dataset", commander.raw);
+    if (!commander.id) util.errorMaybeRaw("Error: No app id given", commander.raw);
     
     if (!argv['input']) argv['input'] = [];
     if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
     
-    let task = await util.runApp(headers, {
-        app: commander.id,
-        inputs: argv['input'],
-        project: commander.project,
-        resource: commander.preferredResource,
-        branch: commander.branch,
-        config: commander.config,
-        raw: commander.raw
-    });
-    
-    if (commander.raw) console.log(task);
-}).catch(console.error);
+    try {
+        let task = await util.runApp(headers, {
+            app: commander.id,
+            inputs: argv['input'],
+            project: commander.project,
+            resource: commander.preferredResource,
+            branch: commander.branch,
+            config: commander.config,
+            raw: commander.raw
+        });
+        
+        if (commander.raw) console.log(task);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});

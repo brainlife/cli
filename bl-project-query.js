@@ -7,11 +7,11 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter projects by id')
-    .option('-q, --search <search>', 'filter projects by name or description')
+    .option('-q, --query <query>', 'filter projects by name or description')
     .option('-a, --admin <admin>', 'filter project with a given admin')
     .option('-m, --member <members>', 'filter project with a given member')
     .option('-g, --guest <guests>', 'filter project with a given guest')
-    .option('-k, --skip <skip>', 'number of results to skip')
+    .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -23,20 +23,26 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    let projects = await util.queryProjects(headers, {
-        id: commander.id,
-        search: commander.search,
-        admin: commander.admin,
-        member: commander.member,
-        guest: commander.guest
-    }, {
-        skip: commander.skip,
-        limit: commander.limit
-    });
-    
-    if (commander.raw) console.log(JSON.stringify(projects));
-    else showProjects(headers, projects);
-}).catch(console.error);
+    try {
+        let projects = await util.queryProjects(headers, {
+            id: commander.id,
+            search: commander.query,
+            admin: commander.admin,
+            member: commander.member,
+            guest: commander.guest
+        }, {
+            skip: commander.skip,
+            limit: commander.limit
+        });
+        
+        if (commander.raw) console.log(JSON.stringify(projects));
+        else showProjects(headers, projects);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Output a set of projects to the console
@@ -65,15 +71,7 @@ function showProjects(headers, projects) {
  */
 function formatProjects(headers, data, whatToShow) {
     return new Promise(async (resolve, reject) => {
-        let profileBody = await request.get(config.api.auth + '/profile', {
-            headers,
-            json: true,
-            qs: {
-                limit: -1,
-                offset: 0
-            }
-        });
-        let profiles = profileBody.profiles;
+        let profiles = await util.queryAllProfiles(headers);
         let profileTable = {};
         profiles.forEach(profile => profileTable[profile.id] = profile);
 
