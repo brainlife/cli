@@ -13,7 +13,7 @@ const timeago = require('time-ago');
 
 commander
     .option('-i, --id <id>', 'filter datasets by id')
-    .option('-q, --search <search>', 'filter datasets by desc')
+    .option('-q, --query <query>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
     .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
     .option('-p, --project <projectid>', 'filter datasets by project id')
@@ -38,7 +38,7 @@ util.loadJwt().then(async jwt => {
     
     let datasets = await util.queryDatasets(headers, {
         id: commander.id,
-        search: commander.search,
+        search: commander.query,
         datatype: commander.datatype,
         datatypeTags: argv['datatype_tag'],
         project: commander.project,

@@ -6,7 +6,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter apps by id')
-    .option('-q, --search <search>', 'filter apps by name or description')
+    .option('-q, --query <query>', 'filter apps by name or description')
     .option('--input-datatype <type>', 'specify required input type')
     .option('--output-datatype <type>', 'specify required output type')
     .option('-s, --skip <skip>', 'number of results to skip', parseInt)
@@ -31,7 +31,7 @@ util.loadJwt().then(async jwt => {
     try {
         let apps = await util.queryApps(headers, {
             id: commander.id, 
-            search: commander.search, 
+            search: commander.query,
             inputs, outputs, 
         }, {
             skip: commander.skip, 

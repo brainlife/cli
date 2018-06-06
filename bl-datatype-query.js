@@ -13,7 +13,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter datatype by id')
-    .option('-q, --search <search>', 'filter datatype by name or description')
+    .option('-q, --query <query>', 'filter datatype by name or description')
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
@@ -29,7 +29,7 @@ util.loadJwt().then(async jwt => {
     try {
         let datatypes = await util.queryDatatypes(headers, {
             id: commander.id,
-            search: commander.search
+            search: commander.query
         }, {
             skip: commander.skip,
             limit: commander.limit

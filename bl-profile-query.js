@@ -6,7 +6,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter profiles by id')
-    .option('-q, --search <search>', 'filter profiles by username, full name, or email address')
+    .option('-q, --query <query>', 'filter profiles by username, full name, or email address')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
     .option('-h, --h')
@@ -21,7 +21,7 @@ util.loadJwt().then(async jwt => {
     try {
         let profiles = await util.queryProfiles(headers, {
             id: commander.id,
-            search: commander.search
+            search: commander.query
         });
         
         if (commander.raw) console.log(JSON.stringify(profiles));

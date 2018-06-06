@@ -7,7 +7,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter projects by id')
-    .option('-q, --search <search>', 'filter projects by name or description')
+    .option('-q, --query <query>', 'filter projects by name or description')
     .option('-a, --admin <admin>', 'filter project with a given admin')
     .option('-m, --member <members>', 'filter project with a given member')
     .option('-g, --guest <guests>', 'filter project with a given guest')
@@ -26,7 +26,7 @@ util.loadJwt().then(async jwt => {
     try {
         let projects = await util.queryProjects(headers, {
             id: commander.id,
-            search: commander.search,
+            search: commander.query,
             admin: commander.admin,
             member: commander.member,
             guest: commander.guest

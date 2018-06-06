@@ -13,7 +13,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter resources by id')
-    .option('-q, --search <search>', 'filter resources by name')
+    .option('-q, --query <query>', 'filter resources by name')
     .option('--stat, --status <status>', 'filter resources by status')
     .option('--serv, --service <service>', 'filter resources by service')
     .option('-s, --skip <skip>', 'number of results to skip')
@@ -30,8 +30,8 @@ util.loadJwt().then(async jwt => {
     
     try {
         let resources = await util.queryResources(headers, {
-            query: commander.id,
-            search: commander.search,
+            id: commander.id,
+            search: commander.query,
             status: commander.status,
             service: commander.service,
         }, {
