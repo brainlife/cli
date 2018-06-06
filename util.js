@@ -1142,7 +1142,6 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 
                 let task = body.task;
                 let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
-                console.log(preparedConfig);
 
                 // link task to app inputs
                 app_inputs.forEach(input => input.task_id = task._id);
