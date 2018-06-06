@@ -13,8 +13,8 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter datatype by id')
-    .option('-s, --search <search>', 'filter datatype by name or description')
-    .option('-k, --skip <skip>', 'number of results to skip')
+    .option('-q, --search <search>', 'filter datatype by name or description')
+    .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -26,17 +26,23 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    let datatypes = await util.queryDatatypes(headers, {
-        id: commander.id,
-        search: commander.search
-    }, {
-        skip: commander.skip,
-        limit: commander.limit
-    });
-    
-    if (commander.raw) console.log(JSON.stringify(datatypes));
-    else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
-}).catch(console.error);
+    try {
+        let datatypes = await util.queryDatatypes(headers, {
+            id: commander.id,
+            search: commander.search
+        }, {
+            skip: commander.skip,
+            limit: commander.limit
+        });
+        
+        if (commander.raw) console.log(JSON.stringify(datatypes));
+        else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Format datatype information

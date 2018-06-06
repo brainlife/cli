@@ -9,7 +9,7 @@ commander
     .option('-q, --search <search>', 'filter apps by name or description')
     .option('--input-datatype <type>', 'specify required input type')
     .option('--output-datatype <type>', 'specify required output type')
-    .option('-k, --skip <skip>', 'number of results to skip', parseInt)
+    .option('-s, --skip <skip>', 'number of results to skip', parseInt)
     .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -28,18 +28,24 @@ util.loadJwt().then(async jwt => {
     let outputs = argv['output-datatype'];
     if(outputs && !Array.isArray(outputs)) outputs = [ outputs ];
     
-    let apps = await util.queryApps(headers, {
-        id: commander.id, 
-        search: commander.search, 
-        inputs, outputs, 
-    }, {
-        skip: commander.skip, 
-        limit: commander.limit
-    });
-    
-    if (commander.raw) console.log(JSON.stringify(apps));
-    else formatApps(headers, apps, { all : true }).then(console.log);
-}).catch(console.error);
+    try {
+        let apps = await util.queryApps(headers, {
+            id: commander.id, 
+            search: commander.search, 
+            inputs, outputs, 
+        }, {
+            skip: commander.skip, 
+            limit: commander.limit
+        });
+        
+        if (commander.raw) console.log(JSON.stringify(apps));
+        else formatApps(headers, apps, { all : true }).then(console.log);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Format app information
@@ -49,8 +55,7 @@ util.loadJwt().then(async jwt => {
  */
 function formatApps(headers, data, whatToShow) {
     return new Promise(async (resolve, reject) => {
-        let datatypeBody = await request.get(config.api.warehouse + '/datatype', { headers, json: true });
-        let datatypes = datatypeBody.datatypes;
+        let datatypes = await util.queryAllDatatypes(headers);
         let datatypeTable = {};
 
         datatypes.forEach(d => datatypeTable[d._id] = d);

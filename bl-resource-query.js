@@ -16,7 +16,7 @@ commander
     .option('-q, --search <search>', 'filter resources by name')
     .option('--stat, --status <status>', 'filter resources by status')
     .option('--serv, --service <service>', 'filter resources by service')
-    .option('-k, --skip <skip>', 'number of results to skip')
+    .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -28,19 +28,25 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    let resources = await util.queryResources(headers, {
-        query: commander.id,
-        search: commander.search,
-        status: commander.status,
-        service: commander.service,
-    }, {
-        skip: commander.skip,
-        limit: commander.limit
-    });
-    
-    if (commander.raw) console.log(JSON.stringify(resources));
-    else formatResources(headers, resources, { all: true }).then(console.log);
-}).catch(console.error);
+    try {
+        let resources = await util.queryResources(headers, {
+            query: commander.id,
+            search: commander.search,
+            status: commander.status,
+            service: commander.service,
+        }, {
+            skip: commander.skip,
+            limit: commander.limit
+        });
+        
+        if (commander.raw) console.log(JSON.stringify(resources));
+        else formatResources(headers, resources, { all: true }).then(console.log);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Format resource information

@@ -18,14 +18,20 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    let profiles = await util.queryProfiles(headers, {
-        id: commander.id,
-        search: commander.search
-    });
-    
-    if (commander.raw) console.log(JSON.stringify(profiles));
-    else formatProfiles(headers, profiles, { all: true }).then(console.log);
-}).catch(console.error);
+    try {
+        let profiles = await util.queryProfiles(headers, {
+            id: commander.id,
+            search: commander.search
+        });
+        
+        if (commander.raw) console.log(JSON.stringify(profiles));
+        else formatProfiles(headers, profiles, { all: true }).then(console.log);
+    } catch (err) {
+        util.errorMaybeRaw(err, commander.raw);
+    }
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Format dataset information

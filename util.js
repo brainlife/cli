@@ -241,7 +241,7 @@ function loadJwt() {
     return new Promise((resolve, reject) => {
         fs.stat(config.path.jwt, (err, stat) => {
             if (err) {
-                error("Error: Couldn't find your access token. Please try logging in by running 'bl login'");
+                return reject("Error: Couldn't find your access token. Please try logging in by running 'bl login'");
                 process.exit(1);
             }
             let jwt = fs.readFileSync(config.path.jwt);
@@ -295,12 +295,43 @@ function queryProfiles(headers, query, opt) {
                 }
                 return showProfile;
             });
-        } else {
-            resolve([]);
         }
 
         resolve(profiles);
     });
+}
+
+/**
+ * Get all profiles
+ * @param {any} headers 
+ */
+function queryAllProfiles(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.auth + '/profile', {
+            headers,
+            json: true,
+            qs: {
+                limit: -1,
+                offset: 0
+            }
+        });
+        return resolve(body.profiles);
+    });
+}
+
+/**
+ * Resolve a set of profiles from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveProfiles(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryProfiles(headers, { id: query }, opt);
+    else {
+        return queryProfiles(headers, { search: query }, opt);
+    }
 }
 
 /**
@@ -328,29 +359,19 @@ function queryDatasets(headers, query, opt) {
         
         if (query.datatype) {
             let datatypeSearch = {};
-            if (isValidObjectId(query.datatype)) {
-                datatypeSearch.id = query.datatype;
-            } else {
-                datatypeSearch.search = query.datatype;
-            }
-            let datatypes = await queryDatatypes(headers, datatypeSearch);
+            let datatypes = await resolveDatatypes(headers, query.datatype);
             
-            if (datatypes.length == 0) return reject("No datatypes found matching '" + query.datatype + "'");
-            if (datatypes.length > 1) return reject("Multiple datatypes found matching '" + query.datatype + "'");
+            if (datatypes.length == 0) return reject("Error: No datatypes found matching '" + query.datatype + "'");
+            if (datatypes.length > 1) return reject("Error: Multiple datatypes found matching '" + query.datatype + "'");
             datatype = datatypes[0];
         }
         
         if (query.project) {
             let projectSearch = {};
-            if (isValidObjectId(query.project)) {
-                projectSearch.id = query.project;
-            } else {
-                projectSearch.search = query.project;
-            }
-            let projects = await queryProjects(headers, projectSearch);
+            let projects = await resolveProjects(headers, query.project);
             
-            if (projects.length == 0) return reject("No projects found matching '" + query.project + "'");
-            if (projects.length > 1) return reject("Multiple projects found matching '" + query.project + "'");
+            if (projects.length == 0) return reject("Error: No projects found matching '" + query.project + "'");
+            if (projects.length > 1) return reject("Error: Multiple projects found matching '" + query.project + "'");
             project = projects[0];
         }
         
@@ -383,28 +404,60 @@ function queryDatasets(headers, query, opt) {
             andQueries.push({ "meta.subject": query.subject });
         }
         if (query.taskId) {
-            if (!isValidObjectId(query.taskId)) return reject("Not a valid task id: " + query.taskId);
+            if (!isValidObjectId(query.taskId)) return reject("Error: Not a valid task id: " + query.taskId);
             andQueries.push({ 'prov.task_id': query.taskId });
         }
         
         
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length == 0) return resolve([]);
-        find.$and = andQueries;
+        if (andQueries.length > 0) find.$and = andQueries;
         
         request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
             find: JSON.stringify(find),
             skip: opt.skip || 0,
             limit: opt.limit || 100
         } }, (err, res, body) => {
-            if (err) error(err);
-            else if (res.statusCode != 200) error(res.body.message);
+            if (err) return reject(err);
+            else if (res.statusCode != 200) return reject(res.body.message);
             else {
                 body.datasets.count = body.count;
                 resolve(body.datasets);
             }
         });
     });
+}
+
+/**
+ * Get all datasets
+ * @param {any} headers 
+ */
+function queryAllDatasets(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.warehouse + '/dataset', {
+            headers,
+            json: true,
+            qs: {
+                limit: 0,
+                offset: 0
+            }
+        });
+        return resolve(body.datasets);
+    });
+}
+
+/**
+ * Resolve a set of datasets from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveDatasets(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryDatasets(headers, { id: query }, opt);
+    else {
+        return queryDatasets(headers, { search: query }, opt);
+    }
 }
 
 /**
@@ -455,8 +508,7 @@ function queryProjects(headers, query, opt) {
         }
 
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length == 0) return resolve([]);
-        find.$and = andQueries;
+        if (andQueries.length > 0) find.$and = andQueries;
 
         request.get(config.api.warehouse + '/project', { headers, json: true, qs: {
             find: JSON.stringify(find),
@@ -464,8 +516,8 @@ function queryProjects(headers, query, opt) {
             skip: opt.skip || 0,
             limit: opt.limit || 100
         } }, (err, res, body) => {
-            if (err) error(err);
-            else if (res.statusCode != 200) error(res.body.message);
+            if (err) return reject(err);
+            else if (res.statusCode != 200) return reject(res.body.message);
             else resolve(body.projects);
         });
     });
@@ -479,12 +531,7 @@ function queryProjects(headers, query, opt) {
      */
     function ensureUniqueProfile(headers, profile) {
         return new Promise(async (resolve, reject) => {
-            let profiles;
-            if (isValidObjectId(profile)) {
-                profiles = await queryProfiles(headers, { id: profile });
-            } else {
-                profiles = await queryProfiles(headers, { search: profile });
-            }
+            let profiles = await resolveProfiles(headers, profile);
             
             if (profiles.length == 0) {
                 reject("Error: No profile matching '" + profile + "'");
@@ -494,6 +541,39 @@ function queryProjects(headers, query, opt) {
                 resolve(profiles[0]);
             }
         });
+    }
+}
+
+/**
+ * Get all projects
+ * @param {any} headers 
+ */
+function queryAllProjects(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.warehouse + '/project', {
+            headers,
+            json: true,
+            qs: {
+                limit: 0,
+                offset: 0
+            }
+        });
+        return resolve(body.projects);
+    });
+}
+
+/**
+ * Resolve a set of projects from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveProjects(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryProjects(headers, { id: query }, opt);
+    else {
+        return queryProjects(headers, { search: query }, opt);
     }
 }
 
@@ -560,9 +640,7 @@ function queryApps(headers, query, opt) {
             removed: false,
         }
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length == 0) return resolve([]);
-        
-        find.$and = andQueries;
+        if (andQueries.length > 0) find.$and = andQueries;
         
         let body = await request.get(config.api.warehouse + '/app', {
             headers,
@@ -585,15 +663,10 @@ function queryApps(headers, query, opt) {
      */
     function ensureUniqueDatatype(headers, query) {
         return new Promise(async (resolve, reject) => {
-            let datatypes;
+            let datatypes = await resolveDatatypes(headers, query);
             let not = query.startsWith('!');
-            if (not) query = query.substring(1);
-            if (isValidObjectId(query)) {
-                datatypes = await queryDatatypes(headers, { id: query });
-            } else {
-                datatypes = await queryDatatypes(headers, { search: query });
-            }
             
+            if (not) query = query.substring(1);
             if (datatypes.length == 0) {
                 reject("Error: No datatype matching '" + query + "'");
             } else if (datatypes.length > 1) {
@@ -604,6 +677,39 @@ function queryApps(headers, query, opt) {
                 resolve(datatype);
             }
         });
+    }
+}
+
+/**
+ * Get all apps
+ * @param {any} headers 
+ */
+function queryAllApps(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.warehouse + '/app', {
+            headers,
+            json: true,
+            qs: {
+                limit: 0,
+                offset: 0
+            }
+        });
+        return resolve(body.apps);
+    });
+}
+
+/**
+ * Resolve a set of apps from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveApps(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryApps(headers, { id: query }, opt);
+    else {
+        return queryApps(headers, { search: query }, opt);
     }
 }
 
@@ -633,7 +739,6 @@ function queryDatatypes(headers, query, opt) {
             orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
         }
 
-        if (orQueries.length == 0) return resolve([]);
         if (orQueries.length > 0) find.$or = orQueries;
         
         let body = await request.get(config.api.warehouse + '/datatype', {
@@ -647,6 +752,39 @@ function queryDatatypes(headers, query, opt) {
             } });
         resolve(body.datatypes);
     });
+}
+
+/**
+ * Get all datatypes
+ * @param {any} headers 
+ */
+function queryAllDatatypes(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.warehouse + '/datatype', {
+            headers,
+            json: true,
+            qs: {
+                limit: 0,
+                offset: 0
+            }
+        });
+        return resolve(body.datatypes);
+    });
+}
+
+/**
+ * Resolve a set of datatypes from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveDatatypes(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryDatatypes(headers, { id: query }, opt);
+    else {
+        return queryDatatypes(headers, { search: query }, opt);
+    }
 }
 
 /**
@@ -686,8 +824,7 @@ function queryResources(headers, query, opt) {
         }
         
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length == 0) return resolve([]);
-        find.$and = andQueries;
+        if (andQueries.length > 0) find.$and = andQueries;
 
         request.get(config.api.wf + '/resource', { headers, json: true, qs: {
             find: JSON.stringify(find),
@@ -702,6 +839,39 @@ function queryResources(headers, query, opt) {
             }
         });
     });
+}
+
+/**
+ * Get all resources
+ * @param {any} headers 
+ */
+function queryAllResources(headers) {
+    return new Promise(async (resolve, reject) => {
+        let body = await request.get(config.api.wf + '/resource', {
+            headers,
+            json: true,
+            qs: {
+                limit: 0,
+                offset: 0
+            }
+        });
+        return resolve(body.resources);
+    });
+}
+
+/**
+ * Resolve a set of resources from a given
+ * text search or id
+ * @param {string} query A text search or an id
+ * @param {any} headers 
+ */
+function resolveResources(headers, query, opt) {
+    if (!query) return new Promise(r => r([]));
+    
+    if (isValidObjectId(query)) return queryResources(headers, { id: query }, opt);
+    else {
+        return queryResources(headers, { search: query }, opt);
+    }
 }
 
 /**
@@ -774,29 +944,9 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
             return reject('Error: Could not parse JSON Config Object');
         }
         
-        let datatypeBody = await request.get(config.api.warehouse + '/datatype', {
-            headers,
-            json: true,
-            qs: {
-                skip: 0,
-                limit: 0
-            }
-        });
-        let datatypes = datatypeBody.datatypes;
-        
-        let apps;
-        if (isValidObjectId(opt.app)) {
-            apps = await queryApps(headers, { id: opt.app });
-        } else {
-            apps = await queryApps(headers, { search: opt.app });
-        }
-        let projects;
-        if (isValidObjectId(opt.project)) {
-            projects = await queryProjects(headers, { id: opt.project });
-        } else {
-            projects = await queryProjects(headers, { search: opt.project });
-        }
-        
+        let datatypes = await queryAllDatatypes(headers);
+        let apps = await resolveApps(headers, opt.app);
+        let projects = await resolveProjects(headers, opt.project);
         if (apps.length == 0) return reject("Error: No apps found matching '" + opt.app + "'");
         if (apps.length > 1) return reject("Error: Multiple apps matching '" + opt.app + "'");
         
@@ -831,12 +981,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         
         if (bestResource.considered && opt.resource) {
             
-            let resources;
-            if (isValidObjectId(opt.resource)) {
-                resources = await queryResources(headers, { id: opt.resource });
-            } else {
-                resources = await queryResources(headers, { search: opt.resource });
-            }
+            let resources = await resolveResources(headers, opt.resource);
             
             if (resources.length == 0) {
                 return reject("Error: No resources found matching '" + resourceSearch + "'");
@@ -870,12 +1015,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
             if (input.indexOf(':') == -1) return reject('Error: No key given for dataset ' + input);
             let file_id = input.substring(0, input.indexOf(":"));
             let datasetQuery = input.substring(input.indexOf(":") + 1);
-            let datasets;
-            if (isValidObjectId(datasetQuery)) {
-                datasets = await queryDatasets(headers, { id: datasetQuery });
-            } else {
-                datasets = await queryDatasets(headers, { search: datasetQuery });
-            }
+            let datasets = await resolveDatasets(headers, datasetQuery);
             
             if (datasets.length == 0) return reject("Error: No datasets matching '" + datasetQuery + "'");
             if (datasets.length > 1) return reject("Error: Multiple datasets matching '" + datasetQuery + "'");
@@ -885,8 +1025,8 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
             let app_input = idToAppInputTable[file_id];
             
             // validate dataset
-            if (dataset.status != "stored") return reject("Input dataset " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
-            if (dataset.removed == true) return reject("Input dataset " + input + " has been removed and cannot be used.");
+            if (dataset.status != "stored") return reject("Error: Input dataset " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
+            if (dataset.removed == true) return reject("Error: Input dataset " + input + " has been removed and cannot be used.");
             
             if (!app_input) return reject("Error: This app's config does not include key '" + file_id + "'");
             
@@ -944,12 +1084,12 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
 
         // create token for user-inputted datasets
         request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
-            if (err) error(err);
-            else if (res.statusCode != 200) error(res.body.message);
+            if (err) return reject(err);
+            else if (res.statusCode != 200) return reject(res.body.message);
             
             let jwt = body.jwt;
             let userInputKeys = Object.keys(inputs);
-            if (app.inputs.length != userInputKeys.length) error("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); // validate app
+            if (app.inputs.length != userInputKeys.length) return reject("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); // validate app
             
             let downloads = [], productRawOutputs = [];
             let datatypeToAppInputTable = {};
@@ -1000,8 +1140,8 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 desc: "Staging Dataset",
                 config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
             }}, (err, res, body) => {
-                if (err) error(err);
-                else if (res.statusCode != 200) error(res.body.message);
+                if (err) return reject(err);
+                else if (res.statusCode != 200) return reject(res.body.message);
                 if (!opt.raw) console.log("Data Staging Task Created (" + body.task._id + ")");
                 
                 let task = body.task;
@@ -1225,7 +1365,7 @@ function waitForFinish(headers, task, verbose, cb) {
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
-        if (res.statusCode != 200) error("Error: " + res.body.message);
+        if (res.statusCode != 200) return reject(res.body.message);
         
         let task = body.tasks[0];
         if (task.status == "finished") {
@@ -1315,6 +1455,8 @@ function errorMaybeRaw(message, raw) {
 
 module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
+    queryAllDatatypes, queryAllApps, queryAllProfiles, queryAllProjects, queryAllDatasets, queryAllResources,
+    resolveDatatypes, resolveApps, resolveProfiles, resolveProjects, resolveDatasets, resolveResources,
     getInstance, runApp,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };

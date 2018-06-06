@@ -46,35 +46,39 @@ util.loadJwt().then(jwt => {
     let meta = {};
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
-            if (err) util.error(err);
+            if (err) return reject(err);
             meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
             doUpload();
         });
     } else {
         doUpload();
     }
-    
-    function doUpload() {
-        uploadDataset(headers, {
-            datatype: commander.datatype,
-            project: commander.project,
-            directory: commander.directory,
-            description: commander.description,
-            datatype_tags: argv['datatype_tag'],
-            subject: commander.subject,
-            session: commander.session,
-            tags: argv['tag'], meta,
-            raw: commander.raw,
-            force: commander.force });
+      
+    async function doUpload() {
+        try {
+            await uploadDataset(headers, {
+                datatype: commander.datatype,
+                project: commander.project,
+                directory: commander.directory,
+                description: commander.description,
+                datatype_tags: argv['datatype_tag'],
+                subject: commander.subject,
+                session: commander.session,
+                tags: argv['tag'], meta,
+                raw: commander.raw,
+                force: commander.force });
+        } catch (err) {
+            util.errorMaybeRaw(err, commander.raw);
+        }
     }
-}).catch(console.error);
+}).catch(err => {
+    util.errorMaybeRaw(err, commander.raw);
+});
 
 /**
  * Upload a dataset
  * @param {any} headers
- * @param {string} datatypeSearch
- * @param {string} projectSearch
- * @param {{directory: string, description: string, datatype_tags: string, subject: string, session: string, tags: any, meta: any, raw: any}} options
+ * @param {any} options
  * @returns {Promise<string>}
  */
 function uploadDataset(headers, options) {
@@ -93,25 +97,14 @@ function uploadDataset(headers, options) {
         metadata.session = options.session || 1;
         
         let instance = await util.getInstance(headers, instanceName);
-        let datatypes, projects;
+        let datatypes = await util.resolveDatatypes(headers, options.datatype);
+        let projects = await util.resolveProjects(headers, options.project);
         
-        if (util.isValidObjectId(options.datatype)) {
-            datatypes = await util.queryDatatypes(headers, { id: options.datatype });
-        } else {
-            datatypes = await util.queryDatatypes(headers, { search: options.datatype });
-        }
+        if (datatypes.length == 0) return reject("Error: datatype '" + options.datatype + "' not found");
+        if (datatypes.length > 1) return reject("Error: multiple datatypes matching '" + options.datatype + "'");
         
-        if (util.isValidObjectId(options.project)) {
-            projects = await util.queryProjects(headers, { id: options.project });
-        } else {
-            projects = await util.queryProjects(headers, { search: options.project });
-        }
-        
-        if (datatypes.length == 0) util.errorMaybeRaw("Error: datatype '" + options.datatype + "' not found", options.raw);
-        if (datatypes.length > 1) util.errorMaybeRaw("Error: multiple datatypes matching '" + datatypeSearch + "'", options.raw);
-        
-        if (projects.length == 0) util.errorMaybeRaw("Error: project '" + options.project + "' not found", options.raw);
-        if (projects.length > 1) util.errorMaybeRaw("Error: multiple projects matching '" + projectSearch + "'", options.raw);
+        if (projects.length == 0) return reject("Error: project '" + options.project + "' not found");
+        if (projects.length > 1) return reject("Error: multiple projects matching '" + projectSearch + "'");
         
         let taropts = ['-czh'];
         let datatype = datatypes[0];
@@ -123,12 +116,12 @@ function uploadDataset(headers, options) {
                 if(err) {
                     if (file.dirname) {
                         fs.stat(directory + "/" + file.dirname, (err, stats) => {
-                            if (err) util.errorMaybeRaw("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?", options.raw);
+                            if (err) return reject("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
                             taropts.push(file.dirname);
                             next_file();
                         });
                     } else {
-                        if(file.required) util.errorMaybeRaw(err, options.raw);
+                        if(file.required) return reject(err);
                         else {
                             if (!options.raw) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                             next_file();
@@ -140,7 +133,7 @@ function uploadDataset(headers, options) {
                 }
             });
         }, err => {
-            if(err) util.error(err);
+            if(err) return reject(err);
 
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
@@ -150,18 +143,18 @@ function uploadDataset(headers, options) {
                 service: noopService,
             }},
             (err, res, body) => {
-                if(err) util.error("Error: " + res.body.message);
+                if(err) return reject("Error: " + res.body.message);
                 let task = body.task;
 
                 if (!options.raw) console.log("Waiting for upload task to be ready...");
                 util.waitForFinish(headers, task, process.stdout.isTTY && !options.raw, function(err) {
-                    if(err) util.error(err);
+                    if(err) return reject(err);
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     let tar = spawn('tar', taropts, { cwd: directory });
                     tar.stdout.pipe(req);
                     
                     req.on('response', res => {
-                        if(res.statusCode != "200") util.error("Error: " + res.body.message);
+                        if(res.statusCode != "200") return reject("Error: " + res.body.message);
                         if (!options.raw) console.log("Dataset successfully uploaded");
                         
                         if (datatype.validator && !datatype.force) {
@@ -179,12 +172,12 @@ function uploadDataset(headers, options) {
                                 deps: [ task._id ]
                             }},
                             (err, res, body) => {
-                                if (err) util.error(err);
-                                else if (res.statusCode != 200) util.error(res.body.message);
+                                if (err) return reject(err);
+                                else if (res.statusCode != 200) return reject(res.body.message);
                                 else {
                                     let validationTask = body.task;
                                     util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.raw, (err, task) => {
-                                        if (err) util.error(err);
+                                        if (err) return reject(err);
                                         if (task.product) {
                                             if (!options.raw) {
                                                 if (task.product.warnings && task.product.warnings.length > 0) {
@@ -199,7 +192,7 @@ function uploadDataset(headers, options) {
                                 }
                             });
                         } else {
-                            if (!options.raw && !options.force) util.error("Warning: There currently exists no validator for this dataset's datatype. If you would like to upload your data anyways, use bl dataset upload --force");
+                            if (!options.raw && !options.force) return reject("Warning: There currently exists no validator for this dataset's datatype. If you would like to upload your data anyways, use bl dataset upload --force");
                             registerDataset();
                         }
                         
@@ -219,8 +212,8 @@ function uploadDataset(headers, options) {
                                 task_id: task._id, // we archive data from copy task
                                 output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                             }}, async (err, res, body) => {
-                                if(err) util.error(err);
-                                if(res.statusCode != "200") util.error("Failed to upload: " + res.body.message);
+                                if(err) return reject(err);
+                                if(res.statusCode != "200") return reject("Failed to upload: " + res.body.message);
                                 if(!options.raw) console.log("Waiting for dataset to archive...");
                                 
                                 let dataset = waitForArchive(body._id);

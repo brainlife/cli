@@ -19,7 +19,7 @@ commander
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('--sub, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
-    .option('-k, --skip <skip>', 'number of results to skip')
+    .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
@@ -77,21 +77,9 @@ function getProductJSON(headers, data) {
  */
 function formatDatasets(headers, data, skip, whatToShow) {
     return new Promise(async (resolve, reject) => {
-        let queryParams = {
-            headers,
-            json: true,
-            qs: {
-                skip: 0,
-                limit: 0
-            }
-        };
-        let projectBody = await request.get(config.api.warehouse + '/project', queryParams);
-        let datatypeBody = await request.get(config.api.warehouse + '/datatype', queryParams);
-        let profileBody = await request.get(config.api.auth + '/profile', queryParams);
-        
-        let projects = projectBody.projects;
-        let datatypes = datatypeBody.datatypes;
-        let profiles = profileBody.profiles;
+        let projects = await util.queryAllProjects(headers);
+        let datatypes = await util.queryAllDatatypes(headers);
+        let profiles = await util.queryAllProfiles(headers);
         
         let projectTable = {}, datatypeTable = {}, profileTable = {};
         
