@@ -43,5 +43,20 @@ exports.queryDatatypes = util.queryDatatypes;
 exports.queryApps = util.queryApps;
 exports.queryProjects = util.queryProjects;
 exports.queryDatasets = util.queryDatasets;
+
+exports.queryAllProfiles = util.queryAllProfiles;
+exports.queryAllResources = util.queryAllResources;
+exports.queryAllDatatypes = util.queryAllDatatypes;
+exports.queryAllApps = util.queryAllApps;
+exports.queryAllProjects = util.queryAllProjects;
+exports.queryAllDatasets = util.queryAllDatasets;
+
+exports.resolveProfiles = util.resolveProfiles;
+exports.resolveResources = util.resolveResources;
+exports.resolveDatatypes = util.resolveDatatypes;
+exports.resolveApps = util.resolveApps;
+exports.resolveProjects = util.resolveProjects;
+exports.resolveDatasets = util.resolveDatasets;
+
 exports.runApp = util.runApp;
 exports.waitForFinish = util.waitForFinish;
