@@ -13,26 +13,33 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter resources by id')
-    .option('-s, --search <search>', 'filter resources by name')
+    .option('-q, --search <search>', 'filter resources by name')
     .option('--stat, --status <status>', 'filter resources by status')
     .option('--serv, --service <service>', 'filter resources by service')
-    .option('--sk, --skip <skip>', 'number of results to skip')
+    .option('-k, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
-
-    util.queryResources(headers, commander.id, commander.search, commander.status, commander.service, commander.skip, commander.limit)
-    .then(resources => {
-        if (commander.raw) console.log(JSON.stringify(resources));
-        else formatResources(headers, resources, { all: true }).then(console.log);
-    }).catch(console.error);
+    
+    let resources = await util.queryResources(headers, {
+        query: commander.id,
+        search: commander.search,
+        status: commander.status,
+        service: commander.service,
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
+    
+    if (commander.raw) console.log(JSON.stringify(resources));
+    else formatResources(headers, resources, { all: true }).then(console.log);
 }).catch(console.error);
 
 /**

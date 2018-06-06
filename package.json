@@ -21,6 +21,7 @@
     "mkdirp": "^0.5.1",
     "prompt": "^1.0.0",
     "request": "^2.85.0",
+    "request-promise-native": "^1.0.5",
     "tar": "^4.4.0",
     "terminal-overwrite": "^2.0.1",
     "time-ago": "^0.2.1",

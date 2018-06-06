@@ -259,21 +259,37 @@ let jwt = await brainlife.login('stevengeeky', fs.readFileSync('my.password', 'a
 let headers = { 'Authorization': 'Bearer ' + jwt };
 
 // retrieve the correct datatype tag and project
-let datatypes = await brainlife.queryDatatypes(headers, null, 'neuro/anat/t1w', '0', '0');
-let projects = await brainlife.queryProjects(headers, null, 'Test Project');
+let datatypes = await brainlife.queryDatatypes(headers, {
+    search: 'neuro/anat/t1w'
+});
+let projects = await brainlife.queryProjects(headers, {
+    search: 'Test Project'
+});
 
 let t1w = datatypes[0]._id;
 let myProject = projects[0]._id;
 
 // get a dataset and an app to run using that dataset
-let datasets = await brainlife.queryDatasets(headers, null, null, 'stevengeeky', t1w, '!acpc_aligned', myProject);
-let apps = await brainlife.queryApps(headers, null, null, t1w, t1w);
+let datasets = await brainlife.queryDatasets(headers, {
+    admin: 'stevengeeky',
+    datatype: t1w,
+    datatypeTags: [ '!acpc_aligned' ],
+    project: myProject
+});
+let apps = await brainlife.queryApps(headers, {
+    inputs: [ t1w ],
+    outputs: [ t1w ]
+});
 
 let myDataset = datasets.reverse()[0]._id;
 let appACPCAlignment = apps[0]._id;
 
 // run the app
-let appTask = await brainlife.runApp(headers, appACPCAlignment, myProject, { t1: myDataset });
+let appTask = await brainlife.runApp(headers, {
+    app: appACPCAlignment,
+    project: myProject,
+    inputs: ["t1:" + myDataset]
+});
 
 // wait until it's finished
 brainlife.waitForFinish(headers, appTask, process.stdout.isTTY, err => {
@@ -304,15 +320,15 @@ bl login --ttl 30
 bl dataset upload --datatype 5afc7c555858d874a40c6dda --project 5afc2c8de68fc50028e90820 --subject "soichi1" --json /somewhere/stimulus 2>> upload.err | jq -r '._id' > stim.id
 bl dataset upload --datatype 59b685a08e5d38b0b331ddc5 --project 5afc2c8de68fc50028e90820 --subject "soichi1" --datatype_tag "prf" --json /somewhere/task 2>> upload.err | jq -r '._id' > func.id
 
-# For -d (datatype) ID, you can query it by `bl datatype query -s stimulus` or `bl datatype query -s func`
-# For -p (project) ID, you can query project by `bl project query -s "project name"`
+# For -d (datatype) ID, you can query it by `bl datatype query -q stimulus` or `bl datatype query -q func`
+# For -p (project) ID, you can query project by `bl project query -q "project name"`
 
 # If you have func/task sidecard file, you can store them in a json file (like "dataset.json") and load them to your dataset by adding `--meta dataset.json` to the upload command.
 
 # Running the App!
 bl app run --id 5b084f4d9f3e2c0028ab45e4 --project 5afc2c8de68fc50028e90820 --input tractogram_static:$(cat func.id) --input stimimage:$(cat stim.id) --config '{"frameperiod": "1.3"}' --json | jq -r '._id' > task.id
 
-# You can query app by `bl app query -s "prf"`
+# You can query app by `bl app query -q "prf"`
 
 # --config is where you pass JSON object containing config for your App. 
 

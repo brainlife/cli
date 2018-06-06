@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request');
+const request = require('request-promise-native');
 const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
@@ -16,7 +16,7 @@ commander
     .option('--dir, --directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--dt, --datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
+    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
     .option('--desc, --description <description>', 'description of uploaded dataset')
     .option('-s, --subject <subject>', 'subject of the uploaded dataset')
     .option('--se, --session <session>', 'session of the uploaded dataset')
@@ -55,9 +55,17 @@ util.loadJwt().then(jwt => {
     }
     
     function doUpload() {
-        uploadDataset(headers, commander.datatype, commander.project,
-            { directory: commander.directory, description: commander.description, datatype_tags: argv['datatype_tag'],
-                subject: commander.subject, session: commander.session, tags: argv['tag'], meta, raw: commander.raw, force: commander.force });
+        uploadDataset(headers, {
+            datatype: commander.datatype,
+            project: commander.project,
+            directory: commander.directory,
+            description: commander.description,
+            datatype_tags: argv['datatype_tag'],
+            subject: commander.subject,
+            session: commander.session,
+            tags: argv['tag'], meta,
+            raw: commander.raw,
+            force: commander.force });
     }
 }).catch(console.error);
 
@@ -69,7 +77,7 @@ util.loadJwt().then(jwt => {
  * @param {{directory: string, description: string, datatype_tags: string, subject: string, session: string, tags: any, meta: any, raw: any}} options
  * @returns {Promise<string>}
  */
-function uploadDataset(headers, datatypeSearch, projectSearch, options) {
+function uploadDataset(headers, options) {
     return new Promise(async (resolve, reject) => {
         let instanceName = 'warehouse-cli.upload';
         let noopService = 'soichih/sca-service-noop';
@@ -85,13 +93,24 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
         metadata.session = options.session || 1;
         
         let instance = await util.getInstance(headers, instanceName);
-        let datatypes = await util.matchDatatypes(headers, datatypeSearch);
-        let projects = await util.queryProjects(headers, projectSearch);
+        let datatypes, projects;
         
-        if (datatypes.length == 0) util.errorMaybeRaw("Error: datatype '" + datatypeSearch + "' not found", options.raw);
+        if (util.isValidObjectId(options.datatype)) {
+            datatypes = await util.queryDatatypes(headers, { id: options.datatype });
+        } else {
+            datatypes = await util.queryDatatypes(headers, { search: options.datatype });
+        }
+        
+        if (util.isValidObjectId(options.project)) {
+            projects = await util.queryProjects(headers, { id: options.project });
+        } else {
+            projects = await util.queryProjects(headers, { search: options.project });
+        }
+        
+        if (datatypes.length == 0) util.errorMaybeRaw("Error: datatype '" + options.datatype + "' not found", options.raw);
         if (datatypes.length > 1) util.errorMaybeRaw("Error: multiple datatypes matching '" + datatypeSearch + "'", options.raw);
         
-        if (projects.length == 0) util.errorMaybeRaw("Error: project '" + projectSearch + "' not found", options.raw);
+        if (projects.length == 0) util.errorMaybeRaw("Error: project '" + options.project + "' not found", options.raw);
         if (projects.length > 1) util.errorMaybeRaw("Error: multiple projects matching '" + projectSearch + "'", options.raw);
         
         let taropts = ['-czh'];
@@ -199,11 +218,13 @@ function uploadDataset(headers, datatypeSearch, projectSearch, options) {
                                 instance_id: instance._id,
                                 task_id: task._id, // we archive data from copy task
                                 output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
-                            }}, (err, res, body) => {
+                            }}, async (err, res, body) => {
                                 if(err) util.error(err);
                                 if(res.statusCode != "200") util.error("Failed to upload: " + res.body.message);
-                                if(!options.raw) console.log("Waiting for dataset to archive");
-                                waitForArchive(body._id);
+                                if(!options.raw) console.log("Waiting for dataset to archive...");
+                                
+                                let dataset = waitForArchive(body._id);
+                                if (options.raw) console.log(dataset);
                             });
                         }
 

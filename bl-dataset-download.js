@@ -17,7 +17,7 @@ commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
     .option('-r, --raw', 'output info about downloaded dataset in json format')
-    .option('-r, --json', 'output info about downloaded dataset in json format')
+    .option('-j, --json', 'output info about downloaded dataset in json format')
     .option('-h, --h')
     .parse(process.argv);
 
@@ -39,8 +39,8 @@ util.loadJwt().then(jwt => {
  * @param {string} query
  * @param {any} headers
  */
-function downloadDataset(headers, query, dir, raw) {
-    util.queryDatasets(headers, query)
+function downloadDataset(headers, id, dir, raw) {
+    util.queryDatasets(headers, { id })
     .then(datasets => {
         if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', commander.raw);
         
