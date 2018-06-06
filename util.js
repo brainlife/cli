@@ -1067,12 +1067,12 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                         return reject("Error: no config entry found for key'" + key + "' (type: " + (app.config[key].type) + "). Please provide one and rerun");
                     }
                 }
-
+                
                 switch (app.config[key].type) {
                     case "boolean":
                     case "string":
                     case "number":
-                        if (typeof opt.config[key] != app.config[key].type) {
+                        if (opt.config[key] && typeof opt.config[key] != app.config[key].type) {
                             return reject("Error: config key '" + key + "': expected type '" + app.config[key].type + "' but given value of type '" + (typeof opt.config[key]) + "'");
                         }
                         break;
