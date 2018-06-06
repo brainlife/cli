@@ -89,7 +89,7 @@ $ bl project query --help
   Options:
 
     --id <id>           filter projects by id
-    --search <search>   filter projects by name or description
+    --query <query>   filter projects by name or description
     --admin <admin>     filter project by admins in it
     --member <members>  filter project by members in it
     --guest <guests>    filter project by guests in it
@@ -102,7 +102,7 @@ $ bl project query --help
 Now, we need a datatype for our dataset. Since I will be uploading a t1 weighted image, I'll query for the list of datatypes which might match what I want:
 
 ```
-$ bl datatype query --search t1
+$ bl datatype query --query t1
 Id: 58c33bcee13a50849b25879a
 Name: neuro/anat/t1w
 Description: T1 Weighted
