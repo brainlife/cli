@@ -71,7 +71,7 @@ function formatApps(headers, data, whatToShow) {
                 
                 return formattedDatatype;
             }).join(', ');
-
+            
             let formattedOutputs = D.outputs.map(output => {
                 let dtype = datatypeTable[output.datatype] ? datatypeTable[output.datatype].name : output.datatype;
                 let tags = output.datatype_tags.length > 0 ? "<" + output.datatype_tags.join(',') + ">" : '';
@@ -81,12 +81,24 @@ function formatApps(headers, data, whatToShow) {
                 
                 return formattedDatatype;
             }).join(', ');
-
+            
+            let flattenedConfig = !D.config ? {} : flattenConfig(D.config, []);
+            let formattedConfig = Object.keys(flattenedConfig)
+            .filter(key => flattenedConfig[key].type != 'input')
+            .map(key => {
+                let resultString = "    " + JSON.parse(key).join(".") + ":";
+                
+                if (flattenedConfig[key].type) resultString += " (type: " + flattenedConfig[key].type + ")";
+                if (flattenedConfig[key].default) resultString += " (default: " + flattenedConfig[key].default + ")";
+                return resultString;
+            }).join('\n');
+            
             if (whatToShow.all || whatToShow.id) info.push("Id: " + D._id);
             if (whatToShow.all || whatToShow.name) info.push("Name: " + D.name);
             if (whatToShow.all || whatToShow.service) info.push("Service: " + D.github);
             if (whatToShow.all || whatToShow.datatypes) info.push("Type: (" + formattedInputs + ") -> (" + formattedOutputs + ")");
             if (whatToShow.all || whatToShow.desc) info.push("Description: " + D.desc);
+            if (whatToShow.all || whatToShow.desc) info.push("Config:\n" + formattedConfig);
 
             return info.join('\n');
         });
@@ -94,4 +106,25 @@ function formatApps(headers, data, whatToShow) {
         resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
         resolve(resultArray.join('\n\n'));
     });
+}
+
+/**
+ * Flatten a tree config object into an object with depth 1
+ * @param {any} config
+ * @param {string[]} path
+ */
+function flattenConfig(config, path) {
+    let result = {};
+
+    if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
+    else {
+        Object.keys(config).forEach(key => {
+            let thisPath = path.map(x=>x);
+            thisPath.push(key);
+
+            Object.assign(result, flattenConfig(config[key], thisPath));
+        });
+    }
+
+    return result;
 }
