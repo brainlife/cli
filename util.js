@@ -1056,15 +1056,18 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         // prepare config to submit the app
         let values = {};
         
-        Object.keys(app.config).forEach(key => {
+        for (let key in app.config) {
             if (app.config[key].type != 'input') {
                 // validate each user-given config parameter
-                if (!opt.config[key]) {
+                if (typeof opt.config[key] == 'undefined') {
                     if (app.config[key].default) {
-                        if (!opt.raw) console.log("No config entry found for key '" + key +
-                                    "'; using the default value in the app's config: " + app.config[key].default);
+                        if (!opt.raw) console.log("No config entry found for key '" + key + "'; " + 
+                                                    "using the default value in the app's config: " + app.config[key].default);
+                        opt.config[key] = app.config[key].default;
                     } else {
-                        return reject("Error: no config entry found for key'" + key + "' (type: " + (app.config[key].type) + "). Please provide one and rerun");
+                        return reject("Error: no config entry found for key'" + key +
+                                        "' (type: " + (app.config[key].type) + "). " + 
+                                        "Please provide one and rerun");
                     }
                 }
                 
@@ -1072,15 +1075,24 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     case "boolean":
                     case "string":
                     case "number":
-                        if (opt.config[key] && typeof opt.config[key] != app.config[key].type) {
-                            return reject("Error: config key '" + key + "': expected type '" + app.config[key].type + "' but given value of type '" + (typeof opt.config[key]) + "'");
+                        if (typeof opt.config[key] != app.config[key].type) {
+                            return reject("Error: config key '" + key + "': " +
+                                            "expected type '" + app.config[key].type +
+                                            "' but given value of type '" + (typeof opt.config[key]) + "'");
+                        }
+                        break;
+                    case "enum":
+                        let validOptions = app.config[key].options.map(o => o.value);
+                        if (validOptions.indexOf(opt.config[key]) == -1) {
+                            return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
+                                            "but given value " + opt.config[key]);
                         }
                         break;
                 }
-
-                values[key] = opt.config[key] || app.config[key].default;
+                
+                values[key] = opt.config[key];
             }
-        });
+        }
 
         // create token for user-inputted datasets
         request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
