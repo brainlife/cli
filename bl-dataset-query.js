@@ -87,35 +87,35 @@ function formatDatasets(headers, data, skip, whatToShow) {
         datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
         profiles.forEach(profile => profileTable[profile.id] = profile);
         
-        let resultArray = data.map(d => {
+        let resultArray = data.map(dataset => {
             let info = [];
-            let createDateObject = new Date(d.create_date);
+            let createDateObject = new Date(dataset.create_date);
             let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
-            let subject = d.meta && d.meta.subject ? d.meta.subject : 'N/A';
-            let formattedDatatype = datatypeTable[d.datatype].name;
-            let formattedDatatypeTags = d.datatype_tags.length == 0 ? '' : "<" + d.datatype_tags.join(', ') + ">";
+            let subject = dataset.meta && dataset.meta.subject ? dataset.meta.subject : 'N/A';
+            let formattedDatatype = datatypeTable[dataset.datatype].name;
+            let formattedDatatypeTags = dataset.datatype_tags.length == 0 ? '' : "<" + dataset.datatype_tags.join(', ') + ">";
             
             let formattedProject = 'Unknown', formattedAdmins = [], formattedMembers = [], formattedGuests = [];
-            if (projectTable[d.project]) {
-                formattedProject = projectTable[d.project].name;
+            if (projectTable[dataset.project]) {
+                formattedProject = projectTable[dataset.project].name;
                 
-                if (projectTable[d.project].admins) formattedAdmins = projectTable[d.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                if (projectTable[d.project].members) formattedMembers = projectTable[d.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-                if (projectTable[d.project].guests) formattedGuests = projectTable[d.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (projectTable[dataset.project].admins) formattedAdmins = projectTable[dataset.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (projectTable[dataset.project].members) formattedMembers = projectTable[dataset.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+                if (projectTable[dataset.project].guests) formattedGuests = projectTable[dataset.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
             }
             
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + d._id);
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + dataset._id);
             if (whatToShow.all || whatToShow.project) info.push("Project: " + formattedProject);
             if (whatToShow.all || whatToShow.project) info.push("Admins: " + formattedAdmins.join(', '));
             if (whatToShow.all || whatToShow.project) info.push("Members: " + formattedMembers.join(', '));
             if (whatToShow.all || whatToShow.project) info.push("Guests: " + formattedGuests.join(', '));
             if (whatToShow.all || whatToShow.subject) info.push("Subject: " + subject);
-            if (whatToShow.all || whatToShow.subject) info.push("Session: " + (d.meta ? (d.meta.session || "") : ""));
+            if (whatToShow.all || whatToShow.subject) info.push("Session: " + (dataset.meta ? (dataset.meta.session || "") : ""));
             if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
-            if (whatToShow.all || whatToShow.desc) info.push("Description: " + (d.desc||''));
+            if (whatToShow.all || whatToShow.desc) info.push("Description: " + (dataset.desc||''));
             if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
-            if (whatToShow.all || whatToShow.storage) info.push("Storage: " + (d.storage || 'N/A'));
-            if (whatToShow.all || whatToShow.status) info.push("Status: " + (d.status || 'unknown'));
+            if (whatToShow.all || whatToShow.storage) info.push("Storage: " + (dataset.storage || 'N/A'));
+            if (whatToShow.all || whatToShow.status) info.push("Status: " + (dataset.status || 'unknown'));
             // if (whatToShow.all || whatToShow.meta) info.push("Meta: " + formattedMeta);
 
             return info.join('\n');

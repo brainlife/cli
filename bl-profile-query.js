@@ -43,14 +43,14 @@ function formatProfiles(headers, data, whatToShow) {
     return new Promise((resolve, reject) => {
         data = data.sort((a, b) => a.id > b.id);
 
-        let resultArray = data.map(d => {
+        let resultArray = data.map(profile => {
             let info = [];
 
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + d.id);
-            if (whatToShow.all || whatToShow.username) info.push("Username: " + d.username);
-            if (whatToShow.all || whatToShow.fullname) info.push("Full Name: " + d.fullname);
-            if (whatToShow.all || whatToShow.email) info.push("Email: " + d.email);
-            if (whatToShow.all || whatToShow.active) info.push("Active: " + d.active);
+            if (whatToShow.all || whatToShow.id) info.push("Id: " + profile.id);
+            if (whatToShow.all || whatToShow.username) info.push("Username: " + profile.username);
+            if (whatToShow.all || whatToShow.fullname) info.push("Full Name: " + profile.fullname);
+            if (whatToShow.all || whatToShow.email) info.push("Email: " + profile.email);
+            if (whatToShow.all || whatToShow.active) info.push("Active: " + profile.active);
 
             return info.join('\n');
         });

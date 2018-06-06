@@ -1054,33 +1054,48 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         let instance = await getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
         
         // prepare config to submit the app
-        let flattenedConfig = flattenConfig(app.config, []);
-        let flattenedUserConfig = flattenConfig(opt.config, []);
         let values = {};
         
-        Object.keys(flattenedConfig).forEach(key => {
-            if (flattenedConfig[key].type != 'input') {
-                let niceLookingKey = JSON.parse(key).join('.');
-                
+        for (let key in app.config) {
+            let appParam = app.config[key];
+            let userParam = opt.config[key];
+            
+            if (appParam.type != 'input') {
                 // validate each user-given config parameter
-                if (!flattenedUserConfig[key]) {
-                    if (flattenedConfig[key].default) {
-                        if (!opt.raw) console.log("No config entry found for key '" + niceLookingKey +
-                                    "'; using the default value in the app's config: " + flattenedConfig[key].default);
+                if (typeof userParam == 'undefined') {
+                    if (appParam.default) {
+                        if (!opt.raw) console.log("No config entry found for key '" + key + "'; " + 
+                                                    "using the default value in the app's config: " + appParam.default);
+                        userParam = appParam.default;
                     } else {
-                        return reject("Error: no config entry found for key'" + niceLookingKey + "' (type: " + (flattenedConfig[key].type) + "). Please provide one and rerun");
+                        return reject("Error: no config entry found for key'" + key +
+                                        "' (type: " + (appParam.type) + "). " + 
+                                        "Please provide one and rerun");
                     }
                 }
-
-                if (flattenedUserConfig[key] && /boolean|string|number/.test(flattenedConfig[key].type)) {
-                    if (typeof flattenedUserConfig[key] != flattenedConfig[key].type) {
-                        return reject("Error: config key '" + niceLookingKey + "': expected type '" + flattenedConfig[key].type + "' but given value of type '" + (typeof flattenedUserConfig[key]) + "'");
-                    }
+                
+                switch (appParam.type) {
+                    case "boolean":
+                    case "string":
+                    case "number":
+                        if (typeof userParam != appParam.type) {
+                            return reject("Error: config key '" + key + "': " +
+                                            "expected type '" + appParam.type +
+                                            "' but given value of type '" + (typeof userParam) + "'");
+                        }
+                        break;
+                    case "enum":
+                        let validOptions = appParam.options.map(o => o.value);
+                        if (validOptions.indexOf(userParam) == -1) {
+                            return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
+                                            "but given value " + userParam);
+                        }
+                        break;
                 }
-
-                values[key] = flattenedUserConfig[key] || flattenedConfig[key].default;
+                
+                values[key] = opt.config[key];
             }
-        });
+        }
 
         // create token for user-inputted datasets
         request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
@@ -1145,7 +1160,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 if (!opt.raw) console.log("Data Staging Task Created (" + body.task._id + ")");
                 
                 let task = body.task;
-                let preparedConfig = expandFlattenedConfig(flattenedConfig, values, task, inputs, datatypeTable, app);
+                let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
 
                 // link task to app inputs
                 app_inputs.forEach(input => input.task_id = task._id);
@@ -1198,29 +1213,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         });
 
         /**
-         * Flatten a tree config object into an object with depth 1
-         * @param {any} config
-         * @param {string[]} path
-         */
-        function flattenConfig(config, path) {
-            let result = {};
-
-            if (/boolean|string|number/.test(typeof config) || Array.isArray(config) || config.type) result[JSON.stringify(path)] = JSON.parse(JSON.stringify(config));
-            else {
-                Object.keys(config).forEach(key => {
-                    let thisPath = path.map(x=>x);
-                    thisPath.push(key);
-
-                    Object.assign(result, flattenConfig(config[key], thisPath));
-                });
-            }
-
-            return result;
-        }
-
-        /**
          *
-         * @param {any} flattened
          * @param {any} values
          * @param {task} download_task
          * @param {input[]} inputs
@@ -1228,57 +1221,44 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
          * @param {app} app
          * @returns {any}
          */
-        function expandFlattenedConfig(flattened, values, download_task, inputs, datatypeTable, app) {
+        function prepareConfig(values, download_task, inputs, datatypeTable, app) {
             let idToAppInputTable = {};
             let idToDatatype = {};
-            let result = {}, flattenedCalculatedConfig = {};
+            let result = {};
 
             app.inputs.forEach(input => idToAppInputTable[input.id] = input);
             app.inputs.forEach(input => idToDatatype[input.id] = input.datatype);
 
-            Object.keys(flattened).forEach(path => {
-                if (flattened[path].type == 'input') {
-                    let userInput = inputs[flattened[path].input_id];
-                    let appInput = idToAppInputTable[flattened[path].input_id];
+            Object.keys(app.config).forEach(key => {
+                if (app.config[key].type == 'input') {
+                    let userInput = inputs[app.config[key].input_id];
+                    let appInput = idToAppInputTable[app.config[key].input_id];
                     
                     if (appInput.multi) {
-                        flattenedCalculatedConfig[path] = flattenedCalculatedConfig[path] || [];
+                        result[key] = result[key] || [];
                         userInput.forEach(uInput => {
                             let dtype = datatypeTable[uInput.datatype];
                             let idToFile = {};
                             dtype.files.forEach(file => idToFile[file.id] = file);
                             
-                            let inputDtypeFile = idToFile[flattened[path].file_id];
+                            let inputDtypeFile = idToFile[app.config[key].file_id];
                             
-                            flattenedCalculatedConfig[path].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
+                            result[key].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
                         });
                     } else {
                         let dtype = datatypeTable[userInput[0].datatype];
                         let idToFile = {};
                         dtype.files.forEach(file => idToFile[file.id] = file);
                         
-                        let inputDtypeFile = idToFile[flattened[path].file_id];
+                        let inputDtypeFile = idToFile[app.config[key].file_id];
                         
-                        flattenedCalculatedConfig[path] = "../" + download_task._id + "/" + userInput[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
+                        result[key] = "../" + download_task._id + "/" + userInput[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
                     }
                 } else {
-                    flattenedCalculatedConfig[path] = values[path];
+                    result[key] = values[key];
                 }
             });
-            // this split up is required to maintain soft copying on recurring properties
-            Object.keys(flattened).forEach(path => {
-                var recurObj = result;
-                var rightBefore = null, nextKey = '';
-                JSON.parse(path).forEach(key => {
-                    if (!recurObj[key]) recurObj[key] = {};
-                    nextKey = key;
-                    rightBefore = recurObj;
-
-                    recurObj = recurObj[key];
-                });
-                // object references are almost like pointers
-                rightBefore[nextKey] = flattenedCalculatedConfig[path];
-            });
+            
             // console.log(result);
             return result;
         }
