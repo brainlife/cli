@@ -350,3 +350,30 @@ done
 # Now you should see directories containing each output dataset with the dataset ID as a directory name.
 
 ```
+
+## Bash script example for downloading all datasets of a certain datatype from a selected project and renaming the files by subject name
+
+```bash
+#!/bin/bash
+
+#get the number of datasets you will download
+#-p is project id
+#-d is datatype id
+count=$(bl dataset query -p 5a5506fc4f89380027a9a493 -d 59c3eae633fc1cf9ead71679 --json | jq -r '.[].meta.subject' | wc -l)
+
+#for 0 to $count, get the dataset id and subject id for each subject
+#download the dataset (in this case a 'raw' dataset)
+#extract the specific files wanted, rename them and move them to the current directory
+#remove the downloaded directory which is full of extraneous files
+
+for ((i=0;i<$count;i++));
+do
+        id=$(bl dataset query -p 5a5506fc4f89380027a9a493 -d 59c3eae633fc1cf9ead71679 --json | jq --argjson arg $i -r '.[$arg]._id')
+        subj=$(bl dataset query -p 5a5506fc4f89380027a9a493 -d 59c3eae633fc1cf9ead71679 --json | jq --argjson arg $i -r '.[$arg].meta.subject')
+        echo "downloading dataset $subj"
+        bl dataset download $id
+        mv $id/volumes.json ./"${subj}_volumes.json"
+        mv $id/volumes_icvproportion.json ./"${subj}_volumes_icvproportion.json"
+        rm -rf $id
+done
+```
