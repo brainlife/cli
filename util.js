@@ -963,15 +963,26 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         let branch = app.github_branch;
         if (opt.branch) {
             try {
-                let probe = await queryGithub(app.github, opt.branch);
-                if (probe.statusCode == 200) {
-                    if (!opt.raw) console.log("Using user-inputted branch: " + opt.branch);
+                let branches = await request.get('https://api.github.com/repos/' + app.github + '/branches', {
+                    json: true,
+                    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36" }
+                });
+                let validUserBranch = false;
+                branches.forEach(validBranch => {
+                    if (opt.branch == validBranch.name) {
+                        validUserBranch = true;
+                    }
+                });
+                
+                if (validUserBranch) {
                     branch = opt.branch;
-                } else {
+                    if (!opt.raw) console.log("Using user-inputted branch: " + branch);
+                }
+                else {
                     return reject('Error: The given github branch (' + opt.branch + ') does not exist for ' + app.github);
                 }
-            } catch (exception) {
-                return reject(exception);
+            } catch (err) {
+                return reject(err);
             }
         }
         
@@ -1279,21 +1290,6 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     if (err) reject(err);
                     else if (res.statusCode != 200) return reject("Error: " + res.body.message || res.statusMessage);
                     resolve(body);
-                });
-            });
-        }
-        
-        /**
-         * Query github with the given service and branch
-         * @param {string} service 
-         * @param {string} branch 
-         * @returns {Promise<Response>}
-         */
-        function queryGithub(service, branch) {
-            return new Promise((resolve, reject) => {
-                request.get('https://github.com/' + service + '/tree/' + branch, {}, (err, res, body) => {
-                    if (err) return reject(err);
-                    resolve(res);
                 });
             });
         }
