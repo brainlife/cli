@@ -39,7 +39,7 @@ util.loadJwt().then(async jwt => {
             raw: commander.raw
         });
         
-        if (commander.raw) console.log(task);
+        if (commander.raw) console.log(JSON.stringify(task));
     } catch (err) {
         util.errorMaybeRaw(err, commander.raw);
     }
