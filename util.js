@@ -1093,7 +1093,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                         break;
                 }
                 
-                values[key] = opt.config[key];
+                values[key] = userParam;
             }
         }
 
