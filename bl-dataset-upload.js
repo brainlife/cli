@@ -217,7 +217,7 @@ function uploadDataset(headers, options) {
                                 if(!options.raw) console.log("Waiting for dataset to archive...");
                                 
                                 let dataset = waitForArchive(body._id);
-                                if (options.raw) console.log(dataset);
+                                if (options.raw) console.log(JSON.stringify(dataset));
                             });
                         }
 
