@@ -42,28 +42,29 @@ util.loadJwt().then(jwt => {
 function downloadDataset(headers, id, dir, raw) {
     util.queryDatasets(headers, { id })
     .then(datasets => {
-        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', commander.raw);
+        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', raw);
         
         let id = datasets[0]._id;
         let contentLength = Infinity, loaded = 0;
         dir = dir || datasets[0]._id;
         
-        if (!commander.raw) console.log("Streaming dataset to " + dir);
+        if (!raw) console.log("Streaming dataset to " + dir);
         showProgress(0);
 
         fs.mkdir(dir, err => {
-            request.get({ url: config.api.warehouse+"/dataset/download/" + id, headers })
+            request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers })
             .on('response', res => {
-                if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, commander.raw);
+                if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, raw);
                 contentLength = res.headers['content-length'];
             })
             .on('data', chunk => {
                 loaded += chunk.length;
+                
                 showProgress(loaded / contentLength);
             })
             .on('end', () => {
                 if (process.stdout.isTTY) terminalOverwrite.done();
-                if (!commander.raw) console.log("Done!");
+                if (!raw) console.log("Done!");
             }).pipe(tar.x({ C: dir }));
         });
         
@@ -73,8 +74,14 @@ function downloadDataset(headers, id, dir, raw) {
                 if (i / progressBarLength > percentage) progressBar += ' ';
                 else progressBar += '=';
             }
-            if (process.stdout.isTTY) {
-                terminalOverwrite(Math.round(percentage*100) + '% done [' + progressBar + ']');
+            if (process.stdout.isTTY && !raw) {
+                // percentage can be NaN if no
+                // contentLength is provided from the server
+                if (!percentage) {
+                    terminalOverwrite('(download progress unknown)');
+                } else {
+                    terminalOverwrite(Math.round(percentage*100) + '% done [' + progressBar + ']');
+                }
             }
         }
     });
