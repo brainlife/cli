@@ -1202,9 +1202,9 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 // prepare and run the app task
                 let submissionParams = {
                     instance_id: instance._id,
-                    name: instanceName,
+                    name: app.name,
                     service: app.github,
-                    desc: "Running " + app.name,
+                    //desc: "Running " + app.name,
                     service_branch: app.github_branch,
                     config: preparedConfig,
                     deps: [ task._id ]

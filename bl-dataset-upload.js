@@ -24,7 +24,6 @@ commander
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-r, --raw', 'output uploaded dataset information in json format')
     .option('-j, --json', 'output uploaded dataset information in json format')
-    .option('--force', 'force the dataset to be uploaded, even if no validator is present')
     .option('-h, --h')
     .parse(process.argv);
 
@@ -66,7 +65,7 @@ util.loadJwt().then(jwt => {
                 session: commander.session,
                 tags: argv['tag'], meta,
                 raw: commander.raw,
-                force: commander.force });
+                });
         } catch (err) {
             util.errorMaybeRaw(err, commander.raw);
         }
@@ -192,7 +191,7 @@ function uploadDataset(headers, options) {
                                 }
                             });
                         } else {
-                            if (!options.raw && !options.force) return reject("Warning: There currently exists no validator for this dataset's datatype. If you would like to upload your data anyways, use bl dataset upload --force");
+                            console.error("No validator available for this datatype. Skipping validation.");
                             registerDataset();
                         }
                         
@@ -211,13 +210,11 @@ function uploadDataset(headers, options) {
                                 instance_id: instance._id,
                                 task_id: task._id, // we archive data from copy task
                                 output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
-                            }}, async (err, res, body) => {
+                            }}, (err, res, body) => {
                                 if(err) return reject(err);
                                 if(res.statusCode != "200") return reject("Failed to upload: " + res.body.message);
                                 if(!options.raw) console.log("Waiting for dataset to archive...");
-                                
-                                let dataset = waitForArchive(body._id);
-                                if (options.raw) console.log(JSON.stringify(dataset));
+                                waitForArchive(body._id);
                             });
                         }
 
@@ -232,6 +229,7 @@ function uploadDataset(headers, options) {
                                 }, 5000);
 
                                 if(!options.raw) console.log("Done archiving. dataset id:"+id);
+                                else console.log(JSON.stringify(body.datasets[0]));
                                 resolve(body.datasets[0]);
                             });
                         }
