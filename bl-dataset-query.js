@@ -21,14 +21,12 @@ commander
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
-    .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
     .option('--product', 'get all product.json information')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
-    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
@@ -50,7 +48,7 @@ util.loadJwt().then(async jwt => {
     });
     
     if (commander.product) getProductJSON(headers, datasets).then(console.log);
-    else if (commander.raw) console.log(JSON.stringify(datasets));
+    else if (commander.json) console.log(JSON.stringify(datasets));
     else {
         formatDatasets(headers, datasets, commander.skip, { all: true }).then(console.log);
     }

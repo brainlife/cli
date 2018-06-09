@@ -16,13 +16,11 @@ const size = require('window-size');
 commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
-    .option('-r, --raw', 'output info about downloaded dataset in json format')
     .option('-j, --json', 'output info about downloaded dataset in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
-    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
@@ -31,7 +29,7 @@ util.loadJwt().then(jwt => {
     }
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
-    downloadDataset(headers, commander.id, commander.directory, commander.raw);
+    downloadDataset(headers, commander.id, commander.directory, commander.json);
 }).catch(console.error);
 
 /**
@@ -39,22 +37,22 @@ util.loadJwt().then(jwt => {
  * @param {string} query
  * @param {any} headers
  */
-function downloadDataset(headers, id, dir, raw) {
+function downloadDataset(headers, id, dir, json) {
     util.queryDatasets(headers, { id })
     .then(datasets => {
-        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', raw);
+        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', json);
         
         let id = datasets[0]._id;
         let contentLength = Infinity, loaded = 0;
         dir = dir || datasets[0]._id;
         
-        if (!raw) console.log("Streaming dataset to " + dir);
+        if (!json) console.log("Streaming dataset to " + dir);
         showProgress(0);
 
         fs.mkdir(dir, err => {
             request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers })
             .on('response', res => {
-                if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, raw);
+                if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, json);
                 contentLength = res.headers['content-length'];
             })
             .on('data', chunk => {
@@ -64,7 +62,7 @@ function downloadDataset(headers, id, dir, raw) {
             })
             .on('end', () => {
                 if (process.stdout.isTTY) terminalOverwrite.done();
-                if (!raw) console.log("Done!");
+                if (!json) console.log("Done!");
             }).pipe(tar.x({ C: dir }));
         });
         
@@ -74,7 +72,7 @@ function downloadDataset(headers, id, dir, raw) {
                 if (i / progressBarLength > percentage) progressBar += ' ';
                 else progressBar += '=';
             }
-            if (process.stdout.isTTY && !raw) {
+            if (process.stdout.isTTY && !json) {
                 // percentage can be NaN if no
                 // contentLength is provided from the server
                 if (!percentage) {

@@ -22,13 +22,11 @@ commander
     .option('--se, --session <session>', 'session of the uploaded dataset')
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
-    .option('-r, --raw', 'output uploaded dataset information in json format')
     .option('-j, --json', 'output uploaded dataset information in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
-    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
@@ -38,8 +36,8 @@ util.loadJwt().then(jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    if (!commander.project) util.errorMaybeRaw(`Error: no project given to upload dataset to`, commander.raw);
-    if (!commander.datatype) util.errorMaybeRaw(`Error: no datatype of dataset given`, commander.raw);
+    if (!commander.project) util.errorMaybeRaw(`Error: no project given to upload dataset to`, commander.json);
+    if (!commander.datatype) util.errorMaybeRaw(`Error: no datatype of dataset given`, commander.json);
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
     let meta = {};
@@ -64,14 +62,14 @@ util.loadJwt().then(jwt => {
                 subject: commander.subject,
                 session: commander.session,
                 tags: argv['tag'], meta,
-                raw: commander.raw,
+                json: commander.json,
                 });
         } catch (err) {
-            util.errorMaybeRaw(err, commander.raw);
+            util.errorMaybeRaw(err, commander.json);
         }
     }
 }).catch(err => {
-    util.errorMaybeRaw(err, commander.raw);
+    util.errorMaybeRaw(err, commander.json);
 });
 
 /**
@@ -110,7 +108,7 @@ function uploadDataset(headers, options) {
         let project = projects[0];
 
         async.forEach(datatype.files, (file, next_file) => {
-            if (!options.raw) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
+            if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
             fs.stat(directory + "/" + file.filename, (err,stats)=>{
                 if(err) {
                     if (file.dirname) {
@@ -122,7 +120,7 @@ function uploadDataset(headers, options) {
                     } else {
                         if(file.required) return reject(err);
                         else {
-                            if (!options.raw) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                            if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                             next_file();
                         }
                     }
@@ -145,8 +143,8 @@ function uploadDataset(headers, options) {
                 if(err) return reject("Error: " + res.body.message);
                 let task = body.task;
 
-                if (!options.raw) console.log("Waiting for upload task to be ready...");
-                util.waitForFinish(headers, task, process.stdout.isTTY && !options.raw, function(err) {
+                if (!options.json) console.log("Waiting for upload task to be ready...");
+                util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
                     if(err) return reject(err);
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     let tar = spawn('tar', taropts, { cwd: directory });
@@ -154,10 +152,10 @@ function uploadDataset(headers, options) {
                     
                     req.on('response', res => {
                         if(res.statusCode != "200") return reject("Error: " + res.body.message);
-                        if (!options.raw) console.log("Dataset successfully uploaded");
+                        if (!options.json) console.log("Dataset successfully uploaded");
                         
                         if (datatype.validator && !datatype.force) {
-                            if (!options.raw) console.log("Validating data... (" + datatype.validator + ")");
+                            if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
                             let validationConfig = {};
                             datatype.files.forEach(file => {
                                 validationConfig[file.id] = "../" + task._id + "/" + file.filename;
@@ -175,10 +173,10 @@ function uploadDataset(headers, options) {
                                 else if (res.statusCode != 200) return reject(res.body.message);
                                 else {
                                     let validationTask = body.task;
-                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.raw, (err, task) => {
+                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, (err, task) => {
                                         if (err) return reject(err);
                                         if (task.product) {
-                                            if (!options.raw) {
+                                            if (!options.json) {
                                                 if (task.product.warnings && task.product.warnings.length > 0) {
                                                     task.product.warnings.forEach(warning => console.log("Warning: " + warning));
                                                 } else {
@@ -196,7 +194,7 @@ function uploadDataset(headers, options) {
                         }
                         
                         function registerDataset() {
-                            if (!options.raw) console.log("Registering dataset...");
+                            if (!options.json) console.log("Registering dataset...");
 
                             request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
                                 project: project._id,
@@ -213,7 +211,7 @@ function uploadDataset(headers, options) {
                             }}, (err, res, body) => {
                                 if(err) return reject(err);
                                 if(res.statusCode != "200") return reject("Failed to upload: " + res.body.message);
-                                if(!options.raw) console.log("Waiting for dataset to archive...");
+                                if(!options.json) console.log("Waiting for dataset to archive...");
                                 waitForArchive(body._id);
                             });
                         }
@@ -228,7 +226,7 @@ function uploadDataset(headers, options) {
                                     waitForArchive(id);
                                 }, 5000);
 
-                                if(!options.raw) console.log("Done archiving. dataset id:"+id);
+                                if(!options.json) console.log("Done archiving. dataset id:"+id);
                                 else console.log(JSON.stringify(body.datasets[0]));
                                 resolve(body.datasets[0]);
                             });

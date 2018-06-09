@@ -928,10 +928,10 @@ function getInstance(headers, instanceName, options) {
  * @param {any} opt.config
  * @param {string} opt.resource
  * @param {string} opt.branch
- * @param {boolean} opt.raw
+ * @param {boolean} opt.json
  * @returns {Promise<task>} The resulting app task
  */
-function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, raw) {
+function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, json) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
         let app_inputs = [], app_outputs = [], all_dataset_ids = [];
@@ -976,7 +976,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 
                 if (validUserBranch) {
                     branch = opt.branch;
-                    if (!opt.raw) console.log("Using user-inputted branch: " + branch);
+                    if (!opt.json) console.log("Using user-inputted branch: " + branch);
                 }
                 else {
                     return reject('Error: The given github branch (' + opt.branch + ') does not exist for ' + app.github);
@@ -1007,7 +1007,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
             });
             
             if (userResourceIsValid) {
-                if (!opt.raw) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
+                if (!opt.json) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
                 resource = userResource._id;
             } else {
                 return reject("Error: The given preferred resource (" + userResource.name + ") is unable to run this application");
@@ -1016,7 +1016,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         
         // create tables to get from id -> appInput and id -> datatype
         app.inputs.forEach(input => {
-            if (!opt.raw) console.log("found app input key '" + input.id + "'");
+            if (!opt.json) console.log("found app input key '" + input.id + "'");
             idToAppInputTable[input.id] = input;
         });
         datatypes.forEach(d => datatypeTable[d._id] = d);
@@ -1075,7 +1075,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 // validate each user-given config parameter
                 if (typeof userParam == 'undefined') {
                     if (appParam.default) {
-                        if (!opt.raw) console.log("No config entry found for key '" + key + "'; " + 
+                        if (!opt.json) console.log("No config entry found for key '" + key + "'; " + 
                                                     "using the default value in the app's config: " + appParam.default);
                         userParam = appParam.default;
                     } else {
@@ -1168,7 +1168,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
             }}, (err, res, body) => {
                 if (err) return reject(err);
                 else if (res.statusCode != 200) return reject(res.body.message);
-                if (!opt.raw) console.log("Data Staging Task Created (" + body.task._id + ")");
+                if (!opt.json) console.log("Data Staging Task Created (" + body.task._id + ")");
                 
                 let task = body.task;
                 let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
@@ -1215,7 +1215,7 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     else if (res.statusCode != 200) return reject("Error: " + res.body.message);
 
                     let appTask = body.task;
-                    if (!opt.raw) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
+                    if (!opt.json) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
                                 "To monitor the app as it runs, please execute \nbl app wait " + appTask._id);
                     
                     resolve(appTask);
@@ -1420,10 +1420,10 @@ function error(message) {
  * Throw an error message which might
  * require JSON formatting
  * @param {string} message 
- * @param {any} raw 
+ * @param {any} json
  */
-function errorMaybeRaw(message, raw) {
-    if (raw) error(JSON.stringify({ status: 'error', message: message }));
+function errorMaybeRaw(message, json) {
+    if (json) error(JSON.stringify({ status: 'error', message: message }));
     else {
         error(message);
     }

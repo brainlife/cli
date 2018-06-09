@@ -11,13 +11,11 @@ commander
     .option('--output-datatype <type>', 'specify required output type')
     .option('-s, --skip <skip>', 'number of results to skip', parseInt)
     .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
-    .option('-r, --raw', 'output data in json format')
     .option('-j, --json', 'output data in json format')
     .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
-    commander.raw = commander.raw || commander.json;
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
@@ -38,13 +36,13 @@ util.loadJwt().then(async jwt => {
             limit: commander.limit
         });
         
-        if (commander.raw) console.log(JSON.stringify(apps));
+        if (commander.json) console.log(JSON.stringify(apps));
         else formatApps(headers, apps, { all : true }).then(console.log);
     } catch (err) {
-        util.errorMaybeRaw(err, commander.raw);
+        util.errorMaybeRaw(err, commander.json);
     }
 }).catch(err => {
-    util.errorMaybeRaw(err, commander.raw);
+    util.errorMaybeRaw(err, commander.json);
 });
 
 /**
