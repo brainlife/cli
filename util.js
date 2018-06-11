@@ -1423,10 +1423,12 @@ function error(message) {
  * @param {any} raw 
  */
 function errorMaybeRaw(message, raw) {
-    if (raw) error(JSON.stringify({ status: 'error', message: message }));
-    else {
-        error(message);
-    }
+    error(message);
+    // // below code is deprecated
+    // if (raw) error(JSON.stringify({ status: 'error', message: message }));
+    // else {
+    //     error(message);
+    // }
 }
 
 module.exports = {
