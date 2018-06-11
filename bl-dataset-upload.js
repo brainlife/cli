@@ -25,8 +25,27 @@ commander
     .option('-r, --raw', 'output uploaded dataset information in json format')
     .option('-j, --json', 'output uploaded dataset information in json format')
     .option('--force', 'force the dataset to be uploaded, even if no validator is present')
-    .option('-h, --h')
-    .parse(process.argv);
+    .option('-h, --h');
+
+let fileList = {};
+let commanderOptions = {};
+commander.options.forEach(option => {
+    if (option.long) commanderOptions[option.long.substring(2)] = true;
+    if (option.short) commanderOptions[option.short.substring(1)] = true;
+});
+for (let key in argv) {
+    if (key != '_' && !commanderOptions[key]) {
+        fileList[key] = argv[key];
+        
+        let argvIndex = process.argv.indexOf('--' + key);
+        if (argvIndex == -1) argvIndex = process.argv.indexOf('-' + key);
+        process.argv.splice(argvIndex, 2);
+    }
+}
+
+if (commander.parse(process.argv)) {
+    commander.help();
+}
 
 util.loadJwt().then(jwt => {
     commander.raw = commander.raw || commander.json;
@@ -53,7 +72,7 @@ util.loadJwt().then(jwt => {
     } else {
         doUpload();
     }
-      
+    
     async function doUpload() {
         try {
             await uploadDataset(headers, {
