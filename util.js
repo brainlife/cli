@@ -1422,7 +1422,6 @@ function error(message) {
  * @param {string} message 
  * @param {any} json
  */
-<<<<<<< HEAD
 function errorMaybeRaw(message, raw) {
     error(message);
     // // below code is deprecated
@@ -1430,13 +1429,6 @@ function errorMaybeRaw(message, raw) {
     // else {
     //     error(message);
     // }
-=======
-function errorMaybeRaw(message, json) {
-    if (json) error(JSON.stringify({ status: 'error', message: message }));
-    else {
-        error(message);
-    }
->>>>>>> 00659e65878aae3357a77cc57d50daaf67e1c977
 }
 
 module.exports = {
