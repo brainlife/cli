@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^2.1.1",
     "async": "^2.6.0",
     "colors": "^1.2.1",
     "commander": "^2.15.1",
@@ -19,6 +20,7 @@
     "jsonwebtoken": "^8.2.0",
     "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
+    "npm": "^6.1.0",
     "prompt": "^1.0.0",
     "request": "^2.85.0",
     "request-promise-native": "^1.0.5",

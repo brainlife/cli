@@ -13,7 +13,6 @@ const jsonwebtoken = require('jsonwebtoken');
 const timeago = require('time-ago');
 const async = require('async');
 const tar = require('tar');
-const spawn = require('child_process').spawn;
 const terminalOverwrite = require('terminal-overwrite');
 const prompt = require('prompt');
 

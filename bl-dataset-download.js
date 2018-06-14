@@ -5,7 +5,6 @@ const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
-const spawn = require('child_process').spawn;
 const tar = require('tar');
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
