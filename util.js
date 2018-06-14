@@ -582,6 +582,7 @@ function resolveProjects(headers, query, opt) {
  * @param {Object} query
  * @param {string} query.id
  * @param {string} query.search
+ * @param {string} query.doi
  * @param {string[]} query.inputs
  * @param {string[]} query.outputs
  * @param {Object} opt
@@ -619,6 +620,9 @@ function queryApps(headers, query, opt) {
         if (query.search) {
             orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
             orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        }
+        if (query.doi) {
+            andQueries.push({ doi: query.doi });
         }
         if (input_datatypes.length > 0) {
             andQueries = andQueries.concat(input_datatypes.map(datatype => { 
