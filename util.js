@@ -1427,11 +1427,6 @@ function error(message) {
  */
 function errorMaybeRaw(message, raw) {
     error(message);
-    // // below code is deprecated
-    // if (raw) error(JSON.stringify({ status: 'error', message: message }));
-    // else {
-    //     error(message);
-    // }
 }
 
 module.exports = {
