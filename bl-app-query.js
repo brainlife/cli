@@ -6,6 +6,7 @@ const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter apps by id')
+    .option('-d, --doi <doi>', 'filter apps by doi')
     .option('-q, --query <query>', 'filter apps by name or description')
     .option('--input-datatype <type>', 'specify required input type')
     .option('--output-datatype <type>', 'specify required output type')
@@ -30,6 +31,7 @@ util.loadJwt().then(async jwt => {
         let apps = await util.queryApps(headers, {
             id: commander.id, 
             search: commander.query,
+            doi: commander.doi,
             inputs, outputs, 
         }, {
             skip: commander.skip, 
@@ -91,6 +93,7 @@ function formatApps(headers, data, whatToShow) {
             }).join('\n');
             
             if (whatToShow.all || whatToShow.id) info.push("Id: " + app._id);
+            if (whatToShow.all || whatToShow.doi) info.push("DOI: " + (app.doi || ''));
             if (whatToShow.all || whatToShow.name) info.push("Name: " + app.name);
             if (whatToShow.all || whatToShow.service) info.push("Service: " + app.github);
             if (whatToShow.all || whatToShow.datatypes) info.push("Type: (" + formattedInputs + ") -> (" + formattedOutputs + ")");

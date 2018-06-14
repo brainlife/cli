@@ -5,7 +5,7 @@ const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
-const spawn = require('child_process').spawn;
+const archiver = require('archiver');
 //const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
@@ -23,9 +23,27 @@ commander
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-j, --json', 'output uploaded dataset information in json format')
-    .option('-h, --h')
-    .parse(process.argv);
+    .option('--force', 'force the dataset to be uploaded, even if no validator is present')
+    .option('-h, --h');
 
+// parse individual user-inputted files
+let fileList = {};
+let commanderOptions = {};
+commander.options.forEach(option => {
+    if (option.long) commanderOptions[option.long.substring(2)] = true;
+    if (option.short) commanderOptions[option.short.substring(1)] = true;
+});
+for (let key in argv) {
+    if (key != '_' && !commanderOptions[key]) {
+        fileList[key] = argv[key];
+        
+        let argvIndex = process.argv.indexOf('--' + key);
+        if (argvIndex == -1) argvIndex = process.argv.indexOf('-' + key);
+        process.argv.splice(argvIndex, 2);
+    }
+}
+
+commander.parse(process.argv);
 util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
@@ -50,13 +68,14 @@ util.loadJwt().then(jwt => {
     } else {
         doUpload();
     }
-      
+    
     async function doUpload() {
         try {
             await uploadDataset(headers, {
                 datatype: commander.datatype,
                 project: commander.project,
                 directory: commander.directory,
+                files: fileList,
                 description: commander.description,
                 datatype_tags: argv['datatype_tag'],
                 subject: commander.subject,
@@ -85,10 +104,12 @@ function uploadDataset(headers, options) {
 
         options = options || {};
         let directory = options.directory || '.';
+        let files = options.files || {};
         let description = options.description || '';
         let datatype_tags = options.datatype_tags || [];
         let tags = options.tags || [];
         let metadata = options.meta || {};
+        let filenames = Object.keys(files);
         
         if (options.subject) metadata.subject = options.subject || 0;
         metadata.session = options.session || 1;
@@ -103,35 +124,67 @@ function uploadDataset(headers, options) {
         if (projects.length == 0) return reject("Error: project '" + options.project + "' not found");
         if (projects.length > 1) return reject("Error: multiple projects matching '" + projectSearch + "'");
         
-        let taropts = ['-czh'];
+        let archive = archiver('tar', { gzip: true });
         let datatype = datatypes[0];
         let project = projects[0];
-
+        
+        archive.on('error', function(err) {
+            return reject(err);
+        });
+        
         async.forEach(datatype.files, (file, next_file) => {
-            if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
-            fs.stat(directory + "/" + file.filename, (err,stats)=>{
-                if(err) {
-                    if (file.dirname) {
-                        fs.stat(directory + "/" + file.dirname, (err, stats) => {
-                            if (err) return reject("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
-                            taropts.push(file.dirname);
-                            next_file();
-                        });
-                    } else {
-                        if(file.required) return reject(err);
-                        else {
-                            if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+            if (filenames.length > 0) {
+                let path = files[file.id] || files[file.filename||file.dirname];
+                if (path) {
+                    fs.stat(path, (err, stats) => {
+                        if (err) {
+                            if (file.required) {
+                                return reject("Error: unable to stat " + path + " ... Does the file/directory exist?");
+                            } else {
+                                if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                                next_file();
+                            }
+                        } else {
+                            if (file.filename) {
+                                archive.append(path, { name: file.filename });
+                            } else {
+                                archive.append(path, file.dirname);
+                            }
                             next_file();
                         }
-                    }
+                        
+                    });
                 } else {
-                    taropts.push(file.filename);
-                    next_file();
+                    if (file.required) return reject("File '" + (file.filename||file.dirname) + "' is required for this datatype but was not provided");
                 }
-            });
+            } else {
+                if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
+                fs.stat(directory + "/" + file.filename, (err,stats)=>{
+                    if(err) {
+                        if (file.dirname) {
+                            fs.stat(directory + "/" + file.dirname, (err, stats) => {
+                                if (err) return reject("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
+                                
+                                archive.append(directory + '/' + file.dirname, file.dirname);
+                                next_file();
+                            });
+                        } else {
+                            if(file.required) return reject(err);
+                            else {
+                                if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                                next_file();
+                            }
+                        }
+                    } else {
+                        archive.append(directory + '/' + file.filename,
+                            { name: file.filename });
+                        next_file();
+                    }
+                });
+            }
         }, err => {
             if(err) return reject(err);
-
+            
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
             request.post({ url: config.api.wf + "/task", headers, json: true, body: {
@@ -147,8 +200,8 @@ function uploadDataset(headers, options) {
                 util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
                     if(err) return reject(err);
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
-                    let tar = spawn('tar', taropts, { cwd: directory });
-                    tar.stdout.pipe(req);
+                    archive.pipe(req);
+                    archive.finalize();
                     
                     req.on('response', res => {
                         if(res.statusCode != "200") return reject("Error: " + res.body.message);

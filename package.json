@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "archiver": "^2.1.1",
     "async": "^2.6.0",
     "colors": "^1.2.1",
     "commander": "^2.15.1",
