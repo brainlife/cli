@@ -384,6 +384,14 @@ function queryDatasets(headers, query, opt) {
             orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
         }
         
+        if (query.tags) {
+            query.tags.forEach(tag => {
+                if (tag.startsWith("!")) andQueries.push({ tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
+                else {
+                    andQueries.push({ tags: { $elemMatch: { $eq: tag } } });
+                }
+            });
+        }
         if (query.datatypeTags) {
             query.datatypeTags.forEach(tag => {
                 if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
