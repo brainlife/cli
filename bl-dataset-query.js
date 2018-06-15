@@ -14,7 +14,8 @@ commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-q, --query <query>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
-    .option('-t, --datatype_tag <datatype tag>', 'filter datasets by datatype tag')
+    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag')
+    .option('--tag <dataset tag>', 'filter datasets by dataset tag')
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('--sub, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
@@ -33,11 +34,15 @@ util.loadJwt().then(async jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
+    if (!argv['tag']) argv['tag'] = [];
+    if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
+    
     let datasets = await util.queryDatasets(headers, {
         id: commander.id,
         search: commander.query,
         datatype: commander.datatype,
         datatypeTags: argv['datatype_tag'],
+        tags: argv['tag'],
         project: commander.project,
         subject: commander.subject,
         taskId: commander.taskid
@@ -91,6 +96,7 @@ function formatDatasets(headers, data, skip, whatToShow) {
             let subject = dataset.meta && dataset.meta.subject ? dataset.meta.subject : 'N/A';
             let formattedDatatype = datatypeTable[dataset.datatype].name;
             let formattedDatatypeTags = dataset.datatype_tags.length == 0 ? '' : "<" + dataset.datatype_tags.join(', ') + ">";
+            let formattedTags = (dataset.tags || []).join(', ');
             
             let formattedProject = 'Unknown', formattedAdmins = [], formattedMembers = [], formattedGuests = [];
             if (projectTable[dataset.project]) {
@@ -113,6 +119,7 @@ function formatDatasets(headers, data, skip, whatToShow) {
             if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
             if (whatToShow.all || whatToShow.storage) info.push("Storage: " + (dataset.storage || 'N/A'));
             if (whatToShow.all || whatToShow.status) info.push("Status: " + (dataset.status || 'unknown'));
+            if (whatToShow.all || whatToShow.status) info.push("Tags: " + formattedTags);
             // if (whatToShow.all || whatToShow.meta) info.push("Meta: " + formattedMeta);
 
             return info.join('\n');
