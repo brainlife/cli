@@ -111,8 +111,8 @@ function uploadDataset(headers, options) {
         let metadata = options.meta || {};
         let filenames = Object.keys(files);
         
-        if (options.subject) metadata.subject = options.subject || 0;
-        metadata.session = options.session || 1;
+        if (options.subject) metadata.subject = options.subject;
+        if (options.session) metadata.session = options.session;
         
         let instance = await util.getInstance(headers, instanceName);
         let datatypes = await util.resolveDatatypes(headers, options.datatype);
