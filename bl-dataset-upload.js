@@ -137,20 +137,19 @@ function uploadDataset(headers, options) {
                 let path = files[file.id] || files[file.filename||file.dirname];
                 
                 if (path) {
-                    let fullpath = directory + '/' + path;
-                    fs.stat(fullpath, (err, stats) => {
+                    fs.stat(path, (err, stats) => {
                         if (err) {
                             if (file.required) {
-                                return reject("Error: unable to stat " + fullpath + " ... Does the file/directory exist?");
+                                return reject("Error: unable to stat " + path + " ... Does the file/directory exist?");
                             } else {
                                 if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                                 next_file();
                             }
                         } else {
                             if (file.filename) {
-                                archive.append(fullpath, { name: file.filename });
+                                archive.append(path, { name: file.filename });
                             } else {
-                                archive.append(fullpath, file.dirname);
+                                archive.append(path, file.dirname);
                             }
                             next_file();
                         }
