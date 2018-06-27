@@ -1347,7 +1347,7 @@ function waitForArchivedDatasets(headers, task, verbose, cb) {
  */
 let wait_gear = 0;
 function waitForFinish(headers, task, verbose, cb) {
-    if(wait_gear++ > gearFrames.length) wait_gear = 0;
+    if(wait_gear++ >= gearFrames.length) wait_gear = 0;
 
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {

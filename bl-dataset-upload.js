@@ -61,7 +61,7 @@ util.loadJwt().then(jwt => {
     let meta = {};
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
-            if (err) return reject(err);
+            if (err) throw err;
             meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
             doUpload();
         });
@@ -135,20 +135,22 @@ function uploadDataset(headers, options) {
         async.forEach(datatype.files, (file, next_file) => {
             if (filenames.length > 0) {
                 let path = files[file.id] || files[file.filename||file.dirname];
+                
                 if (path) {
-                    fs.stat(path, (err, stats) => {
+                    let fullpath = directory + '/' + path;
+                    fs.stat(fullpath, (err, stats) => {
                         if (err) {
                             if (file.required) {
-                                return reject("Error: unable to stat " + path + " ... Does the file/directory exist?");
+                                return reject("Error: unable to stat " + fullpath + " ... Does the file/directory exist?");
                             } else {
                                 if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                                 next_file();
                             }
                         } else {
                             if (file.filename) {
-                                archive.append(path, { name: file.filename });
+                                archive.append(fullpath, { name: file.filename });
                             } else {
-                                archive.append(path, file.dirname);
+                                archive.append(fullpath, file.dirname);
                             }
                             next_file();
                         }
@@ -226,6 +228,8 @@ function uploadDataset(headers, options) {
                                 else if (res.statusCode != 200) return reject(res.body.message);
                                 else {
                                     let validationTask = body.task;
+                                    console.log(validationTask);
+                                    
                                     util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, (err, task) => {
                                         if (err) return reject(err);
                                         if (task.product) {
