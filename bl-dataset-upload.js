@@ -159,6 +159,7 @@ function uploadDataset(headers, options) {
                     });
                 } else {
                     if (file.required) return reject("File '" + (file.filename||file.dirname) + "' is required for this datatype but was not provided");
+                    next_file();
                 }
             } else {
                 if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
@@ -173,14 +174,11 @@ function uploadDataset(headers, options) {
                             });
                         } else {
                             if(file.required) return reject(err);
-                            else {
-                                if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
-                                next_file();
-                            }
+                            if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                            next_file();
                         }
                     } else {
-                        archive.file(directory + '/' + file.filename,
-                            { name: file.filename });
+                        archive.file(directory + '/' + file.filename, { name: file.filename });
                         next_file();
                     }
                 });
@@ -243,6 +241,7 @@ function uploadDataset(headers, options) {
                                                         task.product.warnings.forEach(warning => console.log("Warning: " + warning));
                                                     } else {
                                                         console.log("Your data looks good!");
+                                                        //console.log(JSON.stringify(task.product.brainlife, null, 4))
                                                     }
                                                 }
                                             }

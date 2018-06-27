@@ -1358,7 +1358,7 @@ function waitForFinish(headers, task, verbose, cb) {
         if (task.status == "finished") {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite("SERVICE: " + task.service + gearFrames[wait_gear] + "\n" +
+                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" +
                                     "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
             }
@@ -1368,7 +1368,7 @@ function waitForFinish(headers, task, verbose, cb) {
         } else if (task.status == "failed") {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite("SERVICE: " + task.service + "\n" +
+                terminalOverwrite(task.name + "("+ task.service + ")\n" +
                                     "STATUS: failed");
                 terminalOverwrite.done();
             }
@@ -1376,7 +1376,7 @@ function waitForFinish(headers, task, verbose, cb) {
         } else {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite("SERVICE: " + task.service + gearFrames[wait_gear] + "\n" +
+                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" +
                                     "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
         
             }
