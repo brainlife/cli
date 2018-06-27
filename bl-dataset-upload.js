@@ -54,8 +54,10 @@ util.loadJwt().then(jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    if (!commander.project) util.errorMaybeRaw(`Error: no project given to upload dataset to`, commander.json);
-    if (!commander.datatype) util.errorMaybeRaw(`Error: no datatype of dataset given`, commander.json);
+    if (!commander.project) util.errorMaybeRaw("Error: no project given to upload dataset to", commander.json);
+    if (!commander.datatype) util.errorMaybeRaw("Error: no datatype of dataset given", commander.json);
+    if (!commander.subject) util.errorMaybeRaw("Error: no subject name provided");
+    
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
     let meta = {};
@@ -147,9 +149,9 @@ function uploadDataset(headers, options) {
                             }
                         } else {
                             if (file.filename) {
-                                archive.append(path, { name: file.filename });
+                                archive.file(path, { name: file.filename });
                             } else {
-                                archive.append(path, file.dirname);
+                                archive.directory(path, file.dirname);
                             }
                             next_file();
                         }
@@ -166,7 +168,7 @@ function uploadDataset(headers, options) {
                             fs.stat(directory + "/" + file.dirname, (err, stats) => {
                                 if (err) return reject("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
                                 
-                                archive.append(directory + '/' + file.dirname, file.dirname);
+                                archive.directory(directory + '/' + file.dirname, file.dirname);
                                 next_file();
                             });
                         } else {
@@ -177,7 +179,7 @@ function uploadDataset(headers, options) {
                             }
                         }
                     } else {
-                        archive.append(directory + '/' + file.filename,
+                        archive.file(directory + '/' + file.filename,
                             { name: file.filename });
                         next_file();
                     }
