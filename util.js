@@ -917,9 +917,9 @@ function getInstance(headers, instanceName, options) {
                     if (err) return reject(err);
                     else if (res.statusCode != 200) {
                         if (res.statusMessage == 'not member of the group you have specified') {
-                            reject("There was an error during instance creation. Please log in again.");
+                            return reject("There was an error during instance creation. Please log in again.");
                         }
-                        else reject(res.body.message);
+                        else return reject(res.body.message);
                     } else {
                         resolve(body);
                     }
@@ -1347,12 +1347,12 @@ function waitForArchivedDatasets(headers, task, verbose, cb) {
  */
 let wait_gear = 0;
 function waitForFinish(headers, task, verbose, cb) {
-    if(wait_gear++ > gearFrames.length) wait_gear = 0;
+    if(wait_gear++ >= gearFrames.length) wait_gear = 0;
 
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
-        if (res.statusCode != 200) return reject(res.body.message);
+        if (res.statusCode != 200) return cb(err, null);
         
         let task = body.tasks[0];
         if (task.status == "finished") {
@@ -1383,6 +1383,44 @@ function waitForFinish(headers, task, verbose, cb) {
             return setTimeout(function() {
                 waitForFinish(headers, task, verbose, cb);
             }, 1000*10);
+        }
+    });
+}
+
+/**
+ * Get a specific file from a task's output
+ * @param {any} headers 
+ * @param {string} filename 
+ * @param {task} task 
+ * @param {string} defaultErr 
+ */
+function getFile(headers, filename, task, defaultErr) {
+    return new Promise(async (resolve, reject) => {
+        let fileBody = await request.get({
+            url: config.api.wf + '/task/ls/' + task._id,
+            headers,
+            json: true });
+        
+        let files = fileBody.files;
+        let taskFile = null;
+        files.forEach(file => {
+            if (file.filename == filename) {
+                taskFile = file;
+            }
+        });
+        
+        if (taskFile) {
+            let result = await request.get({
+                url: config.api.wf + '/task/download/' + task._id,
+                qs: {
+                    p: taskFile.filename
+                },
+                headers,
+                json: true
+            });
+            return resolve(result);
+        } else {
+            return reject(defaultErr);
         }
     });
 }
@@ -1441,6 +1479,6 @@ module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
     queryAllDatatypes, queryAllApps, queryAllProfiles, queryAllProjects, queryAllDatasets, queryAllResources,
     resolveDatatypes, resolveApps, resolveProfiles, resolveProjects, resolveDatasets, resolveResources,
-    getInstance, runApp,
+    getInstance, runApp, getFile,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };

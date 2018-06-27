@@ -13,7 +13,7 @@ const util = require('./util');
 
 commander
     .usage('[options] (directory)')
-    .option('--dir, --directory <directory>', 'directory where your dataset is located')
+    .option('--directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
     .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
@@ -54,14 +54,16 @@ util.loadJwt().then(jwt => {
     if (!argv['datatype_tag']) argv['datatype_tag'] = [];
     if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    if (!commander.project) util.errorMaybeRaw(`Error: no project given to upload dataset to`, commander.json);
-    if (!commander.datatype) util.errorMaybeRaw(`Error: no datatype of dataset given`, commander.json);
+    if (!commander.project) util.errorMaybeRaw("Error: no project given to upload dataset to", commander.json);
+    if (!commander.datatype) util.errorMaybeRaw("Error: no datatype of dataset given", commander.json);
+    if (!commander.subject) util.errorMaybeRaw("Error: no subject name provided");
+    
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
     
     let meta = {};
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
-            if (err) return reject(err);
+            if (err) throw err;
             meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
             doUpload();
         });
@@ -135,6 +137,7 @@ function uploadDataset(headers, options) {
         async.forEach(datatype.files, (file, next_file) => {
             if (filenames.length > 0) {
                 let path = files[file.id] || files[file.filename||file.dirname];
+                
                 if (path) {
                     fs.stat(path, (err, stats) => {
                         if (err) {
@@ -146,9 +149,9 @@ function uploadDataset(headers, options) {
                             }
                         } else {
                             if (file.filename) {
-                                archive.append(path, { name: file.filename });
+                                archive.file(path, { name: file.filename });
                             } else {
-                                archive.append(path, file.dirname);
+                                archive.directory(path, file.dirname);
                             }
                             next_file();
                         }
@@ -165,7 +168,7 @@ function uploadDataset(headers, options) {
                             fs.stat(directory + "/" + file.dirname, (err, stats) => {
                                 if (err) return reject("Error: unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
                                 
-                                archive.append(directory + '/' + file.dirname, file.dirname);
+                                archive.directory(directory + '/' + file.dirname, file.dirname);
                                 next_file();
                             });
                         } else {
@@ -176,7 +179,7 @@ function uploadDataset(headers, options) {
                             }
                         }
                     } else {
-                        archive.append(directory + '/' + file.filename,
+                        archive.file(directory + '/' + file.filename,
                             { name: file.filename });
                         next_file();
                     }
@@ -198,7 +201,9 @@ function uploadDataset(headers, options) {
 
                 if (!options.json) console.log("Waiting for upload task to be ready...");
                 util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
-                    if(err) return reject(err);
+                    if(err) {
+                        return reject(err);
+                    }
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     archive.pipe(req);
                     archive.finalize();
@@ -226,18 +231,23 @@ function uploadDataset(headers, options) {
                                 else if (res.statusCode != 200) return reject(res.body.message);
                                 else {
                                     let validationTask = body.task;
-                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, (err, task) => {
-                                        if (err) return reject(err);
-                                        if (task.product) {
-                                            if (!options.json) {
-                                                if (task.product.warnings && task.product.warnings.length > 0) {
-                                                    task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                                } else {
-                                                    console.log("Your data looks good!");
+                                    
+                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
+                                        if (err) {
+                                            let error_log = await util.getFile(headers, 'error.log', validationTask, err);
+                                            return reject("error.log from task (" + validationTask._id + "):\n" + error_log);
+                                        } else {
+                                            if (task.product) {
+                                                if (!options.json) {
+                                                    if (task.product.warnings && task.product.warnings.length > 0) {
+                                                        task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                                    } else {
+                                                        console.log("Your data looks good!");
+                                                    }
                                                 }
                                             }
+                                            registerDataset();
                                         }
-                                        registerDataset();
                                     });
                                 }
                             });
