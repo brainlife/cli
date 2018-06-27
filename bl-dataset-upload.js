@@ -200,7 +200,9 @@ function uploadDataset(headers, options) {
 
                 if (!options.json) console.log("Waiting for upload task to be ready...");
                 util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
-                    if(err) return reject(err);
+                    if(err) {
+                        return reject(err);
+                    }
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     archive.pipe(req);
                     archive.finalize();
@@ -228,20 +230,23 @@ function uploadDataset(headers, options) {
                                 else if (res.statusCode != 200) return reject(res.body.message);
                                 else {
                                     let validationTask = body.task;
-                                    console.log(validationTask);
                                     
-                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, (err, task) => {
-                                        if (err) return reject(err);
-                                        if (task.product) {
-                                            if (!options.json) {
-                                                if (task.product.warnings && task.product.warnings.length > 0) {
-                                                    task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                                } else {
-                                                    console.log("Your data looks good!");
+                                    util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
+                                        if (err) {
+                                            let error_log = await getFile(headers, 'error.log', validationTask, err);
+                                            return reject("error.log from task (" + validationTask._id + "):\n" + error_log);
+                                        } else {
+                                            if (task.product) {
+                                                if (!options.json) {
+                                                    if (task.product.warnings && task.product.warnings.length > 0) {
+                                                        task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                                    } else {
+                                                        console.log("Your data looks good!");
+                                                    }
                                                 }
                                             }
+                                            registerDataset();
                                         }
-                                        registerDataset();
                                     });
                                 }
                             });
@@ -292,5 +297,36 @@ function uploadDataset(headers, options) {
                 });
             });
         });
+    });
+}
+
+function getFile(headers, filename, task, defaultErr) {
+    return new Promise(async (resolve, reject) => {
+        let fileBody = await request.get({
+            url: config.api.wf + '/task/ls/' + task._id,
+            headers,
+            json: true });
+        
+        let files = fileBody.files;
+        let taskFile = null;
+        files.forEach(file => {
+            if (file.filename == filename) {
+                taskFile = file;
+            }
+        });
+        
+        if (taskFile) {
+            let result = await request.get({
+                url: config.api.wf + '/task/download/' + task._id,
+                qs: {
+                    p: taskFile.filename
+                },
+                headers,
+                json: true
+            });
+            return resolve(result);
+        } else {
+            return reject(defaultErr);
+        }
     });
 }

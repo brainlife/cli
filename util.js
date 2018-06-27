@@ -917,9 +917,9 @@ function getInstance(headers, instanceName, options) {
                     if (err) return reject(err);
                     else if (res.statusCode != 200) {
                         if (res.statusMessage == 'not member of the group you have specified') {
-                            reject("There was an error during instance creation. Please log in again.");
+                            return reject("There was an error during instance creation. Please log in again.");
                         }
-                        else reject(res.body.message);
+                        else return reject(res.body.message);
                     } else {
                         resolve(body);
                     }
