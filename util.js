@@ -1221,11 +1221,8 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     deps: [ task._id ]
                 };
                 if (resource) submissionParams.preferred_resource_id = resource;
-                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, async (err, res, body) => {
-                    if (err) {
-                        let error_log = await util.getFile(headers, 'error.log', validationTask, err);
-                        return reject("error.log from task (" + validationTask._id + "):\n" + error_log);
-                    }
+                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
+                    if (err) return reject(err);
                     else if (res.statusCode != 200) return reject("Error: " + res.body.message);
 
                     let appTask = body.task;
