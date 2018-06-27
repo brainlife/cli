@@ -245,17 +245,17 @@ function uploadDataset(headers, options) {
                                                     }
                                                 }
                                             }
-                                            registerDataset();
+                                            registerDataset(validationTask);
                                         }
                                     });
                                 }
                             });
                         } else {
                             console.error("No validator available for this datatype. Skipping validation.");
-                            registerDataset();
+                            registerDataset(task);
                         }
                         
-                        function registerDataset() {
+                        function registerDataset(task) {
                             if (!options.json) console.log("Registering dataset...");
 
                             request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
