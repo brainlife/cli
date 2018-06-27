@@ -233,7 +233,7 @@ function uploadDataset(headers, options) {
                                     
                                     util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
                                         if (err) {
-                                            let error_log = await getFile(headers, 'error.log', validationTask, err);
+                                            let error_log = await util.getFile(headers, 'error.log', validationTask, err);
                                             return reject("error.log from task (" + validationTask._id + "):\n" + error_log);
                                         } else {
                                             if (task.product) {
@@ -297,36 +297,5 @@ function uploadDataset(headers, options) {
                 });
             });
         });
-    });
-}
-
-function getFile(headers, filename, task, defaultErr) {
-    return new Promise(async (resolve, reject) => {
-        let fileBody = await request.get({
-            url: config.api.wf + '/task/ls/' + task._id,
-            headers,
-            json: true });
-        
-        let files = fileBody.files;
-        let taskFile = null;
-        files.forEach(file => {
-            if (file.filename == filename) {
-                taskFile = file;
-            }
-        });
-        
-        if (taskFile) {
-            let result = await request.get({
-                url: config.api.wf + '/task/download/' + task._id,
-                qs: {
-                    p: taskFile.filename
-                },
-                headers,
-                json: true
-            });
-            return resolve(result);
-        } else {
-            return reject(defaultErr);
-        }
     });
 }

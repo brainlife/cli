@@ -1221,8 +1221,11 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                     deps: [ task._id ]
                 };
                 if (resource) submissionParams.preferred_resource_id = resource;
-                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
-                    if (err) return reject(err);
+                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, async (err, res, body) => {
+                    if (err) {
+                        let error_log = await util.getFile(headers, 'error.log', validationTask, err);
+                        return reject("error.log from task (" + validationTask._id + "):\n" + error_log);
+                    }
                     else if (res.statusCode != 200) return reject("Error: " + res.body.message);
 
                     let appTask = body.task;
@@ -1388,6 +1391,44 @@ function waitForFinish(headers, task, verbose, cb) {
 }
 
 /**
+ * Get a specific file from a task's output
+ * @param {any} headers 
+ * @param {string} filename 
+ * @param {task} task 
+ * @param {string} defaultErr 
+ */
+function getFile(headers, filename, task, defaultErr) {
+    return new Promise(async (resolve, reject) => {
+        let fileBody = await request.get({
+            url: config.api.wf + '/task/ls/' + task._id,
+            headers,
+            json: true });
+        
+        let files = fileBody.files;
+        let taskFile = null;
+        files.forEach(file => {
+            if (file.filename == filename) {
+                taskFile = file;
+            }
+        });
+        
+        if (taskFile) {
+            let result = await request.get({
+                url: config.api.wf + '/task/download/' + task._id,
+                qs: {
+                    p: taskFile.filename
+                },
+                headers,
+                json: true
+            });
+            return resolve(result);
+        } else {
+            return reject(defaultErr);
+        }
+    });
+}
+
+/**
  * Escapes a user input string to make it safe for regex matching
  * @param {string} str
  * @returns {string}
@@ -1441,6 +1482,6 @@ module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
     queryAllDatatypes, queryAllApps, queryAllProfiles, queryAllProjects, queryAllDatasets, queryAllResources,
     resolveDatatypes, resolveApps, resolveProfiles, resolveProjects, resolveDatasets, resolveResources,
-    getInstance, runApp,
+    getInstance, runApp, getFile,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
