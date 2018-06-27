@@ -1352,7 +1352,7 @@ function waitForFinish(headers, task, verbose, cb) {
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
-        if (res.statusCode != 200) return reject(res.body.message);
+        if (res.statusCode != 200) return cb(err, null);
         
         let task = body.tasks[0];
         if (task.status == "finished") {
