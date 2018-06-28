@@ -77,7 +77,7 @@ $ bl project query --admin stevengeeky --json | jq -r '.[0]._id'
 
 Which returns `5afc2c8de68fc50028e90820`.
 
-`--raw` instructs the CLI to output results in JSON format so that jq can parse the output.
+`--json` instructs the CLI to output results in JSON format so that jq can parse the output.
 
 Also, if you don't know what to run or how to run something, simply attach --help to the end of any command:
 
