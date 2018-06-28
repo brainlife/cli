@@ -211,7 +211,7 @@ function uploadDataset(headers, options) {
                         if (!options.json) console.log("Dataset successfully uploaded");
                         
                         if (datatype.validator && !datatype.force) {
-                            if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
+                            //if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
                             let validationConfig = {};
                             datatype.files.forEach(file => {
                                 validationConfig[file.id] = "../" + task._id + "/" + file.filename;
