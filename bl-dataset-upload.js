@@ -18,8 +18,9 @@ commander
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
     .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', collect, [])
     .option('-n, --description <description>', 'description of uploaded dataset')
-    .option('-s, --subject <subject>', 'subject of the uploaded dataset')
-    .option('-e, --session <session>', 'session of the uploaded dataset')
+    .option('-s, --subject <subject>', '(metadata) subject of the uploaded dataset')
+    .option('-e, --session <session>', '(metadata) session of the uploaded dataset')
+    .option('-r, --run <run>', '(metadata) run of the uploaded dataset')
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', collect, [])
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-j, --json', 'output uploaded dataset information in json format')
@@ -48,7 +49,6 @@ util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    console.log(commander.description);
     if (!commander.project) util.errorMaybeRaw("Error: no project given to upload dataset to", commander.json);
     if (!commander.datatype) util.errorMaybeRaw("Error: no datatype of dataset given", commander.json);
     if (!commander.subject) util.errorMaybeRaw("Error: no subject name provided");
@@ -76,6 +76,7 @@ util.loadJwt().then(jwt => {
                 datatype_tags: commander.datatype_tag,
                 subject: commander.subject,
                 session: commander.session,
+                run: commander.run,
                 tags: commander.tag, meta,
                 json: commander.json,
                 });
@@ -109,6 +110,7 @@ function uploadDataset(headers, options) {
         
         if (options.subject) metadata.subject = options.subject;
         if (options.session) metadata.session = options.session;
+        if (options.run) metadata.run = options.run;
         
         let instance = await util.getInstance(headers, instanceName);
         let datatypes = await util.resolveDatatypes(headers, options.datatype);
