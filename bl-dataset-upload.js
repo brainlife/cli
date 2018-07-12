@@ -16,11 +16,11 @@ commander
     .option('--directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset')
-    .option('--desc, --description <description>', 'description of uploaded dataset')
+    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', collect, [])
+    .option('-n, --description <description>', 'description of uploaded dataset')
     .option('-s, --subject <subject>', 'subject of the uploaded dataset')
-    .option('--se, --session <session>', 'session of the uploaded dataset')
-    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset')
+    .option('-e, --session <session>', 'session of the uploaded dataset')
+    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', collect, [])
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-j, --json', 'output uploaded dataset information in json format')
     .option('--force', 'force the dataset to be uploaded, even if no validator is present')
@@ -48,18 +48,12 @@ util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    if (!argv['tag']) argv['tag'] = [];
-    if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
-    
-    if (!argv['datatype_tag']) argv['datatype_tag'] = [];
-    if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
-    
+    console.log(commander.description);
     if (!commander.project) util.errorMaybeRaw("Error: no project given to upload dataset to", commander.json);
     if (!commander.datatype) util.errorMaybeRaw("Error: no datatype of dataset given", commander.json);
     if (!commander.subject) util.errorMaybeRaw("Error: no subject name provided");
     
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
-    
     let meta = {};
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
@@ -79,10 +73,10 @@ util.loadJwt().then(jwt => {
                 directory: commander.directory,
                 files: fileList,
                 description: commander.description,
-                datatype_tags: argv['datatype_tag'],
+                datatype_tags: commander.datatype_tag,
                 subject: commander.subject,
                 session: commander.session,
-                tags: argv['tag'], meta,
+                tags: commander.tag, meta,
                 json: commander.json,
                 });
         } catch (err) {
@@ -298,4 +292,9 @@ function uploadDataset(headers, options) {
             });
         });
     });
+}
+
+function collect(val, arr) {
+    arr.push(val);
+    return arr;
 }
