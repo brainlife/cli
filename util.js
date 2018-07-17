@@ -358,11 +358,13 @@ function queryDatasets(headers, query, opt) {
         
         if (query.datatype) {
             let datatypeSearch = {};
-            let datatypes = await resolveDatatypes(headers, query.datatype);
-            
-            if (datatypes.length == 0) return reject("Error: No datatypes found matching '" + query.datatype + "'");
-            if (datatypes.length > 1) return reject("Error: Multiple datatypes found matching '" + query.datatype + "'");
-            datatype = datatypes[0];
+            //let datatypes = await resolveDatatypes(headers, query.datatype);
+            let body = await request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
+                find: JSON.stringify({name: query.datatype}),
+                limit: 1,
+            }});
+            if (body.datatypes.length != 1) return reject("Error: No datatypes found matching '" + query.datatype + "'");
+            datatype = body.datatypes[0];
         }
         
         if (query.project) {
