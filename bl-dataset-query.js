@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const request = require('request-promise-native');
-const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
@@ -14,8 +13,8 @@ commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-q, --query <query>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
-    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag')
-    .option('--tag <dataset tag>', 'filter datasets by dataset tag')
+    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect_strings,  [])
+    .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect_strings, [])
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('--sub, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
@@ -28,21 +27,22 @@ commander
 
 util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
+
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    if (!argv['datatype_tag']) argv['datatype_tag'] = [];
-    if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
+    //if (!argv['datatype_tag']) argv['datatype_tag'] = [];
+    //if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
     
-    if (!argv['tag']) argv['tag'] = [];
-    if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
+    //if (!argv['tag']) argv['tag'] = [];
+    //if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
     
     let datasets = await util.queryDatasets(headers, {
         id: commander.id,
         search: commander.query,
         datatype: commander.datatype,
-        datatypeTags: argv['datatype_tag'],
-        tags: argv['tag'],
+        datatypeTags: commander['datatype_tag'],
+        tags: commander.tag,
         project: commander.project,
         subject: commander.subject,
         taskId: commander.taskid

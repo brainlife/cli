@@ -944,7 +944,7 @@ function getInstance(headers, instanceName, options) {
  * @param {boolean} opt.json
  * @returns {Promise<task>} The resulting app task
  */
-function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceSearch, serviceBranch, userConfig, json) {
+function runApp(headers, opt) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
         let app_inputs = [], app_outputs = [], all_dataset_ids = [];
@@ -1122,53 +1122,55 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
         }
 
         // create token for user-inputted datasets
-        request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, async (err, res, body) => {
+        request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, 
+        async (err, res, body) => {
             if (err) return reject(err);
             else if (res.statusCode != 200) return reject(res.body.message);
             
             let jwt = body.jwt;
             let userInputKeys = Object.keys(inputs);
-            if (app.inputs.length != userInputKeys.length) return reject("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); // validate app
+            if (app.inputs.length != userInputKeys.length) {
+                return reject("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + 
+                    " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); 
+            }
             
             let downloads = [], productRawOutputs = [];
-            let datatypeToAppInputTable = {};
-            let inputTable = {};
-            app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
-            Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
+            //let datatypeToAppInputTable = {};
+            //let inputTable = {};
+            //app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
+            //Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
 
             // prepare staging task
             app.inputs.forEach(input => {
-                let user_inputs = inputTable[input.datatype];
-                user_inputs.forEach(user_input => {
-                    downloads.push({
-                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
-                        untar: 'auto',
-                        dir: user_input._id
-                    });
-
-                    let output = {
-                        id: input.id,
-                        subdir: user_input._id,
-                        dataset_id: user_input._id,
-                        task_id: user_input.task_id || user_input.prov.task_id,
-                        datatype: user_input.datatype,
-                        datatype_tags: user_input.datatype_tags,
-                        tags: user_input.tags,
-                        meta: user_input.meta,
-                        project: user_input.project
-                    };
-                    productRawOutputs.push(output);
-                    
-                    // more config preparation
-                    let keys = [];
-                    for (let key in app.config) {
-                        if (app.config[key].input_id == input.id) keys.push(key);
-                    }
-                    
-                    app_inputs.push(Object.assign({ keys }, output));
-                    
-                    Object.assign(output_metadata, user_input.meta);
+                let user_input = inputs[input.id][0];
+                downloads.push({
+                    url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
+                    untar: 'auto',
+                    dir: user_input._id
                 });
+
+                let output = {
+                    id: input.id,
+                    subdir: user_input._id,
+                    dataset_id: user_input._id,
+                    task_id: user_input.task_id || user_input.prov.task_id,
+                    datatype: user_input.datatype,
+                    datatype_tags: user_input.datatype_tags,
+                    tags: user_input.tags,
+                    meta: user_input.meta,
+                    project: user_input.project
+                };
+                productRawOutputs.push(output);
+                
+                // more config preparation
+                let keys = [];
+                for (let key in app.config) {
+                    if (app.config[key].input_id == input.id) keys.push(key);
+                }
+                
+                app_inputs.push(Object.assign({ keys }, output));
+                
+                Object.assign(output_metadata, user_input.meta);
             });
 
             // submit staging task
@@ -1215,9 +1217,8 @@ function runApp(headers, opt) {//appSearch, userInputs, projectSearch, resourceS
                 // prepare and run the app task
                 let submissionParams = {
                     instance_id: instance._id,
-                    name: app.name,
+                    name: app.name.trim(),
                     service: app.github,
-                    //desc: "Running " + app.name,
                     service_branch: app.github_branch,
                     config: preparedConfig,
                     deps: [ task._id ]
@@ -1477,6 +1478,7 @@ function errorMaybeRaw(message, raw) {
     error(message);
 }
 
+//TODO - get rid of this
 module.exports = {
     queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
     queryAllDatatypes, queryAllApps, queryAllProfiles, queryAllProjects, queryAllDatasets, queryAllResources,
@@ -1484,3 +1486,8 @@ module.exports = {
     getInstance, runApp, getFile,
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
+
+module.exports.collect_strings = function(val, all) {
+    all.push(val);
+    return all;
+}

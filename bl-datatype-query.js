@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const request = require('request');
-const argv = require('minimist')(process.argv.slice(2));
+//const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');

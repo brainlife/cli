@@ -1,15 +1,14 @@
 const request = require('request-promise-native');
 const config = require('./config');
 const commander = require('commander');
-const argv = require('minimist')(process.argv.slice(2));
 const util = require('./util');
 
 commander
     .option('-i, --id <id>', 'filter apps by id')
     .option('-d, --doi <doi>', 'filter apps by doi')
     .option('-q, --query <query>', 'filter apps by name or description')
-    .option('--input-datatype <type>', 'specify required input type')
-    .option('--output-datatype <type>', 'specify required output type')
+    .option('--input-datatype <type>', 'specify required input type', [])
+    .option('--output-datatype <type>', 'specify required output type', util.collect_strings, [])
     .option('-s, --skip <skip>', 'number of results to skip', parseInt)
     .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
     .option('-j, --json', 'output data in json format')
@@ -21,18 +20,19 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    let inputs = argv['input-datatype'];
-    if(inputs && !Array.isArray(inputs)) inputs = [ inputs ];
+    //let inputs = argv['input-datatype'];
+    //if(inputs && !Array.isArray(inputs)) inputs = [ inputs ];
 
-    let outputs = argv['output-datatype'];
-    if(outputs && !Array.isArray(outputs)) outputs = [ outputs ];
+    //let outputs = argv['output-datatype'];
+    //if(outputs && !Array.isArray(outputs)) outputs = [ outputs ];
     
     try {
         let apps = await util.queryApps(headers, {
             id: commander.id, 
             search: commander.query,
             doi: commander.doi,
-            inputs, outputs, 
+            inputs, commander['input-datatype'], 
+            outputs, commander['output-datatype'], 
         }, {
             skip: commander.skip, 
             limit: commander.limit
