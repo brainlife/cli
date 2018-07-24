@@ -417,7 +417,6 @@ function queryDatasets(headers, query, opt) {
             andQueries.push({ 'prov.task_id': query.taskId });
         }
         
-        
         if (orQueries.length > 0) andQueries.push({ $or: orQueries });
         if (andQueries.length > 0) find.$and = andQueries;
         
@@ -1099,22 +1098,22 @@ function runApp(headers, opt) {
                 }
                 
                 switch (appParam.type) {
-                    case "boolean":
-                    case "string":
-                    case "number":
-                        if (typeof userParam != appParam.type) {
-                            return reject("Error: config key '" + key + "': " +
-                                            "expected type '" + appParam.type +
-                                            "' but given value of type '" + (typeof userParam) + "'");
-                        }
-                        break;
-                    case "enum":
-                        let validOptions = appParam.options.map(o => o.value);
-                        if (validOptions.indexOf(userParam) == -1) {
-                            return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
-                                            "but given value " + userParam);
-                        }
-                        break;
+                case "boolean":
+                case "string":
+                case "number":
+                    if (typeof userParam != appParam.type) {
+                        return reject("Error: config key '" + key + "': " +
+                                        "expected type '" + appParam.type +
+                                        "' but given value of type '" + (typeof userParam) + "'");
+                    }
+                    break;
+                case "enum":
+                    let validOptions = appParam.options.map(o => o.value);
+                    if (validOptions.indexOf(userParam) == -1) {
+                        return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
+                                        "but given value " + userParam);
+                    }
+                    break;
                 }
                 
                 values[key] = userParam;
