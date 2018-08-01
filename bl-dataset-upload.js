@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
 const request = require('request-promise-native');
-const argv = require('minimist')(process.argv.slice(2));
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
 const archiver = require('archiver');
-//const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');
@@ -73,13 +71,15 @@ util.loadJwt().then(jwt => {
                 directory: commander.directory,
                 files: fileList,
                 description: commander.description,
+
                 datatype_tags: commander.datatype_tag,
                 subject: commander.subject,
                 session: commander.session,
+                tags: commander.tag, 
                 run: commander.run,
-                tags: commander.tag, meta,
+                meta,
                 json: commander.json,
-                });
+            });
         } catch (err) {
             util.errorMaybeRaw(err, commander.json);
         }

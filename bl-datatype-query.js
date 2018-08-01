@@ -4,7 +4,6 @@ const request = require('request');
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
-//const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');

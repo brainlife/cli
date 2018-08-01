@@ -25,8 +25,8 @@ util.loadJwt().then(async jwt => {
             id: commander.id, 
             search: commander.query,
             doi: commander.doi,
-            inputs: commander.inputDatatype,
-            outputs: commander.outputDatatype, 
+            inputs, commander['input-datatype'], 
+            outputs, commander['output-datatype'], 
         }, {
             skip: commander.skip, 
             limit: commander.limit

@@ -27,9 +27,9 @@ commander
 
 util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
+
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
-    
     let datasets = await util.queryDatasets(headers, {
         id: commander.id,
         search: commander.query,

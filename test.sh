@@ -1,19 +1,10 @@
-#!/bin/bash
+node bl-app-run --id 5b27b29116fe38002748e731 \
+    --branch multi-lap-0.625 \
+    --input 0:5b2770cb16fe38002748e70d \
+    --input 1:5b1e475e73279e0028adfbba \
+    --input 2:5b276fc716fe38002748e705 \
+    --input 3:5b27708716fe38002748e70a \
+    --input 4:5b1e477473279e0028adfbbc \
+    --project 5b1e3afd73279e0028adfbb7 \
+    --config '{"ANTs" : false, "k" : 2000, "local_slr" : false, "tract1" : 1, "tract2" : 2, "tract3" : 3, "tract4" : 4, "tract5" : 11, "tract6" : 12, "tract7" : 19, "tract8" : 20, "run" : "test-cli"}'
 
-# bl login
-functasks=(5b0858869f3e2c0028ab45f5 5b0858869f3e2c0028ab45f5) # ...
-stimuli=(5b0858669f3e2c0028ab45f4 5b0858669f3e2c0028ab45f4) # ...
-
-myProject=`./bl.js project query --admin stevengeeky --search 'Test' --raw | jq -r '.[0]._id'` # this returns 5afc2c8de68fc50028e90820
-type_t1w=`./bl.js datatype query --search neuro/anat/t1w --raw | jq -r '.[0]._id'` # returns 58c33bcee13a50849b25879a
-app=`./bl.js app query --input-datatype neuro/func/task --input-datatype neuro/stimulus --raw | jq -r '.[0]._id'` # returns 5b084f4d9f3e2c0028ab45e4
-
-echo $app
-
-for (( i=0; i<${#functasks[@]}; i++ )); do
-	stimulus=${stimuli[i]}
-	functask=${functasks[i]}
-	
-	echo Running App Instance $((i+1))
-	./bl.js app run --id $app --project $myProject --input "0:$functask" --input "1:$stimulus"
-done

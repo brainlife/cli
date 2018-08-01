@@ -14,10 +14,10 @@ commander
     .parse(process.argv);
 
 util.loadJwt().then(async jwt => {
-    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
-    
+
+    if (commander.h) commander.help();
     if (!commander.project) util.errorMaybeRaw("Error: No project given to store output dataset", commander.json);
     if (!commander.id) util.errorMaybeRaw("Error: No app id given", commander.json);
     
@@ -31,7 +31,6 @@ util.loadJwt().then(async jwt => {
             config: commander.config,
             json: commander.json,
         });
-        
         if (commander.json) console.log(JSON.stringify(task));
     } catch (err) {
         util.errorMaybeRaw(err, commander.json);
