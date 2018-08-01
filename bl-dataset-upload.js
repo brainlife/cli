@@ -14,44 +14,46 @@ commander
     .option('--directory <directory>', 'directory where your dataset is located')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', collect, [])
-    .option('-n, --description <description>', 'description of uploaded dataset')
+    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', util.collect, [])
+    .option('-n, --desc <description>', 'description of uploaded dataset')
     .option('-s, --subject <subject>', '(metadata) subject of the uploaded dataset')
     .option('-e, --session <session>', '(metadata) session of the uploaded dataset')
     .option('-r, --run <run>', '(metadata) run of the uploaded dataset')
-    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', collect, [])
+    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', util.collect, [])
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-j, --json', 'output uploaded dataset information in json format')
     .option('--force', 'force the dataset to be uploaded, even if no validator is present')
     .option('-h, --h');
 
-// parse individual user-inputted files
-let fileList = {};
-let commanderOptions = {};
-commander.options.forEach(option => {
-    if (option.long) commanderOptions[option.long.substring(2)] = true;
-    if (option.short) commanderOptions[option.short.substring(1)] = true;
-});
-for (let key in argv) {
-    if (key != '_' && !commanderOptions[key]) {
-        fileList[key] = argv[key];
-        
-        let argvIndex = process.argv.indexOf('--' + key);
-        if (argvIndex == -1) argvIndex = process.argv.indexOf('-' + key);
-        process.argv.splice(argvIndex, 2);
-    }
+function getcliopt(key) {
+    let match = commander.options.find(option=>{
+        return(option.short == key || option.long == key);
+    });
+    return match;
 }
 
-commander.parse(process.argv);
-util.loadJwt().then(jwt => {
-    if (commander.h) commander.help();
+//parse individual user-inputted files
+//TODO - file id could collide with cli options.
+let fileList = {};
+let new_argv = [];
+for(let i = 0;i < process.argv.length; ++i) {
+    let arg = process.argv[i];
+    if(arg.indexOf("--") === 0 && !getcliopt(arg)) {
+        fileList[arg.substring(2)] = process.argv[i+1];
+        i++; //skip
+    } else {
+        new_argv.push(arg);
+    }
+}
+commander.parse(new_argv);
+util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    
+    if (commander.h) commander.help();
     if (!commander.project) util.errorMaybeRaw("Error: no project given to upload dataset to", commander.json);
     if (!commander.datatype) util.errorMaybeRaw("Error: no datatype of dataset given", commander.json);
     if (!commander.subject) util.errorMaybeRaw("Error: no subject name provided");
-    
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
+
     let meta = {};
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
@@ -62,7 +64,7 @@ util.loadJwt().then(jwt => {
     } else {
         doUpload();
     }
-    
+
     async function doUpload() {
         try {
             await uploadDataset(headers, {
@@ -70,7 +72,7 @@ util.loadJwt().then(jwt => {
                 project: commander.project,
                 directory: commander.directory,
                 files: fileList,
-                description: commander.description,
+                desc: commander.desc,
 
                 datatype_tags: commander.datatype_tag,
                 subject: commander.subject,
@@ -102,7 +104,7 @@ function uploadDataset(headers, options) {
         options = options || {};
         let directory = options.directory || '.';
         let files = options.files || {};
-        let description = options.description || '';
+        let desc = options.desc || '';
         let datatype_tags = options.datatype_tags || [];
         let tags = options.tags || [];
         let metadata = options.meta || {};
@@ -256,10 +258,10 @@ function uploadDataset(headers, options) {
 
                             request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
                                 project: project._id,
-                                desc: description,
                                 datatype: datatype._id,
+                                desc,
                                 datatype_tags,
-                                tags: tags,
+                                tags,
 
                                 meta: metadata,
 
@@ -296,7 +298,3 @@ function uploadDataset(headers, options) {
     });
 }
 
-function collect(val, arr) {
-    arr.push(val);
-    return arr;
-}

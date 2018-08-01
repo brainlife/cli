@@ -13,8 +13,8 @@ commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-q, --query <query>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
-    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', collect, [])
-    .option('--tag <dataset tag>', 'filter datasets by dataset tag', collect, [])
+    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect, [])
+    .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect, [])
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('-b, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
@@ -153,7 +153,4 @@ function getTask(headers, taskId) {
     });
 }
 
-function collect(val, arr) {
-    arr.push(val);
-    return arr;
-}
+

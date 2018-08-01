@@ -4,7 +4,7 @@ const util = require('./util');
 
 commander
     .option('--id <app id>', 'id of app to run')
-    .option('--input <input id>', 'add an input to the application (by input id)', collect, [])
+    .option('--input <input id>', 'add an input to the application (by input id)', util.collect, [])
     .option('--project <project id>', 'the project to store the output dataset from an app')
     .option('--preferred-resource <resource id>', 'user-preferred resource to use to run an app')
     .option('--branch <resource id>', 'github branch to use to run this app (default: master)')
@@ -38,8 +38,3 @@ util.loadJwt().then(async jwt => {
 }).catch(err => {
     util.errorMaybeRaw(err, commander.json);
 });
-
-function collect(val, arr) {
-    arr.push(val);
-    return arr;
-}

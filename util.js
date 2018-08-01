@@ -1486,7 +1486,7 @@ module.exports = {
     loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
 };
 
-module.exports.collect_strings = function(val, all) {
+module.exports.collect = function(val, all) {
     all.push(val);
     return all;
 }

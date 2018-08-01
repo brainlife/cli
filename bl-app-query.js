@@ -7,8 +7,8 @@ commander
     .option('-i, --id <id>', 'filter apps by id')
     .option('-d, --doi <doi>', 'filter apps by doi')
     .option('-q, --query <query>', 'filter apps by name or description')
-    .option('--input-datatype <type>', 'specify required input type', collect, [])
-    .option('--output-datatype <type>', 'specify required output type', collect, [])
+    .option('--input-datatype <type>', 'specify required input type', util.collect, [])
+    .option('--output-datatype <type>', 'specify required output type', util.collect, [])
     .option('-s, --skip <skip>', 'number of results to skip', parseInt)
     .option('-l, --limit <limit>', 'maximum number of results to show', parseInt)
     .option('-j, --json', 'output data in json format')
@@ -102,7 +102,3 @@ function formatApps(headers, data, whatToShow) {
     });
 }
 
-function collect(val, arr) {
-    arr.push(val);
-    return arr;
-}

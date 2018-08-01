@@ -126,7 +126,7 @@ $ bl dataset upload --help
     --project <projectid>            project id to upload dataset to
     --datatype <datatype>            datatype of uploaded dataset
     --datatype_tags <datatype_tags>  datatype_tags of uploaded dataset
-    --description <description>      description of uploaded dataset
+    --desc <description>             description of uploaded dataset
     --subject <subject>              subject of uploaded dataset
     --session <session>              session of uploaded dataset
     --tags <tags>                    tags of uploaded dataset
@@ -142,7 +142,7 @@ I will upload my dataset by using the following command, given the id of my proj
 $ bl dataset upload --t1 t1/t1.nii.gz    \
     --project 5afc2c8de68fc50028e90820   \
     --datatype 58c33bcee13a50849b25879a  \
-    --description 'My t1 weighted image' \
+    --desc 'My t1 weighted image' \
     --subject 12345                      \
     --session 1                          \
     --tag "t1"                           \

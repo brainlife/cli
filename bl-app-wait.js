@@ -9,7 +9,7 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(jwt => {
+util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0) commander.id = commander.id || commander.args[0];
