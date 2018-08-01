@@ -373,7 +373,7 @@ function queryDatasets(headers, query, opt) {
             
             if (projects.length == 0) return reject("Error: No projects found matching '" + query.project + "'");
             if (projects.length > 1) return reject("Error: Multiple projects found matching '" + query.project + "'");
-            project = projects[0];
+            project = projects[0]._id;
         }
         
         let find = { removed: false }, andQueries = [], orQueries = [];

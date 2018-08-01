@@ -12,8 +12,8 @@ const util = require('./util');
 commander
     .option('-i, --id <id>', 'filter resources by id')
     .option('-q, --query <query>', 'filter resources by name')
-    .option('--stat, --status <status>', 'filter resources by status')
-    .option('--serv, --service <service>', 'filter resources by service')
+    .option('-t, --status <status>', 'filter resources by status')
+    .option('-v, --service <service>', 'filter resources by service')
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-j, --json', 'output data in json format')

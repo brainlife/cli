@@ -4,7 +4,7 @@ const util = require('./util');
 
 commander
     .option('--id <app id>', 'id of app to run')
-    .option('--input <input id>', 'add an input to the application (by input id)', util.collect_strings, [])
+    .option('--input <input id>', 'add an input to the application (by input id)', collect, [])
     .option('--project <project id>', 'the project to store the output dataset from an app')
     .option('--preferred-resource <resource id>', 'user-preferred resource to use to run an app')
     .option('--branch <resource id>', 'github branch to use to run this app (default: master)')
@@ -21,13 +21,9 @@ util.loadJwt().then(async jwt => {
     if (!commander.project) util.errorMaybeRaw("Error: No project given to store output dataset", commander.json);
     if (!commander.id) util.errorMaybeRaw("Error: No app id given", commander.json);
     
-    //if (!argv['input']) argv['input'] = [];
-    //if (!Array.isArray(argv['input'])) argv['input'] = [ argv['input'] ];
-    
     try {
         let task = await util.runApp(headers, {
             app: commander.id,
-            //inputs: argv['input'],
             inputs: commander.input,
             project: commander.project,
             resource: commander.preferredResource,
@@ -42,3 +38,8 @@ util.loadJwt().then(async jwt => {
 }).catch(err => {
     util.errorMaybeRaw(err, commander.json);
 });
+
+function collect(val, arr) {
+    arr.push(val);
+    return arr;
+}

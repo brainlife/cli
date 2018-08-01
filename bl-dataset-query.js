@@ -13,10 +13,10 @@ commander
     .option('-i, --id <id>', 'filter datasets by id')
     .option('-q, --query <query>', 'filter datasets by desc')
     .option('-d, --datatype <datatype>', 'filter datasets by datatype')
-    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect_strings,  [])
-    .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect_strings, [])
+    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', collect, [])
+    .option('--tag <dataset tag>', 'filter datasets by dataset tag', collect, [])
     .option('-p, --project <projectid>', 'filter datasets by project id')
-    .option('--sub, --subject <subject>', 'filter datasets by subject')
+    .option('-b, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
@@ -30,18 +30,11 @@ util.loadJwt().then(async jwt => {
 
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
-    
-    //if (!argv['datatype_tag']) argv['datatype_tag'] = [];
-    //if (!Array.isArray(argv['datatype_tag'])) argv['datatype_tag'] = [ argv['datatype_tag'] ];
-    
-    //if (!argv['tag']) argv['tag'] = [];
-    //if (!Array.isArray(argv['tag'])) argv['tag'] = [ argv['tag'] ];
-    
     let datasets = await util.queryDatasets(headers, {
         id: commander.id,
         search: commander.query,
         datatype: commander.datatype,
-        datatypeTags: commander['datatype_tag'],
+        datatypeTags: commander.datatype_tag,
         tags: commander.tag,
         project: commander.project,
         subject: commander.subject,
@@ -158,4 +151,9 @@ function getTask(headers, taskId) {
             }
         });
     });
+}
+
+function collect(val, arr) {
+    arr.push(val);
+    return arr;
 }
