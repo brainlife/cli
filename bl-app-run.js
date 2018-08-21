@@ -13,28 +13,22 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    let datatypeTable = {};
 
     if (commander.h) commander.help();
-    if (!commander.project) util.errorMaybeRaw("Error: No project given to store output dataset", commander.json);
-    if (!commander.id) util.errorMaybeRaw("Error: No app id given", commander.json);
-    
-    try {
-        let task = await util.runApp(headers, {
-            app: commander.id,
-            inputs: commander.input,
-            project: commander.project,
-            resource: commander.preferredResource,
-            branch: commander.branch,
-            config: commander.config,
-            json: commander.json,
-        });
-        if (commander.json) console.log(JSON.stringify(task));
-    } catch (err) {
-        util.errorMaybeRaw(err, commander.json);
-    }
-}).catch(err => {
-    util.errorMaybeRaw(err, commander.json);
+    if (!commander.project) throw new Error("No project given to store output dataset");
+    if (!commander.id) throw new Error("No app id given");
+
+    util.runApp(headers, {
+        app: commander.id,
+        inputs: commander.input,
+        project: commander.project,
+        resource: commander.preferredResource,
+        branch: commander.branch,
+        config: commander.config,
+        json: commander.json,
+    }).then(task=>{
+        if (commander.json) console.log(JSON.stringify(task, null, 4));
+    });
 });

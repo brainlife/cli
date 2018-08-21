@@ -236,11 +236,11 @@ const gearFrames = [
  * Load the user's jwt token
  * @returns {Promise<string>}
  */
-function loadJwt() {
+exports.loadJwt = function() {
     return new Promise((resolve, reject) => {
         fs.stat(config.path.jwt, (err, stat) => {
             if (err) {
-                return reject("Error: Couldn't find your access token. Please try logging in by running 'bl login'");
+                return reject("Couldn't find your access token. Please try logging in by running 'bl login'");
                 process.exit(1);
             }
             let jwt = fs.readFileSync(config.path.jwt);
@@ -264,7 +264,7 @@ function loadJwt() {
  * @param {number} opt.limit
  * @returns {Promise<datatype[]>}
  */
-function queryProfiles(headers, query, opt) {
+exports.queryProfiles = function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
     
@@ -304,17 +304,16 @@ function queryProfiles(headers, query, opt) {
  * Get all profiles
  * @param {any} headers 
  */
-function queryAllProfiles(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.auth + '/profile', {
-            headers,
-            json: true,
-            qs: {
-                limit: -1,
-                offset: 0
-            }
-        });
-        return resolve(body.profiles);
+exports.queryAllProfiles = function(headers) {
+    return request.get(config.api.auth + '/profile', {
+        headers,
+        json: true,
+        qs: {
+            limit: -1,
+            offset: 0
+        }
+    }).then(body=>{
+        return body.profiles;
     });
 }
 
@@ -324,13 +323,10 @@ function queryAllProfiles(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveProfiles(headers, query, opt) {
+exports.resolveProfiles = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryProfiles(headers, { id: query }, opt);
-    else {
-        return queryProfiles(headers, { search: query }, opt);
-    }
+    if (isValidObjectId(query)) return exports.queryProfiles(headers, { id: query }, opt);
+    else return exports.queryProfiles(headers, { search: query }, opt);
 }
 
 /**
@@ -348,90 +344,76 @@ function resolveProfiles(headers, query, opt) {
  * @param {number} opt.limit
  * @returns {Promise<dataset[]>}
  */
-function queryDatasets(headers, query, opt) {
+exports.queryDatasets = async function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
     
-    return new Promise(async (resolve, reject) => {
-        let datatype = null;
-        let project = null;
-        
-        if (query.datatype) {
-            let datatypeSearch = {};
-            //let datatypes = await resolveDatatypes(headers, query.datatype);
-            let body = await request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
-                find: JSON.stringify({name: query.datatype}),
-                limit: 1,
-            }});
-            if (body.datatypes.length != 1) return reject("Error: No datatypes found matching '" + query.datatype + "'");
-            datatype = body.datatypes[0];
-        }
-        
-        if (query.project) {
-            let projectSearch = {};
-            let projects = await resolveProjects(headers, query.project);
-            
-            if (projects.length == 0) return reject("Error: No projects found matching '" + query.project + "'");
-            if (projects.length > 1) return reject("Error: Multiple projects found matching '" + query.project + "'");
-            project = projects[0]._id;
-        }
-        
-        let find = { removed: false }, andQueries = [], orQueries = [];
-        if (query.id) {
-            if (!isValidObjectId(query.id)) return reject('Error: Not a valid object id: ' + query.id);
-            orQueries.push({ _id: query.id });
-        }
-        if (query.search) {
-            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        }
-        
-        if (query.tags) {
-            query.tags.forEach(tag => {
-                if (tag.startsWith("!")) andQueries.push({ tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
-                else {
-                    andQueries.push({ tags: { $elemMatch: { $eq: tag } } });
-                }
-            });
-        }
-        if (query.datatypeTags) {
-            query.datatypeTags.forEach(tag => {
-                if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
-                else {
-                    andQueries.push({ datatype_tags: { $elemMatch: { $eq: tag } } });
-                }
-            });
-        }
-        
-        if (project) {
-            andQueries.push({ project });
-        }
-        if (datatype) {
-            andQueries.push({ datatype });
-        }
-        if (query.subject) {
-            andQueries.push({ "meta.subject": query.subject });
-        }
-        if (query.taskId) {
-            if (!isValidObjectId(query.taskId)) return reject("Error: Not a valid task id: " + query.taskId);
-            andQueries.push({ 'prov.task_id': query.taskId });
-        }
-        
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
-        
-        request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-            find: JSON.stringify(find),
-            skip: opt.skip || 0,
-            limit: opt.limit || 100
-        } }, (err, res, body) => {
-            if (err) return reject(err);
-            else if (res.statusCode != 200) return reject(res.body.message);
+    let datatype = null;
+    let project = null;
+    
+    if (query.datatype) {
+        let datatypeSearch = {};
+        let body = await request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
+            find: JSON.stringify({name: query.datatype}),
+            limit: 1,
+        }});
+        if (body.datatypes.length != 1) throw new Error("No datatypes found matching '" + query.datatype + "'");
+        datatype = body.datatypes[0];
+    }
+    
+    if (query.project) {
+        let projectSearch = {};
+        let projects = await exports.resolveProjects(headers, query.project);
+        if (projects.length == 0) throw new Error("No projects found matching '" + query.project + "'");
+        if (projects.length > 1) throw new Error("Multiple projects found matching '" + query.project + "'");
+        project = projects[0]._id;
+    }
+    
+    let find = { removed: false }, andQueries = [], orQueries = [];
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
+    }
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
+    
+    if (query.tags) {
+        query.tags.forEach(tag => {
+            if (tag.startsWith("!")) andQueries.push({ tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
             else {
-                body.datasets.count = body.count;
-                resolve(body.datasets);
+                andQueries.push({ tags: { $elemMatch: { $eq: tag } } });
             }
         });
+    }
+    if (query.datatypeTags) {
+        query.datatypeTags.forEach(tag => {
+            if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
+            else {
+                andQueries.push({ datatype_tags: { $elemMatch: { $eq: tag } } });
+            }
+        });
+    }
+    
+    if (project) andQueries.push({ project });
+    if (datatype) andQueries.push({ datatype });
+    if (query.subject) andQueries.push({ "meta.subject": query.subject });
+    if (query.taskId) {
+        if (!exports.isValidObjectId(query.taskId)) throw new Error("Not a valid task id: " + query.taskId);
+        andQueries.push({ 'prov.task_id': query.taskId });
+    }
+    
+    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+    if (andQueries.length > 0) find.$and = andQueries;
+    
+    return request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+        find: JSON.stringify(find),
+        skip: opt.skip || 0,
+        limit: opt.limit || 100
+    } }).then(body=>{
+        body.datasets.count = body.count;
+        return (body.datasets);
     });
 }
 
@@ -439,17 +421,14 @@ function queryDatasets(headers, query, opt) {
  * Get all datasets
  * @param {any} headers 
  */
-function queryAllDatasets(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.warehouse + '/dataset', {
-            headers,
-            json: true,
-            qs: {
-                limit: 0,
-                offset: 0
-            }
-        });
-        return resolve(body.datasets);
+exports.queryAllDatasets = function(headers) {
+    return request.get(config.api.warehouse + '/dataset', {
+        headers,
+        json: true,
+        qs: {
+            limit: 0,
+            offset: 0
+        }
     });
 }
 
@@ -459,12 +438,11 @@ function queryAllDatasets(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveDatasets(headers, query, opt) {
+exports.resolveDatasets = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryDatasets(headers, { id: query }, opt);
+    if (exports.isValidObjectId(query)) return exports.queryDatasets(headers, { id: query }, opt);
     else {
-        return queryDatasets(headers, { search: query }, opt);
+        return exports.queryDatasets(headers, { search: query }, opt);
     }
 }
 
@@ -482,52 +460,51 @@ function resolveDatasets(headers, query, opt) {
  * @param {number} opt.limit
  * @returns {Promise<project[]>}
  */
-function queryProjects(headers, query, opt) {
+exports.queryProjects = async function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
     
-    return new Promise(async (resolve, reject) => {
-        let projectAdmin = null;
-        let projectMember = null;
-        let projectGuest = null;
-        if (query.admin) projectAdmin = await ensureUniqueProfile(headers, query.admin);
-        if (query.member) projectMember = await ensureUniqueProfile(headers, query.member);
-        if (query.guest) projectGuest = await ensureUniqueProfile(headers, query.guest);
-        
-        let find = { removed: false }, andQueries = [], orQueries = [];
-        
-        if (query.id) {
-            if (!isValidObjectId(query.id)) reject('Error: Not a valid object id: ' + query.id);
-            orQueries.push({ _id: query.id });
-        }
-        if (query.search) {
-            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        }
-        
-        if (projectAdmin) {
-            andQueries.push({ admins: { $elemMatch: { $eq: projectAdmin.id } } });
-        }
-        if (projectMember) {
-            andQueries.push({ members: { $elemMatch: { $eq: projectMember.id } } });
-        }
-        if (projectGuest) {
-            andQueries.push({ guests: { $elemMatch: { $eq: projectGuest.id } } });
-        }
+    let projectAdmin = null;
+    let projectMember = null;
+    let projectGuest = null;
+    if (query.admin) projectAdmin = await ensureUniqueProfile(headers, query.admin);
+    if (query.member) projectMember = await ensureUniqueProfile(headers, query.member);
+    if (query.guest) projectGuest = await ensureUniqueProfile(headers, query.guest);
+    
+    let find = { removed: false }, andQueries = [], orQueries = [];
+    
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
+    }
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
+    
+    if (projectAdmin) {
+        andQueries.push({ admins: { $elemMatch: { $eq: projectAdmin.id } } });
+    }
+    if (projectMember) {
+        andQueries.push({ members: { $elemMatch: { $eq: projectMember.id } } });
+    }
+    if (projectGuest) {
+        andQueries.push({ guests: { $elemMatch: { $eq: projectGuest.id } } });
+    }
 
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
+    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+    if (andQueries.length > 0) find.$and = andQueries;
 
-        request.get(config.api.warehouse + '/project', { headers, json: true, qs: {
+    return request(config.api.warehouse + '/project', { headers, json: true, 
+        qs: {
             find: JSON.stringify(find),
             sort: JSON.stringify({ name: 1 }),
             skip: opt.skip || 0,
             limit: opt.limit || 100
-        } }, (err, res, body) => {
-            if (err) return reject(err);
-            else if (res.statusCode != 200) return reject(res.body.message);
-            else resolve(body.projects);
-        });
+        } 
+    }).then(body=>{
+        //else if (res.statusCode != 200) return throw new Error(res.body.message);
+        return body.projects;
     });
     
     /**
@@ -539,12 +516,12 @@ function queryProjects(headers, query, opt) {
      */
     function ensureUniqueProfile(headers, profile) {
         return new Promise(async (resolve, reject) => {
-            let profiles = await resolveProfiles(headers, profile);
+            let profiles = await exports.resolveProfiles(headers, profile);
             
             if (profiles.length == 0) {
-                reject("Error: No profile matching '" + profile + "'");
+                reject("No profile matching '" + profile + "'");
             } else if (profiles.length > 1) {
-                reject("Error: Multiple profiles matching '" + profile + "'");
+                reject("Multiple profiles matching '" + profile + "'");
             } else {
                 resolve(profiles[0]);
             }
@@ -556,17 +533,16 @@ function queryProjects(headers, query, opt) {
  * Get all projects
  * @param {any} headers 
  */
-function queryAllProjects(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.warehouse + '/project', {
-            headers,
-            json: true,
-            qs: {
-                limit: 0,
-                offset: 0
-            }
-        });
-        return resolve(body.projects);
+exports.queryAllProjects = function(headers) {
+    return request.get(config.api.warehouse + '/project', {
+        headers,
+        json: true,
+        qs: {
+            limit: 0,
+            offset: 0
+        }
+    }).then(body=>{
+        return body.projects;
     });
 }
 
@@ -576,13 +552,10 @@ function queryAllProjects(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveProjects(headers, query, opt) {
+exports.resolveProjects = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryProjects(headers, { id: query }, opt);
-    else {
-        return queryProjects(headers, { search: query }, opt);
-    }
+    if (exports.isValidObjectId(query)) return exports.queryProjects(headers, { id: query }, opt);
+    else return exports.queryProjects(headers, { search: query }, opt);
 }
 
 /**
@@ -599,71 +572,71 @@ function resolveProjects(headers, query, opt) {
  * @param {number} opt.limit
  * @returns {Promise<app[]>}
  */
-function queryApps(headers, query, opt) {
+exports.queryApps = async function(headers, query, opt) {
     if(query === undefined) query = {};
     if(opt === undefined) opt = {};
 
-    return new Promise(async (resolve, reject) => {
-        let input_datatypes = [];
-        let output_datatypes = [];
-        
-        if (query.inputs) {
-            for (let input of query.inputs) {
-                let datatype = await ensureUniqueDatatype(headers, input);
-                input_datatypes.push(datatype);
-            }
+    let input_datatypes = [];
+    let output_datatypes = [];
+    
+    if (query.inputs) {
+        for (let input of query.inputs) {
+            let datatype = await ensureUniqueDatatype(headers, input);
+            input_datatypes.push(datatype);
         }
-        if (query.outputs) {
-            for (let output of query.outputs) {
-                let datatype = await ensureUniqueDatatype(headers, output);
-                output_datatypes.push(datatype);
-            }
+    }
+    if (query.outputs) {
+        for (let output of query.outputs) {
+            let datatype = await ensureUniqueDatatype(headers, output);
+            output_datatypes.push(datatype);
         }
-        let andQueries = [];
-        let orQueries = [];
+    }
+    let andQueries = [];
+    let orQueries = [];
 
-        if (query.id) {
-            if (!isValidObjectId(query.id)) reject('Error: Not a valid object id: ' + query.id);
-            orQueries.push({ _id: query.id });
-        }
-        if (query.search) {
-            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        }
-        if (query.doi) {
-            andQueries.push({ doi: query.doi });
-        }
-        if (input_datatypes.length > 0) {
-            andQueries = andQueries.concat(input_datatypes.map(datatype => { 
-                if (datatype.not) {
-                    return { inputs: { $not: { $elemMatch: { datatype: datatype._id } } } };
-                } else {
-                    return { inputs: { $elemMatch: { datatype: datatype._id } } };
-                }
-            }));
-        }
-        if (output_datatypes.length > 0) {
-            andQueries = andQueries.concat(output_datatypes.map(datatype => { 
-                return { outputs: { $elemMatch: { datatype: datatype._id } } }; 
-            }));
-        }
-        
-        let find = {
-            removed: false,
-        }
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
-        
-        let body = await request.get(config.api.warehouse + '/app', {
-            headers,
-            json: true,
-            qs: {
-                find: JSON.stringify(find),
-                sort: "name",
-                skip: opt.skip || 0,
-                limit: opt.limit || 100
-            } });
-        resolve(body.apps);
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
+    }
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
+    if (query.doi) {
+        andQueries.push({ doi: query.doi });
+    }
+    if (input_datatypes.length > 0) {
+        andQueries = andQueries.concat(input_datatypes.map(datatype => { 
+            if (datatype.not) {
+                return { inputs: { $not: { $elemMatch: { datatype: datatype._id } } } };
+            } else {
+                return { inputs: { $elemMatch: { datatype: datatype._id } } };
+            }
+        }));
+    }
+    if (output_datatypes.length > 0) {
+        andQueries = andQueries.concat(output_datatypes.map(datatype => { 
+            return { outputs: { $elemMatch: { datatype: datatype._id } } }; 
+        }));
+    }
+    
+    let find = {
+        removed: false,
+    }
+    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+    if (andQueries.length > 0) find.$and = andQueries;
+    
+    return request.get(config.api.warehouse + '/app', {
+        headers,
+        json: true,
+        qs: {
+            find: JSON.stringify(find),
+            sort: "name",
+            skip: opt.skip || 0,
+            limit: opt.limit || 100
+        } 
+    }).then(res=>{
+        return res.apps;
     });
     
     /**
@@ -675,14 +648,14 @@ function queryApps(headers, query, opt) {
      */
     function ensureUniqueDatatype(headers, query) {
         return new Promise(async (resolve, reject) => {
-            let datatypes = await resolveDatatypes(headers, query);
+            let datatypes = await exports.resolveDatatypes(headers, query);
             let not = query.startsWith('!');
             
             if (not) query = query.substring(1);
             if (datatypes.length == 0) {
-                reject("Error: No datatype matching '" + query + "'");
+                reject("No datatype matching '" + query + "'");
             } else if (datatypes.length > 1) {
-                reject("Error: Multiple datatypes matching '" + query + "'");
+                reject("Multiple datatypes matching '" + query + "'");
             } else {
                 let datatype = datatypes[0];
                 datatype.not = not;
@@ -696,7 +669,8 @@ function queryApps(headers, query, opt) {
  * Get all apps
  * @param {any} headers 
  */
-function queryAllApps(headers) {
+/*
+exports.queryAllApps = function(headers) {
     return new Promise(async (resolve, reject) => {
         let body = await request.get(config.api.warehouse + '/app', {
             headers,
@@ -709,6 +683,7 @@ function queryAllApps(headers) {
         return resolve(body.apps);
     });
 }
+*/
 
 /**
  * Resolve a set of apps from a given
@@ -716,13 +691,10 @@ function queryAllApps(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveApps(headers, query, opt) {
+exports.resolveApps = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryApps(headers, { id: query }, opt);
-    else {
-        return queryApps(headers, { search: query }, opt);
-    }
+    if (exports.isValidObjectId(query)) return exports.queryApps(headers, { id: query }, opt);
+    else return exports.queryApps(headers, { search: query }, opt);
 }
 
 /**
@@ -736,33 +708,32 @@ function resolveApps(headers, query, opt) {
  * @param {number} opt.limit
  * @returns {Promise<datatype[]>}
  */
-function queryDatatypes(headers, query, opt) {
+exports.queryDatatypes = function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
     
-    return new Promise(async (resolve, reject) => {
-        let orQueries = [], find = {};
-        if (query.id) {
-            if (!isValidObjectId(query.id)) reject('Error: Not a valid object id: ' + query.id);
-            orQueries.push({ _id: query.id });
-        }
-        if (query.search) {
-            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        }
+    let orQueries = [], find = {};
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
+    }
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
 
-        if (orQueries.length > 0) find.$or = orQueries;
-        
-        let body = await request.get(config.api.warehouse + '/datatype', {
-            headers,
-            json: true,
-            qs: {
-                find: JSON.stringify(find),
-                sort: "name",
-                skip: opt.skip || 0,
-                limit: opt.limit || 100
-            } });
-        resolve(body.datatypes);
+    if (orQueries.length > 0) find.$or = orQueries;
+    return request.get(config.api.warehouse + '/datatype', {
+        headers,
+        json: true,
+        qs: {
+            find: JSON.stringify(find),
+            sort: "name",
+            skip: opt.skip || 0,
+            limit: opt.limit || 100
+        } 
+    }).then(body=>{;
+        return body.datatypes;
     });
 }
 
@@ -770,17 +741,17 @@ function queryDatatypes(headers, query, opt) {
  * Get all datatypes
  * @param {any} headers 
  */
-function queryAllDatatypes(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.warehouse + '/datatype', {
-            headers,
-            json: true,
-            qs: {
-                limit: 0,
-                offset: 0
-            }
-        });
-        return resolve(body.datatypes);
+//TODO why can't we use queryDatatypes?
+exports.queryAllDatatypes = function(headers) {
+    return request.get(config.api.warehouse + '/datatype', {
+        headers,
+        json: true,
+        qs: {
+            limit: 0,
+            offset: 0
+        }
+    }).then(body=>{
+        return body.datatypes;
     });
 }
 
@@ -790,13 +761,10 @@ function queryAllDatatypes(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveDatatypes(headers, query, opt) {
+exports.resolveDatatypes = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryDatatypes(headers, { id: query }, opt);
-    else {
-        return queryDatatypes(headers, { search: query }, opt);
-    }
+    if (exports.isValidObjectId(query)) return exports.queryDatatypes(headers, { id: query }, opt);
+    else return exports.queryDatatypes(headers, { search: query }, opt);
 }
 
 /**
@@ -812,44 +780,36 @@ function resolveDatatypes(headers, query, opt) {
  * @param {number} opt.limit
  * @returns {Promise<resource[]>}
  */
-function queryResources(headers, query, opt) {
+exports.queryResources = function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
-    
-    return new Promise(async (resolve, reject) => {
-        let find = {}, orQueries = [], andQueries = [];
-        
-        if (query.id) {
-            if (!isValidObjectId(query.id)) reject('Error: Not a valid object id: ' + query.id);
-            orQueries.push({ _id: query.id });
-        }
-        if (query.search) {
-            orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-            orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        }
-        
-        if (query.status) {
-            andQueries.push({ status: query.status });
-        }
-        if (query.service) {
-            andQueries.push({ "config.services": { $elemMatch: { "name": query.service } } });
-        }
-        
-        if (orQueries.length > 0) andQueries.push({ $or: orQueries });
-        if (andQueries.length > 0) find.$and = andQueries;
+    let find = {}, orQueries = [], andQueries = [];
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
+    }
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
+    if (query.status) {
+        andQueries.push({ status: query.status });
+    }
+    if (query.service) {
+        andQueries.push({ "config.services": { $elemMatch: { "name": query.service } } });
+    }
+    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+    if (andQueries.length > 0) find.$and = andQueries;
 
-        request.get(config.api.wf + '/resource', { headers, json: true, qs: {
+    return request(config.api.wf + '/resource', { headers, json: true, 
+        qs: {
             find: JSON.stringify(find),
             sort: JSON.stringify({ name: 1 }),
             skip: opt.skip || 0,
             limit: opt.limit || 100
-        } }, (err, res, body) => {
-            if (err) reject(err);
-            else if (res.statusCode != 200) reject(res.statusCode + ": " + res.statusMessage);
-            else {
-                resolve(body.resources);
-            }
-        });
+        } 
+    }).then(body=>{
+        return body.resources;
     });
 }
 
@@ -857,19 +817,20 @@ function queryResources(headers, query, opt) {
  * Get all resources
  * @param {any} headers 
  */
-function queryAllResources(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.wf + '/resource', {
-            headers,
-            json: true,
-            qs: {
-                limit: 0,
-                offset: 0
-            }
-        });
-        return resolve(body.resources);
+/*
+exports.queryAllResources = function(headers) {
+    return request.get(config.api.wf + '/resource', {
+        headers,
+        json: true,
+        qs: {
+            limit: 0,
+            offset: 0
+        }
+    }).then(body=>{
+        return body.resources;
     });
 }
+*/
 
 /**
  * Resolve a set of resources from a given
@@ -877,13 +838,10 @@ function queryAllResources(headers) {
  * @param {string} query A text search or an id
  * @param {any} headers 
  */
-function resolveResources(headers, query, opt) {
+exports.resolveResources = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    
-    if (isValidObjectId(query)) return queryResources(headers, { id: query }, opt);
-    else {
-        return queryResources(headers, { search: query }, opt);
-    }
+    if (exports.isValidObjectId(query)) return exports.queryResources(headers, { id: query }, opt);
+    else return exports.queryResources(headers, { search: query }, opt);
 }
 
 /**
@@ -895,7 +853,7 @@ function resolveResources(headers, query, opt) {
  * @param {string} options.desc
  * @returns {Promise<instance>}
  */
-function getInstance(headers, instanceName, options) {
+exports.getInstance = function(headers, instanceName, options) {
     return new Promise((resolve, reject)=>{
         // get instance that might already exist
         var find = { name: instanceName };
@@ -943,7 +901,7 @@ function getInstance(headers, instanceName, options) {
  * @param {boolean} opt.json
  * @returns {Promise<task>} The resulting app task
  */
-function runApp(headers, opt) {
+exports.runApp = function(headers, opt) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
         let app_inputs = [], app_outputs = [], all_dataset_ids = [];
@@ -953,17 +911,19 @@ function runApp(headers, opt) {
         try {
             opt.config = JSON.parse(opt.config);
         } catch (exception) {
-            return reject('Error: Could not parse JSON Config Object');
+            return reject('Could not parse JSON Config Object');
         }
         
-        let datatypes = await queryAllDatatypes(headers);
-        let apps = await resolveApps(headers, opt.app);
-        let projects = await resolveProjects(headers, opt.project);
-        if (apps.length == 0) return reject("Error: No apps found matching '" + opt.app + "'");
-        if (apps.length > 1) return reject("Error: Multiple apps matching '" + opt.app + "'");
+        let datatypes = await exports.queryAllDatatypes(headers);
+        if (datatypes.length == 0) return reject("couldn't load datatypes");
+
+        let apps = await exports.resolveApps(headers, opt.app);
+        if (apps.length == 0) return reject("No apps found matching '" + opt.app + "'");
+        if (apps.length > 1) return reject("Multiple apps matching '" + opt.app + "'");
         
-        if (projects.length == 0) return reject("Error: No projects found matching '" + opt.project + "'");
-        if (projects.length > 1) return reject("Error: Multiple projects matching '" + opt.project + "'");
+        let projects = await exports.resolveProjects(headers, opt.project);
+        if (projects.length == 0) return reject("No projects found matching '" + opt.project + "'");
+        if (projects.length > 1) return reject("Multiple projects matching '" + opt.project + "'");
         
         let inputs = {};
         let idToAppInputTable = {};
@@ -975,24 +935,16 @@ function runApp(headers, opt) {
         let branch = app.github_branch;
         if (opt.branch) {
             try {
-                let branches = await request.get('https://api.github.com/repos/' + app.github + '/branches', {
-                    json: true,
-                    headers: { "User-Agent": "brainlife CLI" }
-                });
+                let branches = await request.get('https://api.github.com/repos/' + app.github + '/branches', { json: true, headers: { "User-Agent": "brainlife CLI" } });
                 let validUserBranch = false;
                 branches.forEach(validBranch => {
-                    if (opt.branch == validBranch.name) {
-                        validUserBranch = true;
-                    }
+                    if (opt.branch == validBranch.name) validUserBranch = true;
                 });
                 
                 if (validUserBranch) {
                     branch = opt.branch;
                     if (!opt.json) console.log("Using user-inputted branch: " + branch);
-                }
-                else {
-                    return reject('Error: The given github branch (' + opt.branch + ') does not exist for ' + app.github);
-                }
+                } else return reject('The given github branch (' + opt.branch + ') does not exist for ' + app.github);
             } catch (err) {
                 return reject(err);
             }
@@ -1001,16 +953,13 @@ function runApp(headers, opt) {
         // setting user-preferred resource
         let bestResource = await getResource(headers, app.github);
         if (bestResource.resource) resource = bestResource.resource._id;
-        
         if (bestResource.considered && opt.resource) {
-            
-            let resources = await resolveResources(headers, opt.resource);
-            
+            let resources = await exports.resolveResources(headers, opt.resource);
             if (resources.length == 0) {
-                return reject("Error: No resources found matching '" + resourceSearch + "'");
+                return reject("No resources found matching '" + resourceSearch + "'");
             }
             if (resources.length > 1) {
-                return reject("Error: Multiple resources matching '" + resourceSearch + "'");
+                return reject("Multiple resources matching '" + resourceSearch + "'");
             }
             let userResource = resources[0];
             let userResourceIsValid = false;
@@ -1021,9 +970,7 @@ function runApp(headers, opt) {
             if (userResourceIsValid) {
                 if (!opt.json) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
                 resource = userResource._id;
-            } else {
-                return reject("Error: The given preferred resource (" + userResource.name + ") is unable to run this application");
-            }
+            } else return reject("The given preferred resource (" + userResource.name + ") is unable to run this application");
         }
         
         // create tables to get from id -> appInput and id -> datatype
@@ -1035,50 +982,45 @@ function runApp(headers, opt) {
         
         for (let input of opt.inputs) {
             // get dataset for each input
-            if (input.indexOf(':') == -1) return reject('Error: No key given for dataset ' + input);
+            if (!~input.indexOf(':')) return reject('No key given for dataset ' + input);
             let file_id = input.substring(0, input.indexOf(":"));
             let datasetQuery = input.substring(input.indexOf(":") + 1);
-            let datasets = await resolveDatasets(headers, datasetQuery);
+            let datasets = await exports.resolveDatasets(headers, datasetQuery);
             
-            if (datasets.length == 0) return reject("Error: No datasets matching '" + datasetQuery + "'");
-            if (datasets.length > 1) return reject("Error: Multiple datasets matching '" + datasetQuery + "'");
+            if (datasets.length == 0) return reject("No datasets matching '" + datasetQuery + "'");
+            if (datasets.length > 1) return reject("Multiple datasets matching '" + datasetQuery + "'");
             if (all_dataset_ids.indexOf(datasets[0]._id) == -1) all_dataset_ids.push(datasets[0]._id);
             
             let dataset = datasets[0];
             let app_input = idToAppInputTable[file_id];
             
             // validate dataset
-            if (dataset.status != "stored") return reject("Error: Input dataset " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
-            if (dataset.removed == true) return reject("Error: Input dataset " + input + " has been removed and cannot be used.");
-            
-            if (!app_input) return reject("Error: This app's config does not include key '" + file_id + "'");
-            
-            if (app_input.datatype != dataset.datatype) {
-                return reject("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + input);
-            }
+            if (dataset.status != "stored") return reject("Input dataset " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
+            if (dataset.removed == true) return reject("Input dataset " + input + " has been removed and cannot be used.");
+            if (!app_input) return reject("This app's config does not include key '" + file_id + "'");
+            if (app_input.datatype != dataset.datatype) return reject("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + input);
             
             // validate dataset's datatype tags
             let userInputTags = {};
             dataset.datatype_tags.forEach(tag => userInputTags[tag] = 1);
             app_input.datatype_tags.forEach(tag => {
                 if (tag.startsWith("!")) {
-                    if (userInputTags[tag.substring(1)]) return reject("Error: This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + input);
+                    if (userInputTags[tag.substring(1)]) return reject("This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + input);
                 } else {
-                    if (!userInputTags[tag]) return reject("Error: This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + input);
+                    if (!userInputTags[tag]) return reject("This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + input);
                 }
             });
             
             inputs[file_id] = inputs[file_id] || [];
             inputs[file_id].push(dataset);
         }
-        
+
         // create instance
         let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
-        let instance = await getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
+        let instance = await exports.getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
         
         // prepare config to submit the app
         let values = {};
-        
         for (let key in app.config) {
             let appParam = app.config[key];
             let userParam = opt.config[key];
@@ -1091,7 +1033,7 @@ function runApp(headers, opt) {
                                                     "using the default value in the app's config: " + appParam.default);
                         userParam = appParam.default;
                     } else {
-                        return reject("Error: no config entry found for key'" + key +
+                        return reject("no config entry found for key'" + key +
                                         "' (type: " + (appParam.type) + "). " + 
                                         "Please provide one and rerun");
                     }
@@ -1102,7 +1044,7 @@ function runApp(headers, opt) {
                 case "string":
                 case "number":
                     if (typeof userParam != appParam.type) {
-                        return reject("Error: config key '" + key + "': " +
+                        return reject("config key '" + key + "': " +
                                         "expected type '" + appParam.type +
                                         "' but given value of type '" + (typeof userParam) + "'");
                     }
@@ -1110,7 +1052,7 @@ function runApp(headers, opt) {
                 case "enum":
                     let validOptions = appParam.options.map(o => o.value);
                     if (validOptions.indexOf(userParam) == -1) {
-                        return reject("Error: config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
+                        return reject("config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
                                         "but given value " + userParam);
                     }
                     break;
@@ -1121,55 +1063,56 @@ function runApp(headers, opt) {
         }
 
         // create token for user-inputted datasets
-        request.get({ headers, url: config.api.warehouse + "/dataset/token?ids=" + JSON.stringify(all_dataset_ids), json: true }, 
-        async (err, res, body) => {
+        request.post({ headers, json: true , url: config.api.warehouse + "/dataset/token", body: {
+            ids: all_dataset_ids,
+        }}, async (err, res, body) => {
+            //console.log("token.............", config.api.warehouse, err, body);
             if (err) return reject(err);
             else if (res.statusCode != 200) return reject(res.body.message);
             
             let jwt = body.jwt;
             let userInputKeys = Object.keys(inputs);
             if (app.inputs.length != userInputKeys.length) {
-                return reject("Error: App expects " + app.inputs.length + " " + pluralize('input', app.inputs) + 
-                    " but " + userInputKeys.length + " " + pluralize('was', userInputKeys) + " given"); 
+                return reject("App expects " + app.inputs.length + " " + exports.pluralize('input', app.inputs) + 
+                    " but " + userInputKeys.length + " " + exports.pluralize('was', userInputKeys) + " given"); 
             }
             
             let downloads = [], productRawOutputs = [];
-            //let datatypeToAppInputTable = {};
-            //let inputTable = {};
-            //app.inputs.forEach(input => datatypeToAppInputTable[input.datatype] = input);
-            //Object.keys(inputs).forEach(key => inputTable[inputs[key][0].datatype] = inputs[key]);
 
             // prepare staging task
             app.inputs.forEach(input => {
-                let user_input = inputs[input.id][0];
-                downloads.push({
-                    url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
-                    untar: 'auto',
-                    dir: user_input._id
-                });
+                inputs[input.id].forEach(user_input=>{
+                    console.log("prep", inputs[input.id]);
+                    downloads.push({
+                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
+                        untar: 'auto',
+                        dir: user_input._id
+                    });
 
-                let output = {
-                    id: input.id,
-                    subdir: user_input._id,
-                    dataset_id: user_input._id,
-                    task_id: user_input.task_id || user_input.prov.task_id,
-                    datatype: user_input.datatype,
-                    datatype_tags: user_input.datatype_tags,
-                    tags: user_input.tags,
-                    meta: user_input.meta,
-                    project: user_input.project
-                };
-                productRawOutputs.push(output);
-                
-                // more config preparation
-                let keys = [];
-                for (let key in app.config) {
-                    if (app.config[key].input_id == input.id) keys.push(key);
-                }
-                
-                app_inputs.push(Object.assign({ keys }, output));
-                
-                Object.assign(output_metadata, user_input.meta);
+                    let output = {
+                        id: input.id,
+                        subdir: user_input._id,
+                        dataset_id: user_input._id,
+                        task_id: user_input.task_id || user_input.prov.task_id,
+                        datatype: user_input.datatype,
+                        datatype_tags: user_input.datatype_tags,
+                        tags: user_input.tags,
+                        meta: user_input.meta,
+                        project: user_input.project
+                    };
+                    productRawOutputs.push(output);
+                    
+                    // more config preparation
+                    let keys = [];
+                    for (let key in app.config) {
+                        if (app.config[key].input_id == input.id) keys.push(key);
+                    }
+                    
+                    app_inputs.push(Object.assign({ keys }, output));
+                    
+                    //TODO merging meta from all datasets.. probably not good enough
+                    Object.assign(output_metadata, user_input.meta);
+                });
             });
 
             // submit staging task
@@ -1189,7 +1132,6 @@ function runApp(headers, opt) {
 
                 // link task to app inputs
                 app_inputs.forEach(input => input.task_id = task._id);
-
                 app.outputs.forEach(output => {
                     app_outputs.push({
                         id: output.id,
@@ -1225,13 +1167,11 @@ function runApp(headers, opt) {
                 if (resource) submissionParams.preferred_resource_id = resource;
                 request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
                     if (err) return reject(err);
-                    else if (res.statusCode != 200) return reject("Error: " + res.body.message);
-
-                    let appTask = body.task;
+                    else if (res.statusCode != 200) return reject(res.body.message);
                     if (!opt.json) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
-                                "To monitor the app as it runs, please execute \nbl app wait " + appTask._id);
+                                "To monitor the app as it runs, please execute \nbl app wait " + body.task._id);
                     
-                    resolve(appTask);
+                    resolve(body.task);
                 });
             })
         });
@@ -1255,35 +1195,30 @@ function runApp(headers, opt) {
 
             Object.keys(app.config).forEach(key => {
                 if (app.config[key].type == 'input') {
-                    let userInput = inputs[app.config[key].input_id];
+                    let userInputs = inputs[app.config[key].input_id];
                     let appInput = idToAppInputTable[app.config[key].input_id];
                     
                     if (appInput.multi) {
                         result[key] = result[key] || [];
-                        userInput.forEach(uInput => {
+                        userInputs.forEach(uInput => {
                             let dtype = datatypeTable[uInput.datatype];
                             let idToFile = {};
                             dtype.files.forEach(file => idToFile[file.id] = file);
-                            
                             let inputDtypeFile = idToFile[app.config[key].file_id];
-                            
                             result[key].push("../" + download_task._id + "/" + uInput._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname));
                         });
                     } else {
-                        let dtype = datatypeTable[userInput[0].datatype];
+                        let dtype = datatypeTable[userInputs[0].datatype];
                         let idToFile = {};
                         dtype.files.forEach(file => idToFile[file.id] = file);
-                        
                         let inputDtypeFile = idToFile[app.config[key].file_id];
-                        
-                        result[key] = "../" + download_task._id + "/" + userInput[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
+                        result[key] = "../" + download_task._id + "/" + userInputs[0]._id + "/" + (inputDtypeFile.filename||inputDtypeFile.dirname);
                     }
                 } else {
                     result[key] = values[key];
                 }
             });
             
-            // console.log(result);
             return result;
         }
         
@@ -1294,16 +1229,10 @@ function runApp(headers, opt) {
          * @returns {Promise<{ resource: string, considered: resource[] }>}
          */
         function getResource(headers, service) {
-            return new Promise((resolve, reject) => {
-                request.get(config.api.wf + '/resource/best', {
-                    headers,
-                    qs: { service: service },
-                    json: true
-                }, (err, res, body) => {
-                    if (err) reject(err);
-                    else if (res.statusCode != 200) return reject("Error: " + res.body.message || res.statusMessage);
-                    resolve(body);
-                });
+            return request.get(config.api.wf + '/resource/best', {
+                headers,
+                qs: { service: service },
+                json: true
             });
         }
     });
@@ -1348,14 +1277,14 @@ function waitForArchivedDatasets(headers, task, verbose, cb) {
  * @param {(error: string, task: task) => any} cb
  */
 let wait_gear = 0;
-function waitForFinish(headers, task, verbose, cb) {
+exports.waitForFinish = function(headers, task, verbose, cb) {
     if(wait_gear++ >= gearFrames.length) wait_gear = 0;
 
     var find = {_id: task._id};
     request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
-        if (res.statusCode != 200) return cb(err, null);
-        
+        if(res.statusCode != 200) return cb(err);
+        if(body.tasks.length != 1) return cb("Couldn't find exactly oone task id");
         let task = body.tasks[0];
         if (task.status == "finished") {
             if(verbose) {
@@ -1374,7 +1303,7 @@ function waitForFinish(headers, task, verbose, cb) {
                                     "STATUS: failed");
                 terminalOverwrite.done();
             }
-            return cb("Error: " + task.status_msg, null);
+            return cb(task.status_msg, null);
         } else {
             if(verbose) {
                 terminalOverwrite.clear();
@@ -1383,7 +1312,7 @@ function waitForFinish(headers, task, verbose, cb) {
         
             }
             return setTimeout(function() {
-                waitForFinish(headers, task, verbose, cb);
+                exports.waitForFinish(headers, task, verbose, cb);
             }, 1000*10);
         }
     });
@@ -1396,7 +1325,7 @@ function waitForFinish(headers, task, verbose, cb) {
  * @param {task} task 
  * @param {string} defaultErr 
  */
-function getFile(headers, filename, task, defaultErr) {
+exports.getFileFromTask = function(headers, filename, task, defaultErr) {
     return new Promise(async (resolve, reject) => {
         let fileBody = await request.get({
             url: config.api.wf + '/task/ls/' + task._id,
@@ -1441,7 +1370,7 @@ function escapeRegExp(str) {
  * @param {string} str
  * @returns {boolean}
  */
-function isValidObjectId(str) {
+exports.isValidObjectId = function(str) {
     return /^[a-f\d]{24}$/i.test(str);
 }
 
@@ -1451,42 +1380,13 @@ function isValidObjectId(str) {
  * @param {any[]} objects
  * @returns {string}
  */
-function pluralize(string, objects) {
+exports.pluralize = function(string, objects) {
     if (objects.length == 1) return string;
-
     if (string == 'was') return 'were';
     return string + "s";
 }
 
-/**
- * Throw an error
- * @param {string} message 
- */
-function error(message) {
-    console.error(message);
-    process.exit(1);
-}
-
-/**
- * Throw an error message which might
- * require JSON formatting
- * @param {string} message 
- * @param {any} json
- */
-function errorMaybeRaw(message, raw) {
-    error(message);
-}
-
-//TODO - get rid of this
-module.exports = {
-    queryDatatypes, queryApps, queryProfiles, queryProjects, queryDatasets, queryResources,
-    queryAllDatatypes, queryAllApps, queryAllProfiles, queryAllProjects, queryAllDatasets, queryAllResources,
-    resolveDatatypes, resolveApps, resolveProfiles, resolveProjects, resolveDatasets, resolveResources,
-    getInstance, runApp, getFile,
-    loadJwt, pluralize, isValidObjectId, waitForFinish, error, errorMaybeRaw
-};
-
-module.exports.collect = function(val, all) {
+exports.collect = function(val, all) {
     all.push(val);
     return all;
 }

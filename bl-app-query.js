@@ -20,25 +20,19 @@ util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     
-    try {
-        let apps = await util.queryApps(headers, {
-            id: commander.id, 
-            search: commander.query,
-            doi: commander.doi,
-            inputs, commander['input-datatype'], 
-            outputs, commander['output-datatype'], 
-        }, {
-            skip: commander.skip, 
-            limit: commander.limit
-        });
-        
-        if (commander.json) console.log(JSON.stringify(apps));
-        else formatApps(headers, apps, { all : true }).then(console.log);
-    } catch (err) {
-        util.errorMaybeRaw(err, commander.json);
-    }
-}).catch(err => {
-    util.errorMaybeRaw(err, commander.json);
+    let apps = await util.queryApps(headers, {
+        id: commander.id, 
+        search: commander.query,
+        doi: commander.doi,
+        inputs: commander['input-datatype'], 
+        outputs: commander['output-datatype'], 
+    }, {
+        skip: commander.skip, 
+        limit: commander.limit
+    });
+    
+    if (commander.json) console.log(JSON.stringify(apps));
+    else formatApps(headers, apps, { all : true }).then(console.log);
 });
 
 /**
@@ -47,7 +41,7 @@ util.loadJwt().then(async jwt => {
  * @param {any} whatToShow
  * @returns {Promise<string>}
  */
-function formatApps(headers, data, whatToShow) {
+async function formatApps(headers, data, whatToShow) {
     return new Promise(async (resolve, reject) => {
         let datatypes = await util.queryAllDatatypes(headers);
         let datatypeTable = {};

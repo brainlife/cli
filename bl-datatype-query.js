@@ -20,23 +20,16 @@ commander
 util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
+    let datatypes = await util.queryDatatypes(headers, {
+        id: commander.id,
+        search: commander.query
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
     
-    try {
-        let datatypes = await util.queryDatatypes(headers, {
-            id: commander.id,
-            search: commander.query
-        }, {
-            skip: commander.skip,
-            limit: commander.limit
-        });
-        
-        if (commander.json) console.log(JSON.stringify(datatypes));
-        else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
-    } catch (err) {
-        util.errorMaybeRaw(err, commander.json);
-    }
-}).catch(err => {
-    util.errorMaybeRaw(err, commander.json);
+    if (commander.json) console.log(JSON.stringify(datatypes));
+    else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
 });
 
 /**

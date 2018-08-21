@@ -21,25 +21,19 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    try {
-        let projects = await util.queryProjects(headers, {
-            id: commander.id,
-            search: commander.query,
-            admin: commander.admin,
-            member: commander.member,
-            guest: commander.guest
-        }, {
-            skip: commander.skip,
-            limit: commander.limit
-        });
-        
-        if (commander.json) console.log(JSON.stringify(projects));
-        else showProjects(headers, projects);
-    } catch (err) {
-        util.errorMaybeRaw(err, commander.json);
-    }
-}).catch(err => {
-    util.errorMaybeRaw(err, commander.json);
+    let projects = await util.queryProjects(headers, {
+        id: commander.id,
+        search: commander.query,
+        admin: commander.admin,
+        member: commander.member,
+        guest: commander.guest
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
+    
+    if (commander.json) console.log(JSON.stringify(projects));
+    else showProjects(headers, projects);
 });
 
 /**

@@ -24,24 +24,18 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    try {
-        let resources = await util.queryResources(headers, {
-            id: commander.id,
-            search: commander.query,
-            status: commander.status,
-            service: commander.service,
-        }, {
-            skip: commander.skip,
-            limit: commander.limit
-        });
-        
-        if (commander.json) console.log(JSON.stringify(resources));
-        else formatResources(headers, resources, { all: true }).then(console.log);
-    } catch (err) {
-        util.errorMaybeRaw(err, commander.json);
-    }
-}).catch(err => {
-    util.errorMaybeRaw(err, commander.json);
+    let resources = await util.queryResources(headers, {
+        id: commander.id,
+        search: commander.query,
+        status: commander.status,
+        service: commander.service,
+    }, {
+        skip: commander.skip,
+        limit: commander.limit
+    });
+    
+    if (commander.json) console.log(JSON.stringify(resources));
+    else formatResources(headers, resources, { all: true }).then(console.log);
 });
 
 /**

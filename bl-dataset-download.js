@@ -38,7 +38,7 @@ util.loadJwt().then(async jwt => {
 function downloadDataset(headers, id, dir, json) {
     util.queryDatasets(headers, { id })
     .then(datasets => {
-        if (datasets.length != 1) util.errorMaybeRaw('Error: invalid dataset id given', json);
+        if (datasets.length != 1) throw new Error('invalid dataset id given');
         
         let id = datasets[0]._id;
         let contentLength = Infinity, loaded = 0;
@@ -50,7 +50,7 @@ function downloadDataset(headers, id, dir, json) {
         fs.mkdir(dir, err => {
             request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers })
             .on('response', res => {
-                if(res.statusCode != 200) util.errorMaybeRaw(res.body.message, json);
+                if(res.statusCode != 200) throw new Error(res.body.message);
                 contentLength = res.headers['content-length'];
             })
             .on('data', chunk => {
