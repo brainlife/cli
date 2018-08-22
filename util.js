@@ -990,13 +990,10 @@ exports.runApp = function(headers, opt) {
                 // validate each user-given config parameter
                 if (typeof userParam == 'undefined') {
                     if (appParam.default) {
-                        if (!opt.json) console.log("No config entry found for key '" + key + "'; " + 
-                                                    "using the default value in the app's config: " + appParam.default);
+                        if (!opt.json) console.log("No config entry found for key '" + key + "'; " + "using the default value in the app's config: " + appParam.default);
                         userParam = appParam.default;
                     } else {
-                        return reject("no config entry found for key'" + key +
-                                        "' (type: " + (appParam.type) + "). " + 
-                                        "Please provide one and rerun");
+                        return reject("no config entry found for key'" + key + "' (type: " + (appParam.type) + "). " + "Please provide one and rerun");
                     }
                 }
                 
@@ -1005,16 +1002,13 @@ exports.runApp = function(headers, opt) {
                 case "string":
                 case "number":
                     if (typeof userParam != appParam.type) {
-                        return reject("config key '" + key + "': " +
-                                        "expected type '" + appParam.type +
-                                        "' but given value of type '" + (typeof userParam) + "'");
+                        return reject("config key '" + key + "': " + "expected type '" + appParam.type + "' but given value of type '" + (typeof userParam) + "'");
                     }
                     break;
                 case "enum":
                     let validOptions = appParam.options.map(o => o.value);
                     if (validOptions.indexOf(userParam) == -1) {
-                        return reject("config key '" + key + "': expected one of [" + validOptions.join('|') + "] " +
-                                        "but given value " + userParam);
+                        return reject("config key '" + key + "': expected one of [" + validOptions.join('|') + "] " + "but given value " + userParam);
                     }
                     break;
                 }
@@ -1027,25 +1021,22 @@ exports.runApp = function(headers, opt) {
         request.post({ headers, json: true , url: config.api.warehouse + "/dataset/token", body: {
             ids: all_dataset_ids,
         }}, async (err, res, body) => {
-            //console.log("token.............", config.api.warehouse, err, body);
             if (err) return reject(err);
             else if (res.statusCode != 200) return reject(res.body.message);
-            
-            let jwt = body.jwt;
+
             let userInputKeys = Object.keys(inputs);
             if (app.inputs.length != userInputKeys.length) {
                 return reject("App expects " + app.inputs.length + " " + exports.pluralize('input', app.inputs) + 
                     " but " + userInputKeys.length + " " + exports.pluralize('was', userInputKeys) + " given"); 
             }
             
-            let downloads = [], productRawOutputs = [];
-
             // prepare staging task
+            let downloads = [], productRawOutputs = [];
             app.inputs.forEach(input => {
                 inputs[input.id].forEach(user_input=>{
-                    console.log("prep", inputs[input.id]);
+                    //console.log("prep", inputs[input.id]);
                     downloads.push({
-                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + jwt,
+                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + body.jwt,
                         untar: 'auto',
                         dir: user_input._id
                     });
@@ -1072,7 +1063,10 @@ exports.runApp = function(headers, opt) {
                     app_inputs.push(Object.assign({ keys }, output));
                     
                     //TODO merging meta from all datasets.. probably not good enough
-                    Object.assign(output_metadata, user_input.meta);
+                    //Object.assign(output_metadata, user_input.meta);
+                    for(var k in user_input.meta) {
+                        if(!output_metadata[k]) output_metadata[k] = user_input.meta[k]; //use first one
+                    }
                 });
             });
 
@@ -1121,7 +1115,7 @@ exports.runApp = function(headers, opt) {
                     instance_id: instance._id,
                     name: app.name.trim(),
                     service: app.github,
-                    service_branch: app.github_branch,
+                    service_branch: branch,
                     config: preparedConfig,
                     deps: [ task._id ]
                 };
