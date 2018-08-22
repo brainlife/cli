@@ -15,12 +15,12 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
-    
-    let apps = await util.queryApps(headers, {
+
+    util.queryApps(headers, {
         id: commander.id, 
         search: commander.query,
         doi: commander.doi,
@@ -29,10 +29,12 @@ util.loadJwt().then(async jwt => {
     }, {
         skip: commander.skip, 
         limit: commander.limit
+    }).then(apps=>{
+        if (commander.json) console.log(JSON.stringify(apps));
+        else formatApps(headers, apps, { all : true }).then(console.log);
+    }).catch(err=>{
+        console.error(err);
     });
-    
-    if (commander.json) console.log(JSON.stringify(apps));
-    else formatApps(headers, apps, { all : true }).then(console.log);
 });
 
 /**
@@ -41,7 +43,7 @@ util.loadJwt().then(async jwt => {
  * @param {any} whatToShow
  * @returns {Promise<string>}
  */
-async function formatApps(headers, data, whatToShow) {
+function formatApps(headers, data, whatToShow) {
     return new Promise(async (resolve, reject) => {
         let datatypes = await util.queryAllDatatypes(headers);
         let datatypeTable = {};

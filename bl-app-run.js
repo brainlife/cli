@@ -30,5 +30,7 @@ util.loadJwt().then(jwt => {
         json: commander.json,
     }).then(task=>{
         if (commander.json) console.log(JSON.stringify(task, null, 4));
+    }).catch(err=>{
+        console.error(err);
     });
 });

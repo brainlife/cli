@@ -17,11 +17,11 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    let projects = await util.queryProjects(headers, {
+    util.queryProjects(headers, {
         id: commander.id,
         search: commander.query,
         admin: commander.admin,
@@ -30,10 +30,12 @@ util.loadJwt().then(async jwt => {
     }, {
         skip: commander.skip,
         limit: commander.limit
+    }).then(projects=>{
+        if (commander.json) console.log(JSON.stringify(projects));
+        else showProjects(headers, projects);
+    }).catch(err=>{
+        console.error(err);
     });
-    
-    if (commander.json) console.log(JSON.stringify(projects));
-    else showProjects(headers, projects);
 });
 
 /**

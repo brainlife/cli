@@ -46,7 +46,7 @@ for(let i = 0;i < process.argv.length; ++i) {
     }
 }
 commander.parse(new_argv);
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.h) commander.help();
     if (!commander.project) throw new Error("no project given to upload dataset to");
@@ -72,10 +72,14 @@ util.loadJwt().then(async jwt => {
         fs.stat(commander.meta, (err, stats) => {
             if (err) throw err;
             dataset.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
-            uploadDataset(headers, dataset);
+            uploadDataset(headers, dataset).catch(err=>{
+                console.error(err);
+            });
         });
     } else {
-        uploadDataset(headers, dataset);
+        uploadDataset(headers, dataset).catch(err=>{
+            console.error(err);
+        });
     }
 });
 

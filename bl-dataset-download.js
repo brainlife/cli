@@ -3,9 +3,7 @@
 const request = require('request');
 const config = require('./config');
 const fs = require('fs');
-const async = require('async');
 const tar = require('tar');
-const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');
 const terminalOverwrite = require('terminal-overwrite');
@@ -18,7 +16,7 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
@@ -26,15 +24,9 @@ util.loadJwt().then(async jwt => {
         commander.args = commander.args.slice(1);
     }
     if (commander.args.length > 0) commander.directory = commander.directory || commander.args[0];
-    
     downloadDataset(headers, commander.id, commander.directory, commander.json);
-}).catch(console.error);
+});
 
-/**
- * Download a dataset
- * @param {string} query
- * @param {any} headers
- */
 function downloadDataset(headers, id, dir, json) {
     util.queryDatasets(headers, { id })
     .then(datasets => {

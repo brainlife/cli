@@ -20,11 +20,11 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
-    let resources = await util.queryResources(headers, {
+    util.queryResources(headers, {
         id: commander.id,
         search: commander.query,
         status: commander.status,
@@ -32,10 +32,12 @@ util.loadJwt().then(async jwt => {
     }, {
         skip: commander.skip,
         limit: commander.limit
+    }).then(resources=>{
+        if (commander.json) console.log(JSON.stringify(resources));
+        else formatResources(headers, resources, { all: true }).then(console.log);
+    }).catch(err=>{
+        console.error(err);
     });
-    
-    if (commander.json) console.log(JSON.stringify(resources));
-    else formatResources(headers, resources, { all: true }).then(console.log);
 });
 
 /**

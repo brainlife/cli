@@ -17,44 +17,38 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
-util.loadJwt().then(async jwt => {
+util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
-    let datatypes = await util.queryDatatypes(headers, {
+    util.queryDatatypes(headers, {
         id: commander.id,
         search: commander.query
     }, {
         skip: commander.skip,
         limit: commander.limit
+    }).then(datatypes=>{
+        if (commander.json) console.log(JSON.stringify(datatypes));
+        else console.log(formatDatatypes(headers, datatypes, { all : true }));
+    }).catch(err=>{
+        console.error(err);
     });
-    
-    if (commander.json) console.log(JSON.stringify(datatypes));
-    else formatDatatypes(headers, datatypes, { all : true }).then(console.log);
 });
 
-/**
- * Format datatype information
- * @param {datatype[]} data
- * @param {{name: boolean, desc: boolean, files: boolean}} whatToShow
- * @returns {Promise<string>}
- */
 function formatDatatypes(headers, data, whatToShow) {
-    return new Promise((resolve, reject) => {
-        let resultArray = data.map(datatype => {
-            let info = [];
-            let formattedFiles = datatype.files.map(file => {
-                return "[" + (file.required?'(required) ':'') + file.id + ": " + (file.filename||file.dirname) + "]";
-            }).join('  ');
+    let resultArray = data.map(datatype => {
+        let info = [];
+        let formattedFiles = datatype.files.map(file => {
+            return "[" + (file.required?'(required) ':'') + file.id + ": " + (file.filename||file.dirname) + "]";
+        }).join('  ');
 
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + datatype._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + datatype.name);
-            if (whatToShow.all || whatToShow.desc) info.push("Description: " + datatype.desc);
-            if (whatToShow.all || whatToShow.files) info.push("Files: " + formattedFiles);
+        if (whatToShow.all || whatToShow.id) info.push("Id: " + datatype._id);
+        if (whatToShow.all || whatToShow.name) info.push("Name: " + datatype.name);
+        if (whatToShow.all || whatToShow.desc) info.push("Description: " + datatype.desc);
+        if (whatToShow.all || whatToShow.files) info.push("Files: " + formattedFiles);
 
-            return info.join('\n');
-        });
-        
-        resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
-        resolve(resultArray.join('\n\n'));
+        return info.join('\n');
     });
+    
+    resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+    return resultArray.join('\n\n');
 }

@@ -269,7 +269,7 @@ exports.queryProfiles = function(headers, query, opt) {
     if(!opt) opt = {};
     
     return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.auth + '/profile', {
+        let body = await request(config.api.auth + '/profile', {
             headers,
             json: true,
             qs: {
@@ -305,7 +305,7 @@ exports.queryProfiles = function(headers, query, opt) {
  * @param {any} headers 
  */
 exports.queryAllProfiles = function(headers) {
-    return request.get(config.api.auth + '/profile', {
+    return request(config.api.auth + '/profile', {
         headers,
         json: true,
         qs: {
@@ -353,7 +353,7 @@ exports.queryDatasets = async function(headers, query, opt) {
     
     if (query.datatype) {
         let datatypeSearch = {};
-        let body = await request.get(config.api.warehouse + '/datatype', { headers, json: true, qs: {
+        let body = await request(config.api.warehouse + '/datatype', { headers, json: true, qs: {
             find: JSON.stringify({name: query.datatype}),
             limit: 1,
         }});
@@ -407,7 +407,7 @@ exports.queryDatasets = async function(headers, query, opt) {
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
     
-    return request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+    return request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
         find: JSON.stringify(find),
         skip: opt.skip || 0,
         limit: opt.limit || 100
@@ -422,7 +422,7 @@ exports.queryDatasets = async function(headers, query, opt) {
  * @param {any} headers 
  */
 exports.queryAllDatasets = function(headers) {
-    return request.get(config.api.warehouse + '/dataset', {
+    return request(config.api.warehouse + '/dataset', {
         headers,
         json: true,
         qs: {
@@ -534,7 +534,7 @@ exports.queryProjects = async function(headers, query, opt) {
  * @param {any} headers 
  */
 exports.queryAllProjects = function(headers) {
-    return request.get(config.api.warehouse + '/project', {
+    return request(config.api.warehouse + '/project', {
         headers,
         json: true,
         qs: {
@@ -626,7 +626,7 @@ exports.queryApps = async function(headers, query, opt) {
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
     
-    return request.get(config.api.warehouse + '/app', {
+    return request(config.api.warehouse + '/app', {
         headers,
         json: true,
         qs: {
@@ -666,26 +666,6 @@ exports.queryApps = async function(headers, query, opt) {
 }
 
 /**
- * Get all apps
- * @param {any} headers 
- */
-/*
-exports.queryAllApps = function(headers) {
-    return new Promise(async (resolve, reject) => {
-        let body = await request.get(config.api.warehouse + '/app', {
-            headers,
-            json: true,
-            qs: {
-                limit: 0,
-                offset: 0
-            }
-        });
-        return resolve(body.apps);
-    });
-}
-*/
-
-/**
  * Resolve a set of apps from a given
  * text search or id
  * @param {string} query A text search or an id
@@ -723,7 +703,7 @@ exports.queryDatatypes = function(headers, query, opt) {
     }
 
     if (orQueries.length > 0) find.$or = orQueries;
-    return request.get(config.api.warehouse + '/datatype', {
+    return request(config.api.warehouse + '/datatype', {
         headers,
         json: true,
         qs: {
@@ -743,7 +723,7 @@ exports.queryDatatypes = function(headers, query, opt) {
  */
 //TODO why can't we use queryDatatypes?
 exports.queryAllDatatypes = function(headers) {
-    return request.get(config.api.warehouse + '/datatype', {
+    return request(config.api.warehouse + '/datatype', {
         headers,
         json: true,
         qs: {
@@ -814,25 +794,6 @@ exports.queryResources = function(headers, query, opt) {
 }
 
 /**
- * Get all resources
- * @param {any} headers 
- */
-/*
-exports.queryAllResources = function(headers) {
-    return request.get(config.api.wf + '/resource', {
-        headers,
-        json: true,
-        qs: {
-            limit: 0,
-            offset: 0
-        }
-    }).then(body=>{
-        return body.resources;
-    });
-}
-*/
-
-/**
  * Resolve a set of resources from a given
  * text search or id
  * @param {string} query A text search or an id
@@ -859,7 +820,7 @@ exports.getInstance = function(headers, instanceName, options) {
         var find = { name: instanceName };
         options = options || {};
 
-        request.get({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
+        request({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
             if(err) return reject(err);
             if(res.statusCode != 200) return reject(res.statusCode);
             if(body.instances[0]) resolve(body.instances[0]);
@@ -935,7 +896,7 @@ exports.runApp = function(headers, opt) {
         let branch = app.github_branch;
         if (opt.branch) {
             try {
-                let branches = await request.get('https://api.github.com/repos/' + app.github + '/branches', { json: true, headers: { "User-Agent": "brainlife CLI" } });
+                let branches = await request('https://api.github.com/repos/' + app.github + '/branches', { json: true, headers: { "User-Agent": "brainlife CLI" } });
                 let validUserBranch = false;
                 branches.forEach(validBranch => {
                     if (opt.branch == validBranch.name) validUserBranch = true;
@@ -1229,7 +1190,7 @@ exports.runApp = function(headers, opt) {
          * @returns {Promise<{ resource: string, considered: resource[] }>}
          */
         function getResource(headers, service) {
-            return request.get(config.api.wf + '/resource/best', {
+            return request(config.api.wf + '/resource/best', {
                 headers,
                 qs: { service: service },
                 json: true
@@ -1249,7 +1210,7 @@ function waitForArchivedDatasets(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
     if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
-    request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+    request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
         find: JSON.stringify({'prov.task_id': task._id}),
     } }, (err, res, body) => {
         if (err) return cb(err);
@@ -1281,7 +1242,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
     if(wait_gear++ >= gearFrames.length) wait_gear = 0;
 
     var find = {_id: task._id};
-    request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
+    request({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
         if(res.statusCode != 200) return cb(err);
         if(body.tasks.length != 1) return cb("Couldn't find exactly oone task id");
@@ -1327,7 +1288,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
  */
 exports.getFileFromTask = function(headers, filename, task, defaultErr) {
     return new Promise(async (resolve, reject) => {
-        let fileBody = await request.get({
+        let fileBody = await request({
             url: config.api.wf + '/task/ls/' + task._id,
             headers,
             json: true });
@@ -1341,7 +1302,7 @@ exports.getFileFromTask = function(headers, filename, task, defaultErr) {
         });
         
         if (taskFile) {
-            let result = await request.get({
+            let result = await request({
                 url: config.api.wf + '/task/download/' + task._id,
                 qs: {
                     p: taskFile.filename
