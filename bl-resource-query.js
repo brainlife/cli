@@ -34,32 +34,18 @@ util.loadJwt().then(jwt => {
         limit: commander.limit
     }).then(resources=>{
         if (commander.json) console.log(JSON.stringify(resources));
-        else formatResources(headers, resources, { all: true }).then(console.log);
+        else outputResources(resources);
     }).catch(err=>{
         console.error(err);
     });
 });
 
-/**
- * Format resource information
- * @param {resource[]} data
- * @param {{name: boolean, desc: boolean, files: boolean}} whatToShow
- * @returns {Promise<string>}
- */
-function formatResources(headers, data, whatToShow) {
-    return new Promise((resolve, reject) => {
-        let resultArray = data.map(resource => {
-            let info = [];
-
-            if (whatToShow.all || whatToShow.id) info.push("Id: " + resource._id);
-            if (whatToShow.all || whatToShow.name) info.push("Name: " + resource.name);
-            if (whatToShow.all || whatToShow.files) info.push("Type: " + resource.type);
-            if (resource.config && (whatToShow.all || whatToShow.files)) info.push(resource.type + ": " + resource.config.username + "@" + (resource.config.hostname || '[' + resource.resource_id + ']'));
-
-            return info.join('\n');
-        });
-        
-        resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
-        resolve(resultArray.join('\n\n'));
+function outputResources(resources) {
+    resources.forEach(resource => {
+        console.log("Id: " + resource._id);
+        console.log("Name: " + resource.name);
+        console.log("Type: " + resource.type);
+        if (resource.config) console.log(resource.type + ": " + resource.config.username + "@" + (resource.config.hostname || '[' + resource.resource_id + ']'));
+        console.log("");
     });
 }

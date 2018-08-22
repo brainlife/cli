@@ -42,13 +42,13 @@ util.loadJwt().then(jwt => {
         limit: commander.limit
     }).then(async datasets=>{
         if (commander.json) console.log(JSON.stringify(datasets));
-        else console.log(await formatDatasets(headers, datasets, commander.skip, { all: true }));
+        else outputDatasets(headers, datasets, commander.skip);
     }).catch(err=>{
         console.error(err);
     });
 });
 
-async function formatDatasets(headers, data, skip, whatToShow) {
+async function outputDatasets(headers, data, skip) {
     let projects = await util.queryAllProjects(headers);
     let datatypes = await util.queryAllDatatypes(headers);
     let profiles = await util.queryAllProfiles(headers);
@@ -58,8 +58,7 @@ async function formatDatasets(headers, data, skip, whatToShow) {
     datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
     profiles.forEach(profile => profileTable[profile.id] = profile);
     
-    let resultArray = data.map(dataset => {
-        let info = [];
+    data.forEach(dataset => {
         let createDateObject = new Date(dataset.create_date);
         let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
         let subject = dataset.meta && dataset.meta.subject ? dataset.meta.subject : 'N/A';
@@ -75,36 +74,31 @@ async function formatDatasets(headers, data, skip, whatToShow) {
             if (projectTable[dataset.project].guests) formattedGuests = projectTable[dataset.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
         }
         
-        if (whatToShow.all || whatToShow.id) info.push("Id: " + dataset._id);
-        if (whatToShow.all || whatToShow.project) info.push("Project: " + formattedProject);
-        if (whatToShow.all || whatToShow.project) info.push("Admins: " + formattedAdmins.join(', '));
-        if (whatToShow.all || whatToShow.project) info.push("Members: " + formattedMembers.join(', '));
-        if (whatToShow.all || whatToShow.project) info.push("Guests: " + formattedGuests.join(', '));
-        if (whatToShow.all || whatToShow.subject) info.push("Subject: " + subject);
-        if (whatToShow.all || whatToShow.subject) info.push("Session: " + (dataset.meta ? (dataset.meta.session || "") : ""));
-        if (whatToShow.all || whatToShow.datatype) info.push("Datatype: " + formattedDatatype + formattedDatatypeTags);
-        if (whatToShow.all || whatToShow.desc) info.push("Description: " + (dataset.desc||''));
-        if (whatToShow.all || whatToShow.create_date) info.push("Create Date: " + formattedDate);
-        if (whatToShow.all || whatToShow.storage) info.push("Storage: " + (dataset.storage || 'N/A'));
-        if (whatToShow.all || whatToShow.status) info.push("Status: " + (dataset.status || 'unknown'));
-        if (whatToShow.all || whatToShow.status) info.push("Tags: " + formattedTags);
-
-        return info.join('\n');
+        console.log("Id: " + dataset._id);
+        console.log("Project: " + formattedProject);
+        console.log("Admins: " + formattedAdmins.join(', '));
+        console.log("Members: " + formattedMembers.join(', '));
+        console.log("Guests: " + formattedGuests.join(', '));
+        console.log("Subject: " + subject);
+        console.log("Session: " + (dataset.meta ? (dataset.meta.session || "") : ""));
+        console.log("Datatype: " + formattedDatatype + formattedDatatypeTags);
+        console.log("Description: " + (dataset.desc||''));
+        console.log("Create Date: " + formattedDate);
+        console.log("Storage: " + (dataset.storage || 'N/A'));
+        console.log("Status: " + (dataset.status || 'unknown'));
+        console.log("Tags: " + formattedTags);
+        console.log("");
     });
     
     if (data.count) {
         skip = +(skip || '');
-        if (skip == 0 && data.length == data.count) resultArray.push("(Showing all " + data.length + " of " + data.length + " datasets)");
-        else if (skip + data.length >= data.count) resultArray.push("(Showing last " + data.length + " of " + data.count + " datasets)");
-        else if (skip == 0) resultArray.push("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
-        else {
-            resultArray.push("(Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count + ")");
-        }
+        if (skip == 0 && data.length == data.count) consoe.log("(Showing all " + data.length + " of " + data.length + " datasets)");
+        else if (skip + data.length >= data.count) console.log("(Showing last " + data.length + " of " + data.count + " datasets)");
+        else if (skip == 0) console.log("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
+        else console.log("(Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count + ")");
+    } else {
+        console.log("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
     }
-    else {
-        resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
-    }
-    return resultArray.join('\n\n');
 }
 
 
