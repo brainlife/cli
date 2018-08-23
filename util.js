@@ -988,6 +988,7 @@ exports.runApp = function(headers, opt) {
             
             if (appParam.type != 'input') {
                 // validate each user-given config parameter
+                /*
                 if (typeof userParam == 'undefined') {
                     if (appParam.default) {
                         if (!opt.json) console.log("No config entry found for key '" + key + "'; " + "using the default value in the app's config: " + appParam.default);
@@ -996,7 +997,9 @@ exports.runApp = function(headers, opt) {
                         return reject("no config entry found for key'" + key + "' (type: " + (appParam.type) + "). " + "Please provide one and rerun");
                     }
                 }
-                
+                */
+                if(userParam === undefined) userParam = appParam.default;
+                /* this doesn't handle value set to null by default
                 switch (appParam.type) {
                 case "boolean":
                 case "string":
@@ -1012,7 +1015,7 @@ exports.runApp = function(headers, opt) {
                     }
                     break;
                 }
-                
+                */
                 values[key] = userParam;
             }
         }
