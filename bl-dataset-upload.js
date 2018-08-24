@@ -127,8 +127,7 @@ function uploadDataset(headers, options) {
         
         async.forEach(datatype.files, (file, next_file) => {
             if (filenames.length > 0) {
-                let path = files[file.id] || files[file.filename||file.dirname];
-                
+                let path = files[file.id] || files[file.filename||file.dirname]; //TODO - explain.
                 if (path) {
                     fs.stat(path, (err, stats) => {
                         if (err) {
@@ -202,12 +201,12 @@ function uploadDataset(headers, options) {
                         if (!options.json) console.log("Dataset successfully uploaded");
                         
                         if (datatype.validator && !datatype.force) {
-                            //if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
+                            if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
                             let validationConfig = {};
                             datatype.files.forEach(file => {
+                                if(!files[file.id]) return; //not set.. probably optional
                                 validationConfig[file.id] = "../" + task._id + "/" + file.filename;
                             });
-                            
                             request.post({ url: config.api.wf + '/task', headers, json: true, body: {
                                 instance_id: instance._id,
                                 name: "validation",
@@ -261,27 +260,33 @@ function uploadDataset(headers, options) {
                                 instance_id: instance._id,
                                 task_id: task._id, // we archive data from copy task
                                 output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
-                            }}, (err, res, body) => {
+                            }}, (err, res, dataset) => {
                                 if(err) return reject(err);
                                 if(res.statusCode != "200") return reject("Failed to upload: " + res.body.message);
                                 if(!options.json) console.log("Waiting for dataset to archive...");
+                                if(!dataset) return reject("Failed to upload dataset - probably validation failed");
                                 waitForArchive(body._id);
                             });
                         }
 
                         function waitForArchive(id) {
-                            request.get(config.api.warehouse + '/dataset', { json: true, headers, qs: {
+                            request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
                                 find: JSON.stringify({'_id': id}),
                             } }, (err, res, body) => {
                                 if(err) return reject(err); 
-                                if(body.datasets.length != 1) return reject("couldn't find exactly 1 dataset");
-                                if(body.datasets[0].status != "stored") return setTimeout(function() {
-                                    waitForArchive(id);
-                                }, 5000);
-
-                                if(!options.json) console.log("Done archiving. dataset id:"+id);
-                                else console.log(JSON.stringify(body.datasets[0]));
-                                resolve(body.datasets[0]);
+                                if(body.datasets.length != 1) return reject("couldn't find exactly 1 dataset. len="+body.datasets.length);
+                                let status = body.datasets[0].status;
+                                if(status == "failed") return reject("failed to archive");
+                                if(status == "stored") {
+                                    if(!options.json) console.log("Done archiving. dataset id:"+id);
+                                    else console.log(JSON.stringify(body.datasets[0]));
+                                    resolve(body.datasets[0]);
+                                } else {
+                                    //all else... just wait
+                                    return setTimeout(function() {
+                                        waitForArchive(id);
+                                    }, 5000);
+                                }
                             });
                         }
                     });

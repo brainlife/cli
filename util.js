@@ -1226,14 +1226,6 @@ function waitForArchivedDatasets(headers, task, verbose, cb) {
     });
 }
 
-
-/**
- * Wait for task to be finished
- * @param {any} headers
- * @param {task} task
- * @param {number} gear
- * @param {(error: string, task: task) => any} cb
- */
 let wait_gear = 0;
 exports.waitForFinish = function(headers, task, verbose, cb) {
     if(wait_gear++ >= gearFrames.length) wait_gear = 0;
@@ -1271,7 +1263,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
             }
             return setTimeout(function() {
                 exports.waitForFinish(headers, task, verbose, cb);
-            }, 1000*10);
+            }, 1000);  //too short for wait command?
         }
     });
 }
