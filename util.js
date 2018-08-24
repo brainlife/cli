@@ -325,7 +325,7 @@ exports.queryAllProfiles = function(headers) {
  */
 exports.resolveProfiles = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    if (isValidObjectId(query)) return exports.queryProfiles(headers, { id: query }, opt);
+    if (exports.isValidObjectId(query)) return exports.queryProfiles(headers, { id: query }, opt);
     else return exports.queryProfiles(headers, { search: query }, opt);
 }
 
