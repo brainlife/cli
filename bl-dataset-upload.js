@@ -192,6 +192,7 @@ function uploadDataset(headers, options) {
                     if(err) {
                         return reject(err);
                     }
+
                     let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                     archive.pipe(req);
                     archive.finalize();
@@ -231,7 +232,6 @@ function uploadDataset(headers, options) {
                                                         task.product.warnings.forEach(warning => console.log("Warning: " + warning));
                                                     } else {
                                                         console.log("Your data looks good!");
-                                                        //console.log(JSON.stringify(task.product.brainlife, null, 4))
                                                     }
                                                 }
                                             }
@@ -265,7 +265,7 @@ function uploadDataset(headers, options) {
                                 if(res.statusCode != "200") return reject("Failed to upload: " + res.body.message);
                                 if(!options.json) console.log("Waiting for dataset to archive...");
                                 if(!dataset) return reject("Failed to upload dataset - probably validation failed");
-                                waitForArchive(body._id);
+                                waitForArchive(dataset._id);
                             });
                         }
 
