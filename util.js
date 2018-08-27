@@ -14,6 +14,8 @@ const timeago = require('time-ago');
 const async = require('async');
 const tar = require('tar');
 const terminalOverwrite = require('terminal-overwrite');
+const path = require('path');
+const mkdirp = require('mkdirp');
 const prompt = require('prompt');
 
 /**
@@ -231,6 +233,34 @@ const gearFrames = [
  * @prop {string} username
  */
 
+/**
+ * Login to brainlife
+ * @param {any} opt
+ * @returns {Promise<string>}
+ */
+exports.login = function(opt) {
+    return new Promise((resolve, reject) => {
+        let url = config.api.auth;
+        if(opt.ldap) url += "/ldap/auth";
+        else url += "/local/auth";
+        
+        request.post({ url, json: true, body: {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)} }, (err, res, body) => {
+            if(err) throw err;
+            if(res.statusCode != 200) throw new Error("Error: " + res.body.message);
+
+            //make sure .sca/keys directory exists
+            let dirname = path.dirname(config.path.jwt);
+            mkdirp(dirname, function (err) {
+                if (err) throw err;
+                fs.chmodSync(dirname, '700');
+                fs.writeFileSync(config.path.jwt, body.jwt);
+                fs.chmodSync(config.path.jwt, '600');
+                
+                return resolve(body.jwt);
+            });
+        });
+    });
+}
 
 /**
  * Load the user's jwt token
@@ -320,8 +350,8 @@ exports.queryAllProfiles = function(headers) {
 /**
  * Resolve a set of profiles from a given
  * text search or id
- * @param {string} query A text search or an id
  * @param {any} headers 
+ * @param {string} query A text search or an id
  */
 exports.resolveProfiles = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
@@ -435,8 +465,8 @@ exports.queryAllDatasets = function(headers) {
 /**
  * Resolve a set of datasets from a given
  * text search or id
- * @param {string} query A text search or an id
  * @param {any} headers 
+ * @param {string} query A text search or an id
  */
 exports.resolveDatasets = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
@@ -738,8 +768,8 @@ exports.queryAllDatatypes = function(headers) {
 /**
  * Resolve a set of datatypes from a given
  * text search or id
- * @param {string} query A text search or an id
  * @param {any} headers 
+ * @param {string} query A text search or an id
  */
 exports.resolveDatatypes = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
@@ -796,8 +826,8 @@ exports.queryResources = function(headers, query, opt) {
 /**
  * Resolve a set of resources from a given
  * text search or id
- * @param {string} query A text search or an id
  * @param {any} headers 
+ * @param {string} query A text search or an id
  */
 exports.resolveResources = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
