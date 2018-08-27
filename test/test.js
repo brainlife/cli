@@ -37,6 +37,14 @@ describe('bl-resource', function() {
             done();
         });
     });
+    
+    it('should be able to query resources by service', function(done) {
+        util.queryResources({ 'Authorization': 'Bearer ' + userJwt }, { service: 'soichih/sca-service-noop' })
+        .then(resources => {
+            assert(resources.length > 0, "ensure service query returns more than 0 results");
+            done();
+        });
+    });
 });
 
 describe('bl-datatype', function() {
