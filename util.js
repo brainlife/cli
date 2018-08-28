@@ -253,17 +253,6 @@ exports.loadJwt = function() {
     });
 }
 
-/**
- * Query the list of profiles
- * @param {any} headers
- * @param {Object} query
- * @param {string} query.id
- * @param {string} query.search
- * @param {Object} opt
- * @param {number} opt.skip
- * @param {number} opt.limit
- * @returns {Promise<datatype[]>}
- */
 exports.queryProfiles = function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
@@ -274,10 +263,10 @@ exports.queryProfiles = function(headers, query, opt) {
             json: true,
             qs: {
                 limit: opt.limit || -1,
-                offset: opt.skip || 0
+                offset: opt.skip || 0,
+                where: JSON.stringify({active: true}),
             } });
         let profiles = body.profiles;
-        
         if (query.id || query.search) {
             profiles = profiles.filter(profile => {
                 let showProfile = false;
@@ -286,7 +275,7 @@ exports.queryProfiles = function(headers, query, opt) {
                     showProfile = showProfile || profile.id == query.id;
                 }
                 if (query.search) {
-                    let pattern = new RegExp(escapeRegExp(query.search), 'g');
+                    let pattern = new RegExp(escapeRegExp(query.search), 'ig');
                     showProfile = showProfile               ||
                             pattern.test(profile.fullname)  ||
                             pattern.test(profile.email)     ||
@@ -295,22 +284,20 @@ exports.queryProfiles = function(headers, query, opt) {
                 return showProfile;
             });
         }
-
+        //console.log("resolved profile", query, profiles);
         resolve(profiles);
     });
 }
 
-/**
- * Get all profiles
- * @param {any} headers 
- */
+//TODO can this be merged into queryProfiles?
 exports.queryAllProfiles = function(headers) {
     return request(config.api.auth + '/profile', {
         headers,
         json: true,
         qs: {
             limit: -1,
-            offset: 0
+            offset: 0,
+            where: JSON.stringify({active: true}),
         }
     }).then(body=>{
         return body.profiles;
@@ -446,20 +433,6 @@ exports.resolveDatasets = function(headers, query, opt) {
     }
 }
 
-/**
- * Query the list of projects
- * @param {any} headers
- * @param {Object} query
- * @param {string} query.id
- * @param {string} query.search
- * @param {string} query.admin
- * @param {string} query.member
- * @param {string} query.guest
- * @param {Object} opt
- * @param {number} opt.skip
- * @param {number} opt.limit
- * @returns {Promise<project[]>}
- */
 exports.queryProjects = async function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
@@ -467,9 +440,9 @@ exports.queryProjects = async function(headers, query, opt) {
     let projectAdmin = null;
     let projectMember = null;
     let projectGuest = null;
-    if (query.admin) projectAdmin = await ensureUniqueProfile(headers, query.admin);
-    if (query.member) projectMember = await ensureUniqueProfile(headers, query.member);
-    if (query.guest) projectGuest = await ensureUniqueProfile(headers, query.guest);
+    if (query.admin) projectAdmin = await exports.resolveProfiles(headers, query.admin);
+    if (query.member) projectMember = await exports.resolveProfiles(headers, query.member);
+    if (query.guest) projectGuest = await exports.resolvePRofiles(headers, query.guest);
     
     let find = { removed: false }, andQueries = [], orQueries = [];
     
@@ -483,18 +456,17 @@ exports.queryProjects = async function(headers, query, opt) {
     }
     
     if (projectAdmin) {
-        andQueries.push({ admins: { $elemMatch: { $eq: projectAdmin.id } } });
+        andQueries.push({ admins: { $in: projectAdmin.map(p=>{return p.id})} });
     }
     if (projectMember) {
-        andQueries.push({ members: { $elemMatch: { $eq: projectMember.id } } });
+        andQueries.push({ members: { $in: projectMember.map(p=>{return p.id})} });
     }
     if (projectGuest) {
-        andQueries.push({ guests: { $elemMatch: { $eq: projectGuest.id } } });
+        andQueries.push({ quests: { $in: projectQuest.map(p=>{return p.id})} });
     }
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
-
     return request(config.api.warehouse + '/project', { headers, json: true, 
         qs: {
             find: JSON.stringify(find),
@@ -507,32 +479,18 @@ exports.queryProjects = async function(headers, query, opt) {
         return body.projects;
     });
     
-    /**
-     * Ensure that the given user string corresponds
-     * to exactly one profile
-     * @param {any} headers 
-     * @param {string} profile 
-     * @returns {Promise<profile>}
-     */
-    function ensureUniqueProfile(headers, profile) {
+    /*
+    function ensureUniqueProfile(headers, query) {
         return new Promise(async (resolve, reject) => {
-            let profiles = await exports.resolveProfiles(headers, profile);
-            
-            if (profiles.length == 0) {
-                reject("No profile matching '" + profile + "'");
-            } else if (profiles.length > 1) {
-                reject("Multiple profiles matching '" + profile + "'");
-            } else {
-                resolve(profiles[0]);
-            }
+            let profiles = await exports.resolveProfiles(headers, query);
+            if (profiles.length == 0) reject("No profile matching '" + query + "'");
+            else if (profiles.length > 1) reject("Multiple profiles matching '" + query+ "'\n"+JSON.stringify(profiles, null, 4));
+            else resolve(profiles[0]);
         });
     }
+    */
 }
 
-/**
- * Get all projects
- * @param {any} headers 
- */
 exports.queryAllProjects = function(headers) {
     return request(config.api.warehouse + '/project', {
         headers,

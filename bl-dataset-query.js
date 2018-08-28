@@ -92,7 +92,7 @@ async function outputDatasets(headers, data, skip) {
     
     if (data.count) {
         skip = +(skip || '');
-        if (skip == 0 && data.length == data.count) consoe.log("(Showing all " + data.length + " of " + data.length + " datasets)");
+        if (skip == 0 && data.length == data.count) console.log("(Showing all " + data.length + " of " + data.length + " datasets)");
         else if (skip + data.length >= data.count) console.log("(Showing last " + data.length + " of " + data.count + " datasets)");
         else if (skip == 0) console.log("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
         else console.log("(Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count + ")");
