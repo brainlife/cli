@@ -13,6 +13,14 @@ npm install -g brainlife
 
 > For IU users, brainlife CLI is already installed on Karst / Carbonate / BigRed2. Please do `module load nodejs` to use it.
 
+## Update
+
+We are making a lot of bug fixes / updates. You can update the CLI by running following. (You don't have to do this for IU Karst / Carbonate as it is maintained by us)
+
+```
+npm update -g brainlife
+```
+
 ## Usage
 
 All brainlife CLI commands obey the following structure:
