@@ -1,14 +1,14 @@
 
-const host = process.env.BLHOST || "brainlife.io";
+exports.host = process.env.BLHOST || "brainlife.io";
 
 exports.api = {
-    auth: "https://"+host+"/api/auth",
-	wf: "https://"+host+"/api/amaretti",
-	warehouse: "https://"+host+"/api/warehouse",
+    auth: "https://"+exports.host+"/api/auth",
+	wf: "https://"+exports.host+"/api/amaretti",
+	warehouse: "https://"+exports.host+"/api/warehouse",
 
-	event_ws: "wss://"+host+"/api/event",
+	event_ws: "wss://"+exports.host+"/api/event",
 }
 
 exports.path = {
-    jwt: process.env.HOME+"/.config/" + host + "/.jwt",
+    jwt: process.env.HOME+"/.config/" + exports.host + "/.jwt",
 }
