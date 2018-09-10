@@ -8,7 +8,7 @@ describe('bl-login', function() {
     it('should successfully login as user "test"', function(done) {
         util.login({
             username: 'test',
-            password: 'just a test'
+            password: process.env.PASSWORD
         }).then(rawJwt => {
             let user = jwt.decode(rawJwt);
             userJwt = rawJwt;
