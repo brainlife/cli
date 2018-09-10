@@ -142,70 +142,70 @@ describe('bl-project', function() {
     });
 });
 
-// describe('bl-dataset', function() {
-//     it('should properly query datasets by id', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { id: '5b04237811bd7700265fa10e' }, {})
-//         .then(datasets => {
-//             assert(datasets.length == 1, "ensure id query returns exactly 1 result");
-//             assert(datasets[0]._id == '5b04237811bd7700265fa10e', "ensure query returns result with correct id");
-//             done();
-//         });
-//     });
+describe('bl-dataset', function() {
+    it('should properly query datasets by id', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { id: '5b04237811bd7700265fa10e' }, {})
+        .then(datasets => {
+            assert(datasets.length == 1, "ensure id query returns exactly 1 result");
+            assert(datasets[0]._id == '5b04237811bd7700265fa10e', "ensure query returns result with correct id");
+            done();
+        });
+    });
     
-//     it('should properly query datasets by project', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b' }, {})
-//         .then(datasets => {
-//             datasets.forEach(dataset => {
-//                 assert(dataset.project == '5a9f542da62c11003168a86b', "ensure that returned datasets have the correct project id");
-//             });
-//             done();
-//         });
-//     });
+    it('should properly query datasets by project', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b' }, {})
+        .then(datasets => {
+            datasets.forEach(dataset => {
+                assert(dataset.project == '5a9f542da62c11003168a86b', "ensure that returned datasets have the correct project id");
+            });
+            done();
+        });
+    });
     
-//     it('should properly query datasets by datatype', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a' }, {})
-//         .then(datasets => {
-//             datasets.forEach(dataset => {
-//                 assert(dataset.datatype == '58c33bcee13a50849b25879a', "ensure that returned datasets have the correct datatype id");
-//             });
-//             done();
-//         });
-//     });
+    it('should properly query datasets by datatype', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a' }, {})
+        .then(datasets => {
+            datasets.forEach(dataset => {
+                assert(dataset.datatype == '58c33bcee13a50849b25879a', "ensure that returned datasets have the correct datatype id");
+            });
+            done();
+        });
+    });
     
-//     it('should properly query datasets by datatype tag', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a', datatypeTags: ['acpc_aligned'] }, {})
-//         .then(datasets => {
-//             datasets.forEach(dataset => {
-//                 assert(dataset.datatype_tags == '58c33bcee13a50849b25879a', "ensure that returned datasets have the correct datatype id");
-//             });
-//             done();
-//         });
-//     });
+    it('should properly query datasets by datatype tag', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a', datatypeTags: ['acpc_aligned'] }, {})
+        .then(datasets => {
+            datasets.forEach(dataset => {
+                assert(dataset.datatype_tags.indexOf('acpc_aligned') != -1, "ensure that returned datasets have the correct datatype id");
+            });
+            done();
+        });
+    });
     
-//     it('should properly query datasets by name', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b', search: 'test' }, {})
-//         .then(datasets => {
-//             assert(datasets.length == 1, "ensure test query returns exactly 1 result");
-//             done();
-//         });
-//     });
+    it('should properly query datasets by name', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b', search: 'test' }, {})
+        .then(datasets => {
+            assert(datasets.length == 1, "ensure test query returns exactly 1 result");
+            done();
+        });
+    });
     
-//     let secondDatasetId;
-//     it('should be able to limit returned results', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { limit: 2 })
-//         .then(datasets => {
-//             assert(datasets.length == 2, "ensure limiting query returns exactly 2 results");
-//             secondDatasetId = datasets[1]._id;
-//             done();
-//         });
-//     });
+    let secondDatasetId;
+    it('should be able to limit returned results', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { limit: 2 })
+        .then(datasets => {
+            assert(datasets.length == 2, "ensure limiting query returns exactly 2 results");
+            secondDatasetId = datasets[1]._id;
+            done();
+        });
+    });
     
-//     it('should be able to skip returned results', function(done) {
-//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { skip: 1, limit: 2 })
-//         .then(datasets => {
-//             assert(datasets.length == 2, "ensure limited skipping query returns exactly 2 results");
-//             assert(datasets[0]._id == secondDatasetId, "ensure first datatype in the skipped array is equal to the second value in the unskipped array");
-//             done();
-//         });
-//     });
-// });
+    it('should be able to skip returned results', function(done) {
+        util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { skip: 1, limit: 2 })
+        .then(datasets => {
+            assert(datasets.length == 2, "ensure limited skipping query returns exactly 2 results");
+            assert(datasets[0]._id == secondDatasetId, "ensure first datatype in the skipped array is equal to the second value in the unskipped array");
+            done();
+        });
+    });
+});
