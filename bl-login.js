@@ -3,8 +3,6 @@
 const fs = require('fs');
 const commander = require('commander');
 const request = require('request');
-const mkdirp = require('mkdirp');
-const path = require('path');
 const prompt = require('prompt');
 const colors = require('colors/safe');
 const jwt = require('jsonwebtoken');
@@ -24,33 +22,23 @@ schema.properties.password = { required: true, hidden: true };
 
 prompt.message = null;
 prompt.start();
-prompt.get(schema, function(err, results) {
+prompt.get(schema, async function(err, results) {
     if(err) throw err;
-
-    let url = config.api.auth;
-    if(commander.ldap) url += "/ldap/auth";
-    else url += "/local/auth";
     
-    request.post({ url, json: true, body: {username: commander.username || results.username, password: results.password, ttl: 1000*60*60*24*(commander.ttl || 1)} }, (err, res, body) => {
-        if(err) throw err;
-        if(res.statusCode != 200) throw new Error("Error: " + res.body.message);
-
-        //make sure .sca/keys directory exists
-        let dirname = path.dirname(config.path.jwt);
-        mkdirp(dirname, function (err) {
-            if (err) throw err;
-            fs.chmodSync(dirname, '700');
-            fs.writeFileSync(config.path.jwt, body.jwt);
-            fs.chmodSync(config.path.jwt, '600');
-            let token = jwt.decode(body.jwt);
-            let ttl = timediff(new Date(token.exp*1000), new Date());
-            let formattedTime = Object.keys(ttl).map(units => {
-                let time = ttl[units];
-                if (time == 0 || units == 'milliseconds') return '';
-                return time + " " + units;
-            }).filter(t => t.trim().length > 0).join(", ");
-            
-            console.log("Successfully logged in for " + formattedTime);
-        });
+    let rawJwt = await util.login({
+        ldap: commander.ldap,
+        ttl: commander.ttl,
+        username: commander.username || results.username,
+        password: results.password
     });
+    
+    let token = jwt.decode(rawJwt);
+    let ttl = timediff(new Date(token.exp*1000), new Date());
+    let formattedTime = Object.keys(ttl).map(units => {
+        let time = ttl[units];
+        if (time == 0 || units == 'milliseconds') return '';
+        return time + " " + units;
+    }).filter(t => t.trim().length > 0).join(", ");
+    
+    console.log("Successfully logged in for " + formattedTime);
 });
