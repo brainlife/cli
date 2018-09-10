@@ -47,6 +47,25 @@ describe('bl-resource', function() {
     });
 });
 
+describe('bl-profile', function() {
+    it('should properly query profiles by id', function(done) {
+        util.queryProfiles({ 'Authorization': 'Bearer ' + userJwt }, { id: '1' }, {})
+        .then(profiles => {
+            assert(profiles.length == 1, "ensure id query returns exactly 1 result");
+            assert(profiles[0].id == '1', "ensure query returns result with correct id");
+            done();
+        });
+    });
+    
+    it('should properly query profiles by search', function(done) {
+        util.queryProfiles({ 'Authorization': 'Bearer ' + userJwt }, { search: 'hayashis@iu.edu' }, {})
+        .then(profiles => {
+            assert(profiles.length == 1, "ensure profile query returns exactly one result");
+            done();
+        });
+    });
+});
+
 describe('bl-datatype', function() {
     it('should properly query datatypes by id', function(done) {
         util.queryDatatypes({ 'Authorization': 'Bearer ' + userJwt }, { id: '58d15eaee13a50849b258844' }, {})
@@ -84,3 +103,109 @@ describe('bl-datatype', function() {
         });
     });
 });
+
+describe('bl-project', function() {
+    it('should properly query projects by id', function(done) {
+        util.queryProjects({ 'Authorization': 'Bearer ' + userJwt }, { id: '5aabf7b723f8fa0027301edf' }, {})
+        .then(projects => {
+            assert(projects.length == 1, "ensure id query returns exactly 1 result");
+            assert(projects[0]._id == '5aabf7b723f8fa0027301edf', "ensure query returns result with correct id");
+            done();
+        });
+    });
+    
+    it('should properly query projects by name', function(done) {
+        util.queryProjects({ 'Authorization': 'Bearer ' + userJwt }, { search: 'HCP3T' }, {})
+        .then(projects => {
+            assert(projects.length == 1, "ensure HCP query returns exactly 1 result");
+            done();
+        });
+    });
+    
+    let secondProjectId;
+    it('should be able to limit returned results', function(done) {
+        util.queryProjects({ 'Authorization': 'Bearer ' + userJwt }, {}, { limit: 2 })
+        .then(projects => {
+            assert(projects.length == 2, "ensure limiting query returns exactly 2 results");
+            secondProjectId = projects[1]._id;
+            done();
+        });
+    });
+    
+    it('should be able to skip returned results', function(done) {
+        util.queryProjects({ 'Authorization': 'Bearer ' + userJwt }, {}, { skip: 1, limit: 2 })
+        .then(projects => {
+            assert(projects.length == 2, "ensure limited skipping query returns exactly 2 results");
+            assert(projects[0]._id == secondProjectId, "ensure first datatype in the skipped array is equal to the second value in the unskipped array");
+            done();
+        });
+    });
+});
+
+// describe('bl-dataset', function() {
+//     it('should properly query datasets by id', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { id: '5b04237811bd7700265fa10e' }, {})
+//         .then(datasets => {
+//             assert(datasets.length == 1, "ensure id query returns exactly 1 result");
+//             assert(datasets[0]._id == '5b04237811bd7700265fa10e', "ensure query returns result with correct id");
+//             done();
+//         });
+//     });
+    
+//     it('should properly query datasets by project', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b' }, {})
+//         .then(datasets => {
+//             datasets.forEach(dataset => {
+//                 assert(dataset.project == '5a9f542da62c11003168a86b', "ensure that returned datasets have the correct project id");
+//             });
+//             done();
+//         });
+//     });
+    
+//     it('should properly query datasets by datatype', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a' }, {})
+//         .then(datasets => {
+//             datasets.forEach(dataset => {
+//                 assert(dataset.datatype == '58c33bcee13a50849b25879a', "ensure that returned datasets have the correct datatype id");
+//             });
+//             done();
+//         });
+//     });
+    
+//     it('should properly query datasets by datatype tag', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { datatype: '58c33bcee13a50849b25879a', datatypeTags: ['acpc_aligned'] }, {})
+//         .then(datasets => {
+//             datasets.forEach(dataset => {
+//                 assert(dataset.datatype_tags == '58c33bcee13a50849b25879a', "ensure that returned datasets have the correct datatype id");
+//             });
+//             done();
+//         });
+//     });
+    
+//     it('should properly query datasets by name', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, { project: '5a9f542da62c11003168a86b', search: 'test' }, {})
+//         .then(datasets => {
+//             assert(datasets.length == 1, "ensure test query returns exactly 1 result");
+//             done();
+//         });
+//     });
+    
+//     let secondDatasetId;
+//     it('should be able to limit returned results', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { limit: 2 })
+//         .then(datasets => {
+//             assert(datasets.length == 2, "ensure limiting query returns exactly 2 results");
+//             secondDatasetId = datasets[1]._id;
+//             done();
+//         });
+//     });
+    
+//     it('should be able to skip returned results', function(done) {
+//         util.queryDatasets({ 'Authorization': 'Bearer ' + userJwt }, {}, { skip: 1, limit: 2 })
+//         .then(datasets => {
+//             assert(datasets.length == 2, "ensure limited skipping query returns exactly 2 results");
+//             assert(datasets[0]._id == secondDatasetId, "ensure first datatype in the skipped array is equal to the second value in the unskipped array");
+//             done();
+//         });
+//     });
+// });

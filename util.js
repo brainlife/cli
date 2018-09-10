@@ -383,8 +383,10 @@ exports.queryDatasets = async function(headers, query, opt) {
     
     if (query.datatype) {
         let datatypeSearch = {};
+        let findQuery = {name: query.datatype};
+        if (exports.isValidObjectId(query.datatype)) findQuery = {_id: query.datatype};
         let body = await request(config.api.warehouse + '/datatype', { headers, json: true, qs: {
-            find: JSON.stringify({name: query.datatype}),
+            find: JSON.stringify(findQuery),
             limit: 1,
         }});
         if (body.datatypes.length != 1) throw new Error("No datatypes found matching '" + query.datatype + "'");
