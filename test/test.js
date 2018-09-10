@@ -5,15 +5,15 @@ const util = require('../util');
 let userJwt;
 
 describe('bl-login', function() {
-    it('should successfully login as user "test"', function(done) {
+    it('should successfully login as a test user', function(done) {
         util.login({
-            username: 'test',
+            username: process.env.USER,
             password: process.env.PASSWORD
         }).then(rawJwt => {
             let user = jwt.decode(rawJwt);
             userJwt = rawJwt;
             
-            assert(user.iss == 'https://test.brainlife.io/auth', "jwt issuer should be test.brainlife.io");
+            assert(user.iss == ("https://" + process.env.BLHOST + '/auth'), "jwt issuer should be the same as BLHOST");
             assert(user.profile.username == 'test', "user should login with username 'test'");
             done();
         });
