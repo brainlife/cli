@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request');
+const request = require('request-promise-native');
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
@@ -20,15 +20,24 @@ commander
 util.loadJwt().then(jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
-    util.queryDatatypes(headers, {
-        id: commander.id,
-        search: commander.query
-    }, {
-        skip: commander.skip,
-        limit: commander.limit
-    }).then(datatypes=>{
-        if (commander.json) console.log(JSON.stringify(datatypes));
-        else console.log(formatDatatypes(headers, datatypes, { all : true }));
+
+    let query = {};
+    if(commander.id) query.id = commander.id;
+    if(commander.query) query.$or = [
+        { name: { $regex: commander.query, $options: 'ig' } },
+        { desc: { $regex: commander.query, $options: 'ig' } },
+    ];
+
+    request(config.api.warehouse + '/datatype', { headers, json: true,
+        qs: {
+            find: JSON.stringify(query),
+            sort: "name",
+            skip: commander.skip,
+            limit: commander.limit,
+        } 
+    }).then(body=>{;
+        if (commander.json) console.log(JSON.stringify(body.datatypes));
+        else console.log(formatDatatypes(headers, body.datatypes, { all : true }));
     }).catch(err=>{
         console.error(err);
     });

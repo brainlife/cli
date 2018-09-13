@@ -1260,6 +1260,7 @@ exports.getFileFromTask = function(headers, filename, task, defaultErr) {
     });
 }
 
+//TODO - not very effective - as user can easily go around this check by directly accessing to our REST API. 
 /**
  * Escapes a user input string to make it safe for regex matching
  * @param {string} str
