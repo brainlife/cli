@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const request = require('request-promise-native');
 const config = require('./config');
 const commander = require('commander');
@@ -24,8 +25,8 @@ util.loadJwt().then(jwt => {
         id: commander.id, 
         search: commander.query,
         doi: commander.doi,
-        inputs: commander['input-datatype'], 
-        outputs: commander['output-datatype'], 
+        inputs: commander['inputDatatype'], 
+        outputs: commander['outputDatatype'], 
     }, {
         skip: commander.skip, 
         limit: commander.limit

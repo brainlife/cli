@@ -319,7 +319,7 @@ exports.queryProfiles = function(headers, query, opt) {
     });
 }
 
-//TODO can this be merged into queryProfiles?
+//TODO get rid of this - merged into queryProfiles?
 exports.queryAllProfiles = function(headers) {
     return request(config.api.auth + '/profile', {
         headers,
@@ -334,12 +334,7 @@ exports.queryAllProfiles = function(headers) {
     });
 }
 
-/**
- * Resolve a set of profiles from a given
- * text search or id
- * @param {any} headers 
- * @param {string} query A text search or an id
- */
+//TODO get rid of this
 exports.resolveProfiles = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryProfiles(headers, { id: query }, opt);
@@ -436,10 +431,7 @@ exports.queryDatasets = async function(headers, query, opt) {
     });
 }
 
-/**
- * Get all datasets
- * @param {any} headers 
- */
+//GET rid of this
 exports.queryAllDatasets = function(headers) {
     return request(config.api.warehouse + '/dataset', {
         headers,
@@ -451,12 +443,7 @@ exports.queryAllDatasets = function(headers) {
     });
 }
 
-/**
- * Resolve a set of datasets from a given
- * text search or id
- * @param {any} headers 
- * @param {string} query A text search or an id
- */
+//TODO - get rid of this
 exports.resolveDatasets = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryDatasets(headers, { id: query }, opt);
@@ -523,6 +510,7 @@ exports.queryProjects = async function(headers, query, opt) {
     */
 }
 
+//TODO get rid off this
 exports.queryAllProjects = function(headers) {
     return request(config.api.warehouse + '/project', {
         headers,
@@ -536,12 +524,7 @@ exports.queryAllProjects = function(headers) {
     });
 }
 
-/**
- * Resolve a set of projects from a given
- * text search or id
- * @param {string} query A text search or an id
- * @param {any} headers 
- */
+//TODO get rid off this
 exports.resolveProjects = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryProjects(headers, { id: query }, opt);
@@ -571,14 +554,12 @@ exports.queryApps = async function(headers, query, opt) {
     
     if (query.inputs) {
         for (let input of query.inputs) {
-            let datatype = await ensureUniqueDatatype(headers, input);
-            input_datatypes.push(datatype);
+            input_datatypes.push(await getDatatype(headers, input));
         }
     }
     if (query.outputs) {
         for (let output of query.outputs) {
-            let datatype = await ensureUniqueDatatype(headers, output);
-            output_datatypes.push(datatype);
+            output_datatypes.push(await getDatatype(headers, output));
         }
     }
     let andQueries = [];
@@ -629,15 +610,22 @@ exports.queryApps = async function(headers, query, opt) {
         return res.apps;
     });
     
-    /**
-     * Ensure that the given user string corresponds
-     * to exactly one datatype
-     * @param {any} headers 
-     * @param {string} query 
-     * @returns {Promise<datatype>}
-     */
-    function ensureUniqueDatatype(headers, query) {
+
+    function getDatatype(headers, query) {
         return new Promise(async (resolve, reject) => {
+            request(config.api.warehouse + '/datatype', { headers, json: true,
+                qs: {
+                    find: JSON.stringify({
+                        $or: [ {id: query}, {name: query}, ]
+                    }),
+                } 
+            }).then(body=>{;
+                if(body.datatypes.length == 0) return reject("no matching datatype:"+query);
+                return resolve(body.datatypes[0]);
+            });
+        });
+
+        /*
             let datatypes = await exports.resolveDatatypes(headers, query);
             let not = query.startsWith('!');
             
@@ -652,40 +640,28 @@ exports.queryApps = async function(headers, query, opt) {
                 resolve(datatype);
             }
         });
+        */
     }
 }
 
-/**
- * Resolve a set of apps from a given
- * text search or id
- * @param {string} query A text search or an id
- * @param {any} headers 
- */
+//TODO get rid off this
 exports.resolveApps = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryApps(headers, { id: query }, opt);
     else return exports.queryApps(headers, { search: query }, opt);
 }
 
-/**
- * Query the list of datatypes
- * @param {any} headers
- * @param {Object} query
- * @param {string} query.id
- * @param {string} query.search
- * @param {Object} opt
- * @param {number} opt.skip
- * @param {number} opt.limit
- * @returns {Promise<datatype[]>}
- */
+/*
 exports.queryDatatypes = function(headers, query, opt) {
     if(!query) query = {};
     if(!opt) opt = {};
-    
     let orQueries = [], find = {};
     if (query.id) {
         if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
         orQueries.push({ _id: query.id });
+    }
+    if (query.name) {
+        orQueries.push({ name: query.name });
     }
     if (query.search) {
         orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
@@ -706,12 +682,9 @@ exports.queryDatatypes = function(headers, query, opt) {
         return body.datatypes;
     });
 }
+*/
 
-/**
- * Get all datatypes
- * @param {any} headers 
- */
-//TODO why can't we use queryDatatypes?
+//TODO get rid of this
 exports.queryAllDatatypes = function(headers) {
     return request(config.api.warehouse + '/datatype', {
         headers,
@@ -725,17 +698,13 @@ exports.queryAllDatatypes = function(headers) {
     });
 }
 
-/**
- * Resolve a set of datatypes from a given
- * text search or id
- * @param {any} headers 
- * @param {string} query A text search or an id
- */
-exports.resolveDatatypes = function(headers, query, opt) {
-    if (!query) return new Promise(r => r([]));
-    if (exports.isValidObjectId(query)) return exports.queryDatatypes(headers, { id: query }, opt);
-    else return exports.queryDatatypes(headers, { search: query }, opt);
+/*
+exports.resolveDatatypes = function(headers, datatype, opt) {
+    if (!datatype) return new Promise(r => r([])); //TODO what is this?
+    if (exports.isValidObjectId(datatype)) return exports.queryDatatypes(headers, { id: datatype }, opt);
+    else return exports.queryDatatypes(headers, { name: datatype }, opt);
 }
+*/
 
 /**
  * Query the list of resources
@@ -783,12 +752,7 @@ exports.queryResources = function(headers, query, opt) {
     });
 }
 
-/**
- * Resolve a set of resources from a given
- * text search or id
- * @param {any} headers 
- * @param {string} query A text search or an id
- */
+//TODO get rid of this
 exports.resolveResources = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryResources(headers, { id: query }, opt);
