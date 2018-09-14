@@ -10,52 +10,24 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .usage('[options] (directory)')
-    .option('--directory <directory>', 'directory where your dataset is located')
-    .option('-p, --project <projectid>', 'project id to upload dataset to')
-    .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
-    .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', util.collect, [])
-    .option('-n, --desc <description>', 'description of uploaded dataset')
-    .option('-s, --subject <subject>', '(metadata) subject of the uploaded dataset')
-    .option('-e, --session <session>', '(metadata) session of the uploaded dataset')
-    .option('-r, --run <run>', '(metadata) run of the uploaded dataset')
-    .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', util.collect, [])
-    .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
-    .option('-j, --json', 'output uploaded dataset information in json format')
-    .option('--force', 'force the dataset to be uploaded, even if no validator is present')
+    .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
+    .option('-d, --directory <directory>', 'path to the root of bids directory')
+    .option('-p, --project <projectid>', 'project id to upload the dataset to')
     .option('-h, --h');
 
-function getcliopt(key) {
-    let match = commander.options.find(option=>{
-        return(option.short == key || option.long == key);
-    });
-    return match;
-}
-
-//parse individual user-inputted files
-//TODO - file id could collide with cli options.
-let fileList = {};
-let new_argv = [];
-for(let i = 0;i < process.argv.length; ++i) {
-    let arg = process.argv[i];
-    if(arg.indexOf("--") === 0 && !getcliopt(arg)) {
-        fileList[arg.substring(2)] = process.argv[i+1];
-        i++; //skip
-    } else {
-        new_argv.push(arg);
-    }
-}
-commander.parse(new_argv);
+commander.parse(process.argv);
 
 if (commander.h) commander.help();
-if (!commander.project) throw new Error("no project given to upload dataset to");
-if (!commander.datatype) throw new Error("no datatype of dataset given");
-if (!commander.subject) throw new Error("no subject name provided");
+if (!commander.project) throw new Error("no project given to upload dataset to. -p");
 if (commander.args.length > 0) commander.directory = commander.args[0];
+if (!commander.directory) throw new Error("please specify BIDS root directory. -d");
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    let dataset = {
+    console.log("usig root", commander.directory);
+
+    /*
+    let options = {
         datatype: commander.datatype,
         project: commander.project,
         directory: commander.directory,
@@ -69,18 +41,7 @@ util.loadJwt().then(jwt => {
         run: commander.run,
         json: commander.json,
     }
-    if (commander.meta) {
-        fs.stat(commander.meta, (err, stats) => {
-            if (err) throw err;
-            dataset.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
-            uploadDataset(headers, dataset);
-        });
-    } else {
-        uploadDataset(headers, dataset);
-    }
-});
 
-async function uploadDataset(headers, options) {
     let instanceName = 'warehouse-cli.upload';
     let noopService = 'soichih/sca-service-noop';
 
@@ -276,7 +237,8 @@ async function uploadDataset(headers, options) {
             });
         });
     });
-}
+    */
+});
 
 async function getDatatype(headers, query) {
     return new Promise(async (resolve, reject) => {
