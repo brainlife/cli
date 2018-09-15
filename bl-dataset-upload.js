@@ -99,10 +99,10 @@ async function uploadDataset(headers, options) {
     
     let datatype = await getDatatype(headers, options.datatype);
     let instance = await util.getInstance(headers, instanceName);
+
     let projects = await util.resolveProjects(headers, options.project);
-    
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");
-    if (projects.length > 1) throw new Error("multiple projects matching '" + projectSearch + "'");
+    if (projects.length > 1) throw new Error("multiple projects matching '");
     
     let archive = archiver('tar', { gzip: true });
     let project = projects[0];

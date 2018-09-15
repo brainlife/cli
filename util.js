@@ -486,6 +486,7 @@ exports.queryProjects = async function(headers, query, opt) {
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
+    //console.log(JSON.stringify(find, null, 4));
     return request(config.api.warehouse + '/project', { headers, json: true, 
         qs: {
             find: JSON.stringify(find),
@@ -524,7 +525,7 @@ exports.queryAllProjects = function(headers) {
     });
 }
 
-//TODO get rid off this
+//TODO get rid off this with > let projects = await util.queryProjects(headers, {id: query.project, search: query.project});
 exports.resolveProjects = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
     if (exports.isValidObjectId(query)) return exports.queryProjects(headers, { id: query }, opt);
