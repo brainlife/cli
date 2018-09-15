@@ -87,6 +87,7 @@ util.loadJwt().then(async jwt => {
             if(!stats.isDirectory()) return next_dir();
             let fileinfo = parseBIDSPath(dir);
             console.log("handing subject", fileinfo["sub"]);
+            console.dir(fileinfo);
             handle_subject(commander.directory+"/"+dir, next_dir);
         }, err=>{
             if(err) throw err;
@@ -106,6 +107,9 @@ util.loadJwt().then(async jwt => {
                     break;
                 case "dwi": 
                     handle_dwi(_path+"/dwi", next_dir);
+                    break;
+                case "func": 
+                    handle_func(_path+"/func", next_dir);
                     break;
                 default:
                     next_dir("unknown datatype:"+dir);
@@ -180,6 +184,55 @@ util.loadJwt().then(async jwt => {
                     break;
                 default:
                     //console.log("ignoring", file);
+                    next_file();
+                }
+            }, cb);
+        });
+    }
+
+    function handle_func(_path, cb) {
+        fs.readdir(_path, (err, files)=>{
+            if(err) return reject(err);
+            async.forEach(files, (file, next_file)=>{
+                let fileinfo = parseBIDSPath(file);
+                //console.log(file);
+                //console.dir(fileinfo);
+                switch(fileinfo._filename) {
+                case "bold.nii.gz":
+                    //console.dir(fileinfo);
+
+                    let fullname = fileinfo._fullname;
+                    let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
+                    let sidecar = get_sidecar(_path+"/"+sidecar_name);
+
+                    let dataset = {
+                        datatype: datatype_ids["neuro/func/task"],
+                        desc: fileinfo._fullname,
+                        
+                        datatype_tags: [ fileinfo.task.toLowerCase() ], 
+                        //tags,
+
+                        meta: Object.assign(sidecar, get_meta(fileinfo)),
+
+                        //instance_id: instance._id,
+                        //task_id: task._id, // we archive data from copy task
+                        //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+                    }
+                    let files = {
+                        "bold.nii.gz": _path+"/"+fileinfo._fullname,
+                    };
+
+                    let events_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"events.tsv"; 
+                    //console.log("checking path", events_fullname);
+                    if(fs.existsSync(events_fullname)) {
+                        files["events.tsv"] = events_fullname;
+                    }
+                    datasets.push({dataset, files});
+                    //console.dir(files);
+                    next_file(); 
+                    break;
+                default:
+                    console.log("ignoring", file);
                     next_file();
                 }
             }, cb);
