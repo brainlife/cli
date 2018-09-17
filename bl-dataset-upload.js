@@ -240,7 +240,7 @@ async function uploadDataset(headers, options) {
 
                             meta: metadata,
 
-                            instance_id: instance._id,
+                            //instance_id: instance._id,
                             task_id: task._id, // we archive data from copy task
                             output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                         }}, (err, res, dataset) => {
@@ -248,10 +248,13 @@ async function uploadDataset(headers, options) {
                             if(res.statusCode != "200") throw new Error("Failed to upload: " + res.body.message);
                             if(!options.json) console.log("Waiting for dataset to archive...");
                             if(!dataset) throw new Error("Failed to upload dataset - probably validation failed");
-                            waitForArchive(dataset._id);
+                            //waitForArchive(dataset._id);
+                            if(options.json) console.log(JSON.stringify(dataset, null, 4));
+                            else console.log("Done archiving. dataset id:"+dataset._id);
                         });
                     }
 
+                    /* 
                     function waitForArchive(id) {
                         request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
                             find: JSON.stringify({'_id': id}),
@@ -272,6 +275,7 @@ async function uploadDataset(headers, options) {
                             }
                         });
                     }
+                    */
                 });
             });
         });

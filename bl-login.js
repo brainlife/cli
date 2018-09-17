@@ -24,21 +24,25 @@ prompt.message = null;
 prompt.start();
 prompt.get(schema, async function(err, results) {
     if(err) throw err;
-    
-    let rawJwt = await util.login({
-        ldap: commander.ldap,
-        ttl: commander.ttl,
-        username: commander.username || results.username,
-        password: results.password
-    });
-    
-    let token = jwt.decode(rawJwt);
-    let ttl = timediff(new Date(token.exp*1000), new Date());
-    let formattedTime = Object.keys(ttl).map(units => {
-        let time = ttl[units];
-        if (time == 0 || units == 'milliseconds') return '';
-        return time + " " + units;
-    }).filter(t => t.trim().length > 0).join(", ");
-    
-    console.log("Successfully logged in for " + formattedTime);
+
+    try {
+        let rawJwt = await util.login({
+            ldap: commander.ldap,
+            ttl: commander.ttl,
+            username: commander.username || results.username,
+            password: results.password
+        });
+        
+        let token = jwt.decode(rawJwt);
+        let ttl = timediff(new Date(token.exp*1000), new Date());
+        let formattedTime = Object.keys(ttl).map(units => {
+            let time = ttl[units];
+            if (time == 0 || units == 'milliseconds') return '';
+            return time + " " + units;
+        }).filter(t => t.trim().length > 0).join(", ");
+        
+        console.log("Successfully logged in for " + formattedTime);
+    } catch (err) {
+        console.error(err);
+    }
 });
