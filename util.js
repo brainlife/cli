@@ -17,15 +17,9 @@ const terminalOverwrite = require('terminal-overwrite');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const prompt = require('prompt');
+const colors = require('colors');
 
-/**
- * @constant {string} delimiter
- */
 const delimiter = ',';
-
-/**
- * @constant {string[]} gearFrames
- */
 const gearFrames = [
     '               ',
     ' e             ',
@@ -53,191 +47,13 @@ const gearFrames = [
     '              B',
 ];
 
-/** @module util.js */
+exports.trap_exception = function() {
+    process.on('uncaughtException', err=>{
+        console.error(err.toString().red);
+        process.exit(1);
+    })
+}
 
-/**
- * @typedef {Object} datatypeFile
- * @prop {string} id
- * @prop {string} filename
- * @prop {string} dirname
- * @prop {string} ext
- * @prop {boolean} required
- */
-
- /**
- * @typedef {Object} datatypeMeta
- * @prop {string} id
- * @prop {string} type
- * @prop {boolean} required
- */
-
-/**
- * @typedef {Object} datatype
- * @prop {string} _id
- * @prop {string} name
- * @prop {string} desc
- * @prop {datatypeFile[]} files
- * @prop {datatypeMeta[]} meta
- */
-
-/**
- * @typedef {Object} project
- * @prop {string} _id
- * @prop {string} name
- * @prop {string} desc
- * @prop {string} user_id
- * @prop {string} create_date
- * @prop {string} access
- * @prop {string[]} members
- * @prop {string[]} admins
- * @prop {boolean} removed
- * @prop {string[]} tags
- * @prop {string[]} guests
- * @prop {string} readme
- * @prop {string} license
- * @prop {boolean} listed
- */
-
-/**
- * @typedef {Object} serviceStats
- * @prop {any} counts
- * @prop {number} counts.running
- * @prop {number} counts.waiting
- * @prop {number} counts.failed
- * @prop {number} counts.requested
- * @prop {number} users
- */
-
-/**
- * @typedef {Object} appio
- * @prop {string} _id
- * @prop {string} id
- * @prop {string} datatype
- * @prop {string[]} datatype_tags
- * @prop {boolean} multi
- * @prop {boolean} optional
- */
-
-/**
- * @typedef {Object} contributor
- * @prop {string} _id
- * @prop {string} name
- * @prop {string} email
- */
-
-/**
- * @typedef {Object} app
- * @prop {string} _id
- * @prop {string} doi
- * @prop {{stars: number, service: serviceStats}} stats
- * @prop {string} user_id
- * @prop {string} create_date
- * @prop {string} name
- * @prop {string} desc
- * @prop {string} citation
- * @prop {string} github
- * @prop {string} github_branch
- * @prop {string[]} admins
- * @prop {contributor[]} contributors
- * @prop {string[]} projects
- * @prop {string[]} references
- * @prop {number} success_rate
- * @prop {string[]} tags
- * @prop {appio[]} inputs
- * @prop {appio[]} outputs
- * @prop {any} config
- */
-
-/**
- * @typedef {Object} dataset
- * @prop {string} _id
- * @prop {string} user_id
- * @prop {string} project
- * @prop {string} datatype
- * @prop {string} name
- * @prop {string} desc
- * @prop {any} meta
- * @prop {string[]} tags
- * @prop {string[]} datatype_tags
- * @prop {string} storage
- * @prop {{subdir: string}} storage_config
- * @prop {boolean} removed
- * @prop {string} create_date
- */
-
- /**
-  * @typedef {Object} profile
-  * @prop {number} id
-  * @prop {string} fullname
-  * @prop {string} email
-  * @prop {string} username
-  * @prop {boolean} active
-  */
-
-/**
- * @typedef {Object} instance
- * @prop {string} _id
- * @prop {string} user_id
- * @prop {string} name
- * @prop {string} update_date
- * @prop {string} create_date
- * @prop {boolean} removed
- */
-
-/**
- * @typedef {Object} task
- * @prop {string} _id
- * @prop {string} status_msg
- * @prop {string} request_date
- * @prop {string} status
- * @prop {string} progress_key
- * @prop {string} progress_key
- * @prop {string} user_id
- * @prop {string} preferred_resource_id
- * @prop {string} instance_id
- * @prop {string} service
- * @prop {string} name
- * @prop {string} create_date
- * @prop {string[]} resource_ids
- * @prop {number} run
- * @prop {string[]} deps
- * @prop {number} max_runtime
- * @prop {string} next_date
- * @prop {string[]} resource_deps
- * @prop {string} resource_id
- * @prop {any} _envs
- * @prop {string} start_date
- * @prop {string} finish_date
- * @prop {any[]} products
- */
-
-/**
- * @typedef {Object} resource
- * @prop {string} _id
- * @prop {string} resource_id
- * @prop {string} name
- * @prop {string} type
- * @prop {string} update_date
- * @prop {string} create_date
- * @prop {string[]} gids
- * @prop {boolean} active
- * @prop {string} status
- * @prop {string} status_msg
- * @prop {string} status_update
- * @prop {string} lastok_date
- * @prop {any} envs
- * @prop {Object} config
- * @prop {string} ssh_public
- * @prop {string} resources
- * @prop {string} hostname
- * @prop {string} username
- */
-
-/**
- * Login to brainlife
- * @param {any} opt
- * @returns {Promise<string>}
- */
 exports.login = function(opt) {
     return new Promise((resolve, reject) => {
         let url = config.api.auth;
@@ -383,7 +199,18 @@ exports.queryDatasets = async function(headers, query, opt) {
         project = projects[0]._id;
     }
     
-    let find = { removed: false }, andQueries = [], orQueries = [];
+    let find = {};
+    let andQueries = [];
+    let orQueries = [];
+
+    if(query.pub) {
+        andQueries.push({ publications: query.pub });
+    } else {
+        //hide removed dataset unless we are querying for publication. this is UGLY.. but I'd like to maintain 
+        //common behavior across all queryXX which hides removed records by default.
+        find.removed = false; 
+    }
+
     if (query.id) {
         if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
         orQueries.push({ _id: query.id });
@@ -592,9 +419,7 @@ exports.queryApps = async function(headers, query, opt) {
         }));
     }
     
-    let find = {
-        removed: false,
-    }
+    let find = { removed: false };
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
     

@@ -16,6 +16,7 @@ commander
     .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect, [])
     .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect, [])
     .option('-p, --project <projectid>', 'filter datasets by project id')
+    .option('-u, --pub <publicationid>', 'filter datasets by publication id')
     .option('-b, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-s, --skip <skip>', 'number of results to skip')
@@ -35,6 +36,7 @@ util.loadJwt().then(jwt => {
         datatypeTags: commander.datatype_tag,
         tags: commander.tag,
         project: commander.project,
+        pub: commander.pub,
         subject: commander.subject,
         taskId: commander.taskid
     }, {
@@ -92,12 +94,15 @@ async function outputDatasets(headers, data, skip) {
     
     if (data.count) {
         skip = +(skip || '');
-        if (skip == 0 && data.length == data.count) console.log("(Showing all " + data.length + " of " + data.length + " datasets)");
-        else if (skip + data.length >= data.count) console.log("(Showing last " + data.length + " of " + data.count + " datasets)");
-        else if (skip == 0) console.log("(" + data.count + " total datasets, showing first " + data.length + ". To view the next " + Math.min(data.length, data.count - data.length) + ", run 'bl dataset query --skip " + data.length + "'");
-        else console.log("(Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count + ")");
+        if (skip == 0 && data.length == data.count) console.log("Showing all " + data.length + " of " + data.length + " datasets");
+        else if (skip + data.length >= data.count) console.log("Showing last " + data.length + " of " + data.count + " datasets");
+        else if (skip == 0) {
+            console.log(data.count + " total datasets, showing first " + data.length +
+                ". To view the next " + Math.min(data.length, data.count - data.length) + 
+                ", run 'bl dataset query --skip " + data.length + "'");
+        } else console.log("Showing datasets " + skip + " - " + (skip + data.length) + " of " + data.count);
     } else {
-        console.log("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+        console.log("Returned " + data.length + " " + util.pluralize("result", data));
     }
 }
 
