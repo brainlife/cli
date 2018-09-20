@@ -316,7 +316,7 @@ exports.queryProjects = async function(headers, query, opt) {
             sort: JSON.stringify({ name: 1 }),
             skip: opt.skip || 0,
             limit: opt.limit || 100
-        } 
+        }
     }).then(body=>{
         //else if (res.statusCode != 200) return throw new Error(res.body.message);
         return body.projects;

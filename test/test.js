@@ -1,6 +1,7 @@
 const assert = require('assert');
 const jwt = require('jsonwebtoken');
 const util = require('../util');
+const config = require('../config');
 
 let userJwt;
 
@@ -13,7 +14,7 @@ describe('bl-login', function() {
             let user = jwt.decode(rawJwt);
             userJwt = rawJwt;
             
-            assert(user.iss == ("https://" + process.env.BLHOST + '/auth'), "jwt issuer should be the same as BLHOST");
+            assert(user.iss.indexOf(config.host) != -1, "jwt issuer should be the same as BLHOST");
             assert(user.profile.username == 'test', "user should login with username 'test'");
             done();
         });
