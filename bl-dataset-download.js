@@ -10,8 +10,6 @@ const util = require('./util');
 const terminalOverwrite = require('terminal-overwrite');
 const size = require('window-size');
 
-util.trap_exception();
-
 commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')

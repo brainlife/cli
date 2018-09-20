@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-
-/**
- * Common functions used across CLI scripts
- */
-
 'use strict';
 
 const request = require('request-promise-native');
@@ -47,12 +42,13 @@ const gearFrames = [
     '              B',
 ];
 
-exports.trap_exception = function() {
-    process.on('uncaughtException', err=>{
-        console.error(err.toString().red);
-        process.exit(1);
-    })
-}
+//trap exception
+process.on('uncaughtException', err=>{
+    if(err.message) console.error(err.message);
+    else console.error(err.message);
+    if(process.env.DEBUG && err.stack) console.error(err.stack);
+    process.exit(1);
+})
 
 exports.login = function(opt) {
     return new Promise((resolve, reject) => {
