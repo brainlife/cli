@@ -1,6 +1,7 @@
 [![Abcdspec-compliant](https://img.shields.io/badge/ABCD_Spec-v1.1-green.svg)](https://github.com/brain-life/abcd-spec)
 
 # Brain-Life Command Line Interface
+Allows querying pulling/pushing data sets and computing jobs to the [brainlife.io](https://brainlife.io) platform. 
 
 ### Authors
 - Soichi Hayashi (hayashis@iu.edu)
