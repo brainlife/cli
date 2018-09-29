@@ -38,7 +38,10 @@ function downloadDataset(headers, id, dir, json) {
     fs.mkdir(dir, err => {
         request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers, json: true }, (err, res, body)=>{
             if(err) throw err;
-            if(res.statusCode != 200) throw body.message;
+            if(res.statusCode != 200) throw new Error(body.message);
+        })
+        .on('error', err=>{
+            console.error(err);
         })
         .on('response', res=>{
             contentLength = res.headers['content-length'];

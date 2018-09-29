@@ -63,23 +63,36 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
         console.log("uploading to following project");
         console.dir(project);
 
-        console.log("loading participants.tsv", commander.directory);
-        let tsv = fs.readFileSync(commander.directory+"/participant_data.tsv", "utf8").trim().split("\n");
-        let tsv_head = tsv.shift().split("\t");
-        let subject_col = tsv_head.indexOf("Observations"); //TODO - is it always be "Observations"? not "subject"?
+        console.log("loading participants.tsv (or -data.tsv)", commander.directory);
         let participants = {};
-        tsv.forEach(row=>{
-            let cols = row.split("\t");
-            let subject = cols[subject_col];
-            let participant = {};
-            cols.forEach((col, idx)=>{
-                if(idx == subject_col) return;
-                participant[tsv_head[idx]] = col;
+        let tsv = null;
+        if(fs.existsSync(commander.directory+"/participants.tsv")) {
+            tsv = fs.readFileSync(commander.directory+"/participants.tsv", "utf8").trim().split("\n");
+        }
+        if(fs.existsSync(commander.directory+"/participant_data.tsv")) {
+            tsv = fs.readFileSync(commander.directory+"/participant_data.tsv", "utf8").trim().split("\n");
+        }
+        if(tsv) {
+            let tsv_head = tsv.shift().split("\t");
+            
+            //look for subject header..
+            let subject_col = 0; //first one by default..
+            [ "Observations", "participant_id" ].forEach(key=>{
+                let col = tsv_head.indexOf(key);
+                if(~col) subject_col = col;
             });
-            participants[subject] = participant;
-        });
+            tsv.forEach(row=>{
+                let cols = row.split("\t");
+                let subject = cols[subject_col];
+                let participant = {};
+                cols.forEach((col, idx)=>{
+                    if(idx == subject_col) return;
+                    participant[tsv_head[idx]] = col;
+                });
+                participants[subject] = participant;
+            });
+        }
         
-        //console.dir(participants);
         //TODO - soon I will be posting phenotype info to phenotype collection on warehouse
 
         let datatype_ids = {};
@@ -107,8 +120,9 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
 
         function handle_subject(_path, cb) {
             fs.readdir(_path, (err, dirs)=>{
-                if(err) return reject(err);
+                if(err) return cb(err);
                 async.forEach(dirs, (dir, next_dir)=>{
+                    if(~dir.indexOf("ses-")) return handle_subject(_path+"/"+dir, next_dir);
                     switch(dir) {
                     case "anat": 
                         handle_anat(_path+"/anat", next_dir);
@@ -128,21 +142,24 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
 
         function get_meta(fileinfo) {
             let meta = {};
-            //TODO - check if run/session is what I need
             if(fileinfo.sub) meta.subject = fileinfo.sub;
+            if(fileinfo.ses) meta.session = fileinfo.ses;
             if(fileinfo.run) meta.run = fileinfo.run;
-            if(fileinfo.session) meta.session = fileinfo.session;
             return meta;
         }
 
         function handle_dwi(_path, cb) {
             fs.readdir(_path, (err, files)=>{
-                if(err) return reject(err);
+                if(err) return cb(err);
                 async.forEach(files, (file, next_file)=>{
                     let fileinfo = parseBIDSPath(file);
                     switch(fileinfo._filename) {
                     case "dwi.nii.gz":
                         //console.dir(fileinfo);
+                        let fullname = fileinfo._fullname;
+                        let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
+                        let sidecar = get_sidecar(_path+"/"+sidecar_name);
+
                         let dataset = {
                             datatype: datatype_ids["neuro/dwi"],
                             desc: fileinfo._fullname,
@@ -150,14 +167,13 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                             //datatype_tags,
                             //tags,
 
-                            meta: Object.assign({}, get_meta(fileinfo)),
+                            meta: Object.assign(sidecar, get_meta(fileinfo)),
 
                             //instance_id: instance._id,
                             //task_id: task._id, // we archive data from copy task
                             //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                         }
 
-                        let fullname = fileinfo._fullname;
                         let bvecs = fullname.substring(0, fullname.length-7)+".bvec"; 
                         let bvals = fullname.substring(0, fullname.length-7)+".bval"; 
                         let files = {
@@ -178,8 +194,9 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
 
         function handle_anat(_path, cb) {
             fs.readdir(_path, (err, files)=>{
-                if(err) return reject(err);
+                if(err) return cb(err);
                 async.forEach(files, (file, next_file)=>{
+
                     let fileinfo = parseBIDSPath(file);
                     //console.log(file);
                     //console.dir(fileinfo);
@@ -200,7 +217,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
 
         function handle_func(_path, cb) {
             fs.readdir(_path, (err, files)=>{
-                if(err) return reject(err);
+                if(err) return cb(err);
                 async.forEach(files, (file, next_file)=>{
                     let fileinfo = parseBIDSPath(file);
                     //console.log(file);
@@ -239,7 +256,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                         next_file(); 
                         break;
                     default:
-                        console.log("ignoring", file);
+                        console.log("ignoring", file, fileinfo._filename);
                         next_file(); 
                     }
                 }, cb);
@@ -315,7 +332,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
             async.eachSeries(datasets, (dataset, next_dataset)=>{
                 console.log("checking", dataset.dataset.desc);
                 request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                    find: JSON.stringify({datatype: dataset.dataset.datatype, desc: dataset.dataset.desc, 'meta.subject': dataset.dataset.meta.subject}),
+                    find: JSON.stringify({removed: false, datatype: dataset.dataset.datatype, desc: dataset.dataset.desc, 'meta.subject': dataset.dataset.meta.subject}),
                 }}).then(body=>{
                     if(body.count == 0) {
                         upload(noop, dataset, next_dataset);

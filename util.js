@@ -45,7 +45,7 @@ const gearFrames = [
 //trap exception
 process.on('uncaughtException', err=>{
     if(err.message) console.error(err.message);
-    else console.error(err.message);
+    else console.error(err.toString());
     if(process.env.DEBUG && err.stack) console.error(err.stack);
     process.exit(1);
 })
