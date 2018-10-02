@@ -1,6 +1,6 @@
 {
   "name": "brainlife",
-  "version": "1.2.34",
+  "version": "1.2.36",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -20,15 +20,16 @@
     "datetime-difference": "^1.0.0",
     "jsonwebtoken": "^8.3.0",
     "mkdirp": "^0.5.1",
-    "mocha": "^5.2.0",
     "prompt": "^1.0.0",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.5",
-    "supertest": "^3.1.0",
+    "supertest": "^3.3.0",
     "tar": "^4.4.6",
     "terminal-overwrite": "^2.0.1",
     "time-ago": "^0.2.1",
-    "websocket": "^1.0.28",
     "window-size": "^1.1.1"
+  },
+  "devDependencies": {
+    "mocha": "^5.2.0"
   }
 }
