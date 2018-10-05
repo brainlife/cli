@@ -26,6 +26,7 @@ npm install -g brainlife
 ```
 
 > For IU users, brainlife CLI is already installed on Karst / Carbonate / BigRed2. Please do `module load nodejs` to use it.
+> For Mac OSX users first make sure 'node' is installed: brew ```install node```
 
 ## Update
 
