@@ -402,3 +402,29 @@ do
         rm -rf $id
 done
 ```
+
+## Example Upload process for multiple subejcts stored in a single folder.
+Say we have all files from seevral subejcts in a single folder (the current folder) with two datafiles, DWI (dffusion-weighted MRI data files) and T1W (t1 weighted MRI, anatomical data files). Say that each subject is either a control (CNTR) or a patient (PTNT).
+
+We will first login on brainlife. Then set the current proejct variable (project IDs are the hash-numbers indicated on each project web-address on brainlife.io)
+
+We will match the DWI files to the correspondign brainlife.io datatype, which is neuro/dwi. We will also match the T1W files to the corresponding brainlife.io datatype which is neuro/anat/t1w.
+
+We will automatically find the total number of subejcts and for each subject we will push on the brainlife.io platform the T1W and the DWI and match them with the corresponding datatype. The CLI command will run the brainlife.io datatype validator and upload the file, whch will magically populate the project online.
+
+A bash script would would look like the following:
+
+```bash
+#!/bin/bash
+bl login
+
+project=<project id string of numbers>
+
+for type in CTRL PTNT; do
+    for t1 in $(ls $type_*_T1W.nii.gz); do
+        subject=${type}_${t1:4:3}
+        bl dataset upload --project $project --datatype neuro/dwi --subject $subject --dwi ${subject}_DWI.nii.gz --bvecs ${subject}.bvec --bvals ${subject}.bval
+        bl dataset upload --project $project --datatype neuro/anat/t1w --subject $subject --t1 $t1
+    done
+done
+```
