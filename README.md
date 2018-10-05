@@ -1,6 +1,6 @@
 [![Abcdspec-compliant](https://img.shields.io/badge/ABCD_Spec-v1.1-green.svg)](https://github.com/brain-life/abcd-spec)
 
-# Brain-Life Command Line Interface
+# brainlife.io Command Line Interface
 Allows querying pulling/pushing data sets and computing jobs to the [brainlife.io](https://brainlife.io) platform. 
 
 ### Authors
@@ -26,7 +26,7 @@ npm install -g brainlife
 ```
 
 > For IU users, brainlife CLI is already installed on Karst / Carbonate / BigRed2. Please do `module load nodejs` to use it.
-> For Mac OSX users first make sure 'node' is installed: brew ```install node```
+> For Mac OSX users first make sure 'node' is installed: ```brew install node```
 
 ## Update
 
