@@ -15,7 +15,7 @@ commander
     .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
     .option('-d, --directory <directory>', 'path to the root of bids directory')
     .option('-p, --project <projectid>', 'project id to upload the dataset to')
-    .option('-f, --force', 'Ignore BIDS validator issues')
+    .option('-s, --skip', 'Skip BIDS validator')
     .option('-h, --h');
 
 commander.parse(process.argv);
@@ -42,14 +42,20 @@ function parseBIDSPath(_path) {
     return obj;
 }
 
-console.log("Running bids validator");
-validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>{
-    console.log(JSON.stringify(issues, null, 4));
-    if(!commander.force && issues.errors.length > 0) {
-        console.error("BIDS validator detected errors! Please specify --force to ignore and try uploading them anyways");
-        process.exit(1);
-    }
+if(commander.skip) upload();
+else {
+    console.log("Running bids validator");
+    validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>{
+        console.log(JSON.stringify(issues, null, 4));
+        if(!commander.force && issues.errors.length > 0) {
+            console.error("BIDS validator detected errors! Please specify --skip to skip validating and try uploading them anyways");
+            process.exit(1);
+        }
+        upload();
+    });
+}
 
+function upload() {
     util.loadJwt().then(async jwt => {
         let headers = { "Authorization": "Bearer " + jwt };
 
@@ -122,7 +128,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
             fs.readdir(_path, (err, dirs)=>{
                 if(err) return cb(err);
                 async.forEach(dirs, (dir, next_dir)=>{
-                    if(~dir.indexOf("ses-")) return handle_subject(_path+"/"+dir, next_dir);
+                    if(dir.indexOf("ses-") == 0) return handle_subject(_path+"/"+dir, next_dir);
                     switch(dir) {
                     case "anat": 
                         handle_anat(_path+"/anat", next_dir);
@@ -134,7 +140,9 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                         handle_func(_path+"/func", next_dir);
                         break;
                     default:
-                        next_dir("unknown datatype:"+dir);
+                        //TODO handle sub-A00000844_ses-20100101_scans.tsv
+                        console.log("unknown file/dir:"+_path+"/"+dir);
+                        next_dir();
                     }
                 }, cb);
             });
@@ -142,10 +150,24 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
 
         function get_meta(fileinfo) {
             let meta = {};
-            if(fileinfo.sub) meta.subject = fileinfo.sub;
-            if(fileinfo.ses) meta.session = fileinfo.ses;
-            if(fileinfo.run) meta.run = fileinfo.run;
+            for(let key in fileinfo) {
+                let inkey = key;
+                if(key == "sub") inkey = "subject";
+                if(key == "ses") inkey = "session";
+                meta[inkey] = fileinfo[key];
+            }
             return meta;
+        }
+        function get_tags(fileinfo) {
+            let tags = [];
+            for(let key in fileinfo) {
+                if(key == "_filename") continue;
+                if(key == "_fullname") continue;
+                if(key == "sub") continue;
+                if(key == "ses") continue;
+                tags.push(key+"-"+fileinfo[key]);
+            }
+            return tags;
         }
 
         function handle_dwi(_path, cb) {
@@ -165,7 +187,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                             desc: fileinfo._fullname,
                             
                             //datatype_tags,
-                            //tags,
+                            tags: get_tags(fileinfo),
 
                             meta: Object.assign(sidecar, get_meta(fileinfo)),
 
@@ -235,7 +257,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                             desc: fileinfo._fullname,
                             
                             datatype_tags: [ fileinfo.task.toLowerCase() ], 
-                            //tags,
+                            tags: get_tags(fileinfo),
 
                             meta: Object.assign(sidecar, get_meta(fileinfo)),
 
@@ -286,7 +308,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                 desc: fileinfo._fullname,
                 
                 //datatype_tags,
-                //tags,
+                tags: get_tags(fileinfo),
 
                 meta: Object.assign(sidecar, get_meta(fileinfo)),
 
@@ -311,7 +333,7 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
                 datatype: datatype_ids["neuro/anat/t2w"],
                 desc: fileinfo._fullname,
                 //datatype_tags,
-                //tags,
+                tags: get_tags(fileinfo),
 
                 meta: Object.assign(sidecar, get_meta(fileinfo)),
 
@@ -421,6 +443,5 @@ validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>
         }
 
     });
-
-});
+}
 
