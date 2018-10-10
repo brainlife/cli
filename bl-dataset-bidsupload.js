@@ -354,7 +354,13 @@ function upload() {
             async.eachSeries(datasets, (dataset, next_dataset)=>{
                 console.log("checking", dataset.dataset.desc);
                 request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                    find: JSON.stringify({removed: false, datatype: dataset.dataset.datatype, desc: dataset.dataset.desc, 'meta.subject': dataset.dataset.meta.subject}),
+                    find: JSON.stringify({
+                        removed: false, 
+                        datatype: dataset.dataset.datatype, 
+                        desc: dataset.dataset.desc, 
+                        'meta.subject': dataset.dataset.meta.subject, 
+                        //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
+                    }),
                 }}).then(body=>{
                     if(body.count == 0) {
                         upload(noop, dataset, next_dataset);
@@ -376,7 +382,7 @@ function upload() {
             let archive = archiver('tar', { gzip: true });
             console.dir(dataset.files);
             for(var path in dataset.files) {
-                archive.file(dataset.files[path], { name: path });
+                archive.file(fs.realpathSync(dataset.files[path]), { name: path });
             }
             archive.on('error', err=>{
                 throw err;
