@@ -355,6 +355,7 @@ function upload() {
                 console.log("checking", dataset.dataset.desc);
                 request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
                     find: JSON.stringify({
+                        project: project._id,
                         removed: false, 
                         datatype: dataset.dataset.datatype, 
                         desc: dataset.dataset.desc, 
