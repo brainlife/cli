@@ -625,19 +625,6 @@ exports.getInstance = function(headers, instanceName, options) {
     });
 }
 
-/**
- * Run a Brain Life application
- * @param {any} headers
- * @param {Object} opt
- * @param {string} opt.app
- * @param {string} opt.project
- * @param {string[]} opt.inputs
- * @param {any} opt.config
- * @param {string} opt.resource
- * @param {string} opt.branch
- * @param {boolean} opt.json
- * @returns {Promise<task>} The resulting app task
- */
 exports.runApp = function(headers, opt) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
@@ -763,35 +750,7 @@ exports.runApp = function(headers, opt) {
             let userParam = opt.config[key];
             
             if (appParam.type != 'input') {
-                // validate each user-given config parameter
-                /*
-                if (typeof userParam == 'undefined') {
-                    if (appParam.default) {
-                        if (!opt.json) console.log("No config entry found for key '" + key + "'; " + "using the default value in the app's config: " + appParam.default);
-                        userParam = appParam.default;
-                    } else {
-                        return reject("no config entry found for key'" + key + "' (type: " + (appParam.type) + "). " + "Please provide one and rerun");
-                    }
-                }
-                */
                 if(userParam === undefined) userParam = appParam.default;
-                /* this doesn't handle value set to null by default
-                switch (appParam.type) {
-                case "boolean":
-                case "string":
-                case "number":
-                    if (typeof userParam != appParam.type) {
-                        return reject("config key '" + key + "': " + "expected type '" + appParam.type + "' but given value of type '" + (typeof userParam) + "'");
-                    }
-                    break;
-                case "enum":
-                    let validOptions = appParam.options.map(o => o.value);
-                    if (validOptions.indexOf(userParam) == -1) {
-                        return reject("config key '" + key + "': expected one of [" + validOptions.join('|') + "] " + "but given value " + userParam);
-                    }
-                    break;
-                }
-                */
                 values[key] = userParam;
             }
         }
@@ -813,7 +772,6 @@ exports.runApp = function(headers, opt) {
             let downloads = [], productRawOutputs = [];
             app.inputs.forEach(input => {
                 inputs[input.id].forEach(user_input=>{
-                    //console.log("prep", inputs[input.id]);
                     downloads.push({
                         url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + body.jwt,
                         untar: 'auto',
@@ -868,10 +826,11 @@ exports.runApp = function(headers, opt) {
                 app_inputs.forEach(input => input.task_id = task._id);
                 app.outputs.forEach(output => {
                     app_outputs.push({
-                        id: output.id,
+                        id: output.id, 
                         datatype: output.datatype,
                         datatype_tags: output.datatype_tags,
                         desc: output.id + " from "+ app.name,
+                        tags: opt.tags,
                         meta: output_metadata,
                         files: output.files,
                         archive: {
