@@ -176,6 +176,7 @@ async function uploadDataset(headers, options) {
             util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
                 if(err) throw err;
 
+                if (!options.json) console.log("Uploading data..");
                 let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                 archive.pipe(req);
                 archive.finalize();
@@ -186,7 +187,14 @@ async function uploadDataset(headers, options) {
                     
                     if (datatype.validator && !datatype.force) {
                         if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
-                        let validationConfig = {};
+                        let validationConfig = {
+                            //not tested..
+                            _outputs: [{
+                                id: "output",
+                                datatype: datatype._id,
+                                datatype_tags,
+                            }] 
+                        };
                         datatype.files.forEach(file => {
                             if(!files[file.id]) return; //not set.. probably optional
                             validationConfig[file.id] = "../" + task._id + "/" + file.filename;
@@ -233,49 +241,25 @@ async function uploadDataset(headers, options) {
 
                         request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
                             project: project._id,
-                            datatype: datatype._id,
-                            desc,
-                            datatype_tags,
-                            tags,
-
-                            meta: metadata,
-
-                            //instance_id: instance._id,
                             task_id: task._id, // we archive data from copy task
                             output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+
+                            //datatype: datatype._id,
+                            //datatype_tags,
+
+                            meta: metadata,
+                            desc,
+                            tags,
+
                         }}, (err, res, dataset) => {
                             if(err) throw err;
                             if(res.statusCode != "200") throw new Error("Failed to upload: " + res.body.message);
                             if(!options.json) console.log("Waiting for dataset to archive...");
                             if(!dataset) throw new Error("Failed to upload dataset - probably validation failed");
-                            //waitForArchive(dataset._id);
                             if(options.json) console.log(JSON.stringify(dataset, null, 4));
                             else console.log("Done archiving. dataset id:"+dataset._id);
                         });
                     }
-
-                    /* 
-                    function waitForArchive(id) {
-                        request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                            find: JSON.stringify({'_id': id}),
-                        } }, (err, res, body) => {
-                            if(err) throw err; 
-                            if(body.datasets.length != 1) throw new Error("couldn't find exactly 1 dataset. len="+body.datasets.length);
-                            let status = body.datasets[0].status;
-                            if(status == "failed") throw new Error("failed to archive");
-                            if(status == "stored") {
-                                if(!options.json) console.log("Done archiving. dataset id:"+id);
-                                else console.log(JSON.stringify(body.datasets[0]));
-                                //resolve(body.datasets[0]);
-                            } else {
-                                //all else... just wait
-                                return setTimeout(function() {
-                                    waitForArchive(id);
-                                }, 5000);
-                            }
-                        });
-                    }
-                    */
                 });
             });
         });
