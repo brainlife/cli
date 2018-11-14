@@ -22,7 +22,7 @@ util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
     let query = {};
-    if(commander.id) query.id = commander.id;
+    if(commander.id) query._id = commander.id;
     if(commander.query) query.$or = [
         { name: { $regex: commander.query, $options: 'ig' } },
         { desc: { $regex: commander.query, $options: 'ig' } },
