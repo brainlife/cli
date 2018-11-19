@@ -15,7 +15,9 @@ commander
     .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
     .option('-d, --directory <directory>', 'path to the root of bids directory')
     .option('-p, --project <projectid>', 'project id to upload the dataset to')
-    .option('-s, --skip', 'Skip BIDS validator')
+    .option('-s, --skip', '(deprecated - using --force) Skip BIDS validator')
+    .option('--force', 'Skip BIDS validator')
+    .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
     .option('-h, --h');
 
 commander.parse(process.argv);
@@ -160,6 +162,7 @@ function upload() {
         }
         function get_tags(fileinfo) {
             let tags = [];
+            if(commander.tag) tags = commander.tag.slice();
             for(let key in fileinfo) {
                 if(key == "_filename") continue;
                 if(key == "_fullname") continue;
