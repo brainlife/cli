@@ -347,9 +347,8 @@ function upload() {
             cb();
         }
 
-        async function upload_datasets() {
+        function upload_datasets() {
             console.log("preparing upload destination");
-            let noop = await submit_noop();
      
             async.eachSeries(datasets, (dataset, next_dataset)=>{
                 console.log("checking", dataset.dataset.desc);
@@ -362,8 +361,9 @@ function upload() {
                         'meta.subject': dataset.dataset.meta.subject, 
                         //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
                     }),
-                }}).then(body=>{
+                }}).then(async body=>{
                     if(body.count == 0) {
+                        let noop = await submit_noop(dataset.dataset.datatype, dataset.dataset.datatype_tags);
                         upload(noop, dataset, next_dataset);
                     } else {
                         console.log("already uploaded");
@@ -398,10 +398,8 @@ function upload() {
                 let body = dataset.dataset;
                 console.log("Dataset successfully uploaded.. now registering dataset");
                 body.project = project._id;
-                //body.instance_id = instance._id;
                 body.task_id = noop._id;
                 body.output_id = "output";    // sca-service-noop isn't BL app so we just have to come up with a name
-                console.dir(body);
                 request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body}).then(_dataset=>{
                     console.log("registered!");
                     cb();
@@ -409,13 +407,20 @@ function upload() {
             });
          }
 
-        function submit_noop() {
+        function submit_noop(datatype, datatype_tags) {
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
             return request.post({ url: config.api.wf + "/task", headers, json: true, body: {
                 instance_id: instance._id,
                 name: instanceName,
                 service: 'soichih/sca-service-noop',
+                config: {
+                    _outputs: [{
+                         id: "output",
+                         datatype,
+                         datatype_tags,
+                    }]
+                }
             }}).then(body=>{
                 let task = body.task;
                 console.log("Waiting for upload task to be ready...");
@@ -428,6 +433,7 @@ function upload() {
             });
         }
 
+        /*
         function waitForArchive(id) {
             request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
                 find: JSON.stringify({'_id': id}),
@@ -448,6 +454,7 @@ function upload() {
                 }
             });
         }
+        */
 
     });
 }
