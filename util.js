@@ -321,17 +321,46 @@ exports.queryProjects = async function(headers, query, opt) {
         //else if (res.statusCode != 200) return throw new Error(res.body.message);
         return body.projects;
     });
+}
+
+exports.queryPubs = async function(headers, query, opt) {
+    if(!query) query = {};
+    if(!opt) opt = {};
     
-    /*
-    function ensureUniqueProfile(headers, query) {
-        return new Promise(async (resolve, reject) => {
-            let profiles = await exports.resolveProfiles(headers, query);
-            if (profiles.length == 0) reject("No profile matching '" + query + "'");
-            else if (profiles.length > 1) reject("Multiple profiles matching '" + query+ "'\n"+JSON.stringify(profiles, null, 4));
-            else resolve(profiles[0]);
-        });
+    let pubAuthors = null;
+    if (query.author) pubAuthors = await exports.resolveProfiles(headers, query.author);
+    
+    let find = { removed: false }, andQueries = [], orQueries = [];
+    
+    if (query.id) {
+        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        orQueries.push({ _id: query.id });
     }
-    */
+    if (query.search) {
+        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
+    }
+    
+    if (pubAuthors) {
+        andQueries.push({ authors: { $in: pubAuthors.map(p=>{return p.id})} });
+    }
+    if (query.doi) {
+        andQueries.push({ doi: { $regex: escapeRegExp(query.doi), $options: 'ig'} });
+    }
+
+    if (orQueries.length > 0) andQueries.push({ $or: orQueries });
+    if (andQueries.length > 0) find.$and = andQueries;
+
+    return request(config.api.warehouse + '/pub', { headers, json: true, 
+        qs: {
+            find: JSON.stringify(find),
+            sort: JSON.stringify({ name: 1 }),
+            skip: opt.skip || 0,
+            limit: opt.limit || 100
+        }
+    }).then(body=>{
+        return body.pubs;
+    });
 }
 
 //TODO get rid off this

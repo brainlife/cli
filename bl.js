@@ -13,6 +13,7 @@ commander
     .command('resource', 'query the available list of resources')
     .command('datatype', 'query the available list of datatypes')
     .command('project', 'create and view brainlife projects')
+    .command('pub', 'query brainlife publications')
     .command('dataset', 'view and utilize stored datasets')
     .command('app', 'query and run brainlife apps');
 
