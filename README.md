@@ -429,7 +429,7 @@ for type in CTRL PTNT; do
 done
 ```
 
-# Download published datasets
+## Download published datasets
 
 You can query published datasets by first querying the publication ID
 
