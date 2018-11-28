@@ -16,7 +16,7 @@ commander
     .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect, [])
     .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect, [])
     .option('-p, --project <projectid>', 'filter datasets by project id')
-    .option('-u, --pub <publicationid>', 'filter datasets by publication id')
+    .option('-u, --pub <releaseID>', 'filter datasets by publication release id')
     .option('-b, --subject <subject>', 'filter datasets by subject')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-s, --skip <skip>', 'number of results to skip')
