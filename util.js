@@ -611,7 +611,7 @@ exports.resolveResources = function(headers, query, opt) {
 }
 
 /**
- * Get an instance for a service
+ * Find or create an instance for a service
  * @param {any} headers
  * @param {string} instanceName
  * @param {Object} options
@@ -619,7 +619,7 @@ exports.resolveResources = function(headers, query, opt) {
  * @param {string} options.desc
  * @returns {Promise<instance>}
  */
-exports.getInstance = function(headers, instanceName, options) {
+exports.findOrCreateInstance = function(headers, instanceName, options) {
     return new Promise((resolve, reject)=>{
         // get instance that might already exist
         var find = { name: instanceName };
@@ -770,7 +770,7 @@ exports.runApp = function(headers, opt) {
 
         // create instance
         let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
-        let instance = await exports.getInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
+        let instance = await exports.findOrCreateInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
         
         // prepare config to submit the app
         let values = {};
@@ -854,19 +854,38 @@ exports.runApp = function(headers, opt) {
                 // link task to app inputs
                 app_inputs.forEach(input => input.task_id = task._id);
                 app.outputs.forEach(output => {
-                    app_outputs.push({
+                    let output_req = {
                         id: output.id, 
                         datatype: output.datatype,
-                        datatype_tags: output.datatype_tags,
                         desc: output.id + " from "+ app.name,
                         tags: opt.tags,
                         meta: output_metadata,
-                        files: output.files,
+                        //files: output.files,
                         archive: {
                             project: project._id,
                             desc: output.id + " from " + app.name
                         },
-                    });
+                    };
+
+                    if(output.output_on_root) {
+                        output_req.files = output.files; //optional
+                    } else {
+                        output_req.subdir = output.id;
+                    }
+                    
+                    /* not yet implmented -- but I will be refactoring this code to warehouse api eventually
+                    //handle datatype tag passthrough
+                    var tags = [];
+                    if(output.datatype_tags_pass) {
+                        let input = app_inputs.find(i=>i.id == output.datatype_tags_pass);
+                        tags = tags.concat(tags, input.dataset.datatype_tags);
+                    }
+                    //.. and add app specified output tags at the end
+                    tags = tags.concat(tags, output.datatype_tags);
+                    output_req.datatype_tags = lib.uniq(tags);
+                    */
+
+                    app_outputs.push(output_req);
                 });
                 
                 // finalize app config object
@@ -898,15 +917,6 @@ exports.runApp = function(headers, opt) {
             })
         });
 
-        /**
-         *
-         * @param {any} values
-         * @param {task} download_task
-         * @param {input[]} inputs
-         * @param {datatype[]} datatypeTable
-         * @param {app} app
-         * @returns {any}
-         */
         function prepareConfig(values, download_task, inputs, datatypeTable, app) {
             let idToAppInputTable = {};
             let idToDatatype = {};

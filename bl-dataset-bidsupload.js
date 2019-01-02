@@ -62,7 +62,7 @@ function upload() {
         let headers = { "Authorization": "Bearer " + jwt };
 
         let instanceName = 'warehouse-cli.bidsupload';
-        let instance = await util.getInstance(headers, instanceName);
+        let instance = await util.findOrCreateInstance(headers, instanceName);
         let projects = await util.queryProjects(headers, {id: commander.project, search: commander.project});
         if (projects.length == 0) throw new Error("project '" + commander.project + "' not found");
         if (projects.length > 1) throw new Error("multiple projects matching '");
@@ -193,10 +193,6 @@ function upload() {
                             tags: get_tags(fileinfo),
 
                             meta: Object.assign(sidecar, get_meta(fileinfo)),
-
-                            //instance_id: instance._id,
-                            //task_id: task._id, // we archive data from copy task
-                            //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                         }
 
                         let bvecs = fullname.substring(0, fullname.length-7)+".bvec"; 
@@ -263,10 +259,6 @@ function upload() {
                             tags: get_tags(fileinfo),
 
                             meta: Object.assign(sidecar, get_meta(fileinfo)),
-
-                            //instance_id: instance._id,
-                            //task_id: task._id, // we archive data from copy task
-                            //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
                         }
                         let files = {
                             "bold.nii.gz": _path+"/"+fileinfo._fullname,
@@ -314,10 +306,6 @@ function upload() {
                 tags: get_tags(fileinfo),
 
                 meta: Object.assign(sidecar, get_meta(fileinfo)),
-
-                //instance_id: instance._id,
-                //task_id: task._id, // we archive data from copy task
-                //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
             }
 
             let files = {"t1.nii.gz": dir+"/"+fileinfo._fullname};
@@ -331,18 +319,12 @@ function upload() {
             let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
             let sidecar = get_sidecar(dir+"/"+sidecar_name);
             
-            //console.dir(sidecar);
             let dataset = {
                 datatype: datatype_ids["neuro/anat/t2w"],
                 desc: fileinfo._fullname,
-                //datatype_tags,
                 tags: get_tags(fileinfo),
 
                 meta: Object.assign(sidecar, get_meta(fileinfo)),
-
-                //instance_id: instance._id,
-                //task_id: task._id, // we archive data from copy task
-                //output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
             }
 
             let files = {"t2.nii.gz": dir+"/"+fileinfo._fullname};
@@ -402,7 +384,7 @@ function upload() {
                 console.log("Dataset successfully uploaded.. now registering dataset");
                 body.project = project._id;
                 body.task_id = noop._id;
-                body.output_id = "output";    // sca-service-noop isn't BL app so we just have to come up with a name
+                body.output_id = "output";    //app-noop isn't BL app so we just have to come up with a name (TODO why not create it?)
                 request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body}).then(_dataset=>{
                     console.log("registered!");
                     cb();
@@ -416,7 +398,7 @@ function upload() {
             return request.post({ url: config.api.wf + "/task", headers, json: true, body: {
                 instance_id: instance._id,
                 name: instanceName,
-                service: 'soichih/sca-service-noop',
+                service: 'brainlife/app-noop',
                 config: {
                     _outputs: [{
                          id: "output",

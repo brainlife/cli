@@ -98,7 +98,7 @@ async function uploadDataset(headers, options) {
     if (options.run) metadata.run = options.run;
     
     let datatype = await getDatatype(headers, options.datatype);
-    let instance = await util.getInstance(headers, instanceName);
+    let instance = await util.findOrCreateInstance(headers, instanceName);
 
     let projects = await util.resolveProjects(headers, options.project);
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");

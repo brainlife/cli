@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const config = require('./config');
 const commander = require('commander');
 const util = require('./util');
