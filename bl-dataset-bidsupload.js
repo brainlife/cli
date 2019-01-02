@@ -118,7 +118,7 @@ function upload() {
                 if(!stats.isDirectory()) return next_dir();
                 let fileinfo = parseBIDSPath(dir);
                 console.log("handing subject", fileinfo["sub"]);
-                console.dir(fileinfo);
+                //console.dir(fileinfo);
                 handle_subject(commander.directory+"/"+dir, next_dir);
             }, err=>{
                 if(err) throw err;
@@ -335,21 +335,21 @@ function upload() {
         function upload_datasets() {
             console.log("preparing upload destination");
      
-            async.eachSeries(datasets, (dataset, next_dataset)=>{
-                console.log("checking", dataset.dataset.desc);
+            async.eachSeries(datasets, (dataset_and_files, next_dataset)=>{
+                console.log("duplication check..", dataset_and_files.dataset.meta.subject, dataset_and_files.dataset.desc);
                 request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
                     find: JSON.stringify({
                         project: project._id,
                         removed: false, 
-                        datatype: dataset.dataset.datatype, 
-                        desc: dataset.dataset.desc, 
-                        'meta.subject': dataset.dataset.meta.subject, 
+                        datatype: dataset_and_files.dataset.datatype, 
+                        desc: dataset_and_files.dataset.desc, 
+                        'meta.subject': dataset_and_files.dataset.meta.subject, 
                         //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
                     }),
                 }}).then(async body=>{
                     if(body.count == 0) {
-                        let noop = await submit_noop(dataset.dataset.datatype, dataset.dataset.datatype_tags);
-                        upload(noop, dataset, next_dataset);
+                        let noop = await submit_noop(dataset_and_files.dataset.datatype, dataset_and_files.dataset.datatype_tags);
+                        do_upload(noop, dataset_and_files, next_dataset);
                     } else {
                         console.log("already uploaded");
                         next_dataset();
@@ -361,14 +361,14 @@ function upload() {
             });
         }
 
-        function upload(noop, dataset, cb) {
-            console.log("uploading dataset", dataset);
+        function do_upload(noop, dataset_and_files, cb) {
+            console.log("uploading dataset", dataset_and_files);
             
             //create tar ball with all files
             let archive = archiver('tar', { gzip: true });
-            console.dir(dataset.files);
-            for(var path in dataset.files) {
-                archive.file(fs.realpathSync(dataset.files[path]), { name: path });
+            //console.dir(dataset_and_files.files);
+            for(var path in dataset_and_files.files) {
+                archive.file(fs.realpathSync(dataset_and_files.files[path]), { name: path });
             }
             archive.on('error', err=>{
                 throw err;
@@ -380,13 +380,20 @@ function upload() {
             archive.finalize();
             req.on('response', async res=>{
                 if(res.statusCode != "200") throw new Error(res.body.message);
-                let body = dataset.dataset;
+                let dataset = dataset_and_files.dataset;
                 console.log("Dataset successfully uploaded.. now registering dataset");
-                body.project = project._id;
-                body.task_id = noop._id;
-                body.output_id = "output";    //app-noop isn't BL app so we just have to come up with a name (TODO why not create it?)
-                request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body}).then(_dataset=>{
-                    console.log("registered!");
+                //console.dir(dataset.meta);
+                request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
+                    project: project._id,
+                    task_id: noop._id,
+                    output_id: "output", //app-noop isn't BL app so we just have to come up with a name (TODO why not register app?)
+
+                    meta: dataset.meta,
+                    desc: dataset.desc,
+                    tags: dataset.tags,
+
+                }}).then(_dataset=>{
+                    console.log("registered and archived!", _dataset._id);
                     cb();
                 });  
             });
@@ -417,30 +424,6 @@ function upload() {
                 });
             });
         }
-
-        /*
-        function waitForArchive(id) {
-            request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                find: JSON.stringify({'_id': id}),
-            } }, (err, res, body) => {
-                if(err) throw err; 
-                if(body.datasets.length != 1) throw new Error("couldn't find exactly 1 dataset. len="+body.datasets.length);
-                let status = body.datasets[0].status;
-                if(status == "failed") throw new Error("failed to archive");
-                if(status == "stored") {
-                    if(!options.json) console.log("Done archiving. dataset id:"+id);
-                    else console.log(JSON.stringify(body.datasets[0]));
-                    //resolve(body.datasets[0]);
-                } else {
-                    //all else... just wait
-                    return setTimeout(function() {
-                        waitForArchive(id);
-                    }, 5000);
-                }
-            });
-        }
-        */
-
     });
 }
 
