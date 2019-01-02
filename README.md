@@ -403,7 +403,7 @@ do
 done
 ```
 
-## Example Upload process for multiple subejcts stored in a single folder.
+## Example Upload process for multiple subjects stored in a single folder.
 Say we have all files from seevral subejcts in a single folder (the current folder) with two datafiles, DWI (dffusion-weighted MRI data files) and T1W (t1 weighted MRI, anatomical data files). Say that each subject is either a control (CNTR) or a patient (PTNT).
 
 We will first login on brainlife. Then set the current proejct variable (project IDs are the hash-numbers indicated on each project web-address on brainlife.io)
@@ -426,5 +426,44 @@ for type in CTRL PTNT; do
         bl dataset upload --project $project --datatype neuro/dwi --subject $subject --dwi ${subject}_DWI.nii.gz --bvecs ${subject}.bvec --bvals ${subject}.bval
         bl dataset upload --project $project --datatype neuro/anat/t1w --subject $subject --t1 $t1
     done
+done
+```
+
+## Download published datasets
+
+You can query published datasets by first querying the publication ID
+
+```bash
+bl login
+
+bl pub query -q o3d --json | jq .[0].releases
+[
+  {
+    "removed": false,
+    "_id": "5bab993aa918ae0027024192",
+    "name": "1",
+    "create_date": "2018-09-01T00:00:00.000Z"
+  },
+  {
+    "removed": true,
+    "_id": "5bb2437c19fdb40027307f7b",
+    "name": "",
+    "create_date": "2018-10-01T00:00:00.000Z"
+  }
+]
+
+```
+
+You can then use the publication release ID to query all datasets that belongs to this release (and filter by subject) and download each datasets.
+
+
+```bash
+
+for id in $(bl dataset query --limit 200 \
+  --pub 5bab993aa918ae0027024192 \
+  --subject 0001 \
+  --json | jq -r ".[]._id"); do
+	# download the data
+	bl dataset download $id
 done
 ```
