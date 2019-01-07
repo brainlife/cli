@@ -42,6 +42,7 @@ const gearFrames = [
     '              B',
 ];
 
+/* this is buggy and masks errors
 //trap exception
 process.on('uncaughtException', err=>{
     if(err.message) console.error(err.message);
@@ -49,6 +50,7 @@ process.on('uncaughtException', err=>{
     if(process.env.DEBUG && err.stack) console.error(err.stack);
     process.exit(1);
 })
+*/
 
 exports.login = function(opt) {
     return new Promise((resolve, reject) => {
