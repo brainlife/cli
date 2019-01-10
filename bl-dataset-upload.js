@@ -82,7 +82,6 @@ util.loadJwt().then(jwt => {
 
 async function uploadDataset(headers, options) {
     let instanceName = 'warehouse-cli.upload';
-    let noopService = 'soichih/sca-service-noop';
 
     options = options || {};
     let directory = options.directory || '.';
@@ -167,7 +166,15 @@ async function uploadDataset(headers, options) {
         request.post({ url: config.api.wf + "/task", headers, json: true, body: {
             instance_id: instance._id,
             name: instanceName,
-            service: noopService,
+            service: 'brainlife/app-noop',
+            config: {
+                _outputs: [{
+                    id: "output",
+                    datatype: datatype._id,
+                    datatype_tags,
+                }],
+            }
+
         }}, (err, res, body) => {
             if(err) throw new Error(res.body.message);
             let task = body.task;
@@ -187,23 +194,15 @@ async function uploadDataset(headers, options) {
                     
                     if (datatype.validator && !datatype.force) {
                         if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
-                        let validationConfig = {
-                            //not tested..
-                            _outputs: [{
-                                id: "output",
-                                datatype: datatype._id,
-                                datatype_tags,
-                            }] 
-                        };
                         datatype.files.forEach(file => {
                             if(!files[file.id]) return; //not set.. probably optional
-                            validationConfig[file.id] = "../" + task._id + "/" + file.filename;
+                            task.config[file.id] = "../" + task._id + "/" + file.filename;
                         });
                         request.post({ url: config.api.wf + '/task', headers, json: true, body: {
                             instance_id: instance._id,
                             name: "validation",
                             service: datatype.validator,
-                            config: validationConfig,
+                            config: task.config,
                             deps: [ task._id ]
                         }},
                         (err, res, body) => {
@@ -242,7 +241,7 @@ async function uploadDataset(headers, options) {
                         request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
                             project: project._id,
                             task_id: task._id, // we archive data from copy task
-                            output_id: "output",    // sca-service-noop isn't BL app so we just have to come up with a name
+                            output_id: "output",    // app-noop isn't BL app so we just have to come up with a name (why don't we register one?)
 
                             //datatype: datatype._id,
                             //datatype_tags,
