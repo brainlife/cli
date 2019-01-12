@@ -659,7 +659,7 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
 exports.runApp = function(headers, opt) {
     return new Promise(async (resolve, reject) => {
         let datatypeTable = {};
-        let app_inputs = [], app_outputs = [], all_dataset_ids = [];
+        let all_dataset_ids = [];
         let output_metadata = {};
         
         opt.config = opt.config || '{}';
@@ -786,137 +786,109 @@ exports.runApp = function(headers, opt) {
             }
         }
 
-        // create token for user-inputted datasets
-        request.post({ headers, json: true , url: config.api.warehouse + "/dataset/token", body: {
-            ids: all_dataset_ids,
-        }}, async (err, res, body) => {
-            if (err) return reject(err);
-            else if (res.statusCode != 200) return reject(res.body.message);
+        let dataset_ids = [];
+        let keys = {};
+        app.inputs.forEach(input => {
+            inputs[input.id].forEach(user_input=>{
+                dataset_ids.push(user_input._id);
 
-            let userInputKeys = Object.keys(inputs);
-            if (app.inputs.length != userInputKeys.length) {
-                return reject("App expects " + app.inputs.length + " " + exports.pluralize('input', app.inputs) + 
-                    " but " + userInputKeys.length + " " + exports.pluralize('was', userInputKeys) + " given"); 
-            }
-            
-            // prepare staging task
-            let downloads = [], productRawOutputs = [];
-            app.inputs.forEach(input => {
-                inputs[input.id].forEach(user_input=>{
-                    downloads.push({
-                        url: config.api.warehouse + "/dataset/download/safe/" + user_input._id + "?at=" + body.jwt,
-                        untar: 'auto',
-                        dir: user_input._id
-                    });
-
-                    let output = {
-                        id: input.id,
-                        subdir: user_input._id,
-                        dataset_id: user_input._id,
-                        task_id: user_input.task_id || user_input.prov.task_id,
-                        datatype: user_input.datatype,
-                        datatype_tags: user_input.datatype_tags,
-                        tags: user_input.tags,
-                        meta: user_input.meta,
-                        project: user_input.project
-                    };
-                    productRawOutputs.push(output);
-                    
-                    // more config preparation
-                    let keys = [];
-                    for (let key in app.config) {
-                        if (app.config[key].input_id == input.id) keys.push(key);
+                //enumerate input keys that this dataset resolves
+                keys[user_input._id] = [];
+                for (let key in app.config) {
+                    if (app.config[key].input_id == input.id) {
+                        keys[user_input._id].push(key);
                     }
-                    
-                    app_inputs.push(Object.assign({ keys }, output));
-                    
-                    //TODO merging meta from all datasets.. probably not good enough
-                    //Object.assign(output_metadata, user_input.meta);
-                    for(var k in user_input.meta) {
-                        if(!output_metadata[k]) output_metadata[k] = user_input.meta[k]; //use first one
-                    }
-                });
+                }
+               
+                //TODO merging meta from all datasets.. probably not good enough
+                //Object.assign(output_metadata, user_input.meta);
+                for(var k in user_input.meta) {
+                    if(!output_metadata[k]) output_metadata[k] = user_input.meta[k]; //use first one
+                }
             });
+        });
 
-            // submit staging task
-            request.post({ headers, url: config.api.wf + "/task", json: true, body: {
+        request.post({
+            url: config.api.warehouse+'/dataset/stage', json: true, headers,
+            body: {
                 instance_id: instance._id,
-                name: "Staging Dataset",
-                service: "soichih/sca-product-raw",
-                desc: "Staging Dataset",
-                config: { download: downloads, _outputs: productRawOutputs, _tid: 0 }
-            }}, (err, res, body) => {
+                dataset_ids,
+            }
+        }, (err, res, body)=>{
+            if(err) return reject(err);
+            if(res.statusCode != 200) return reject(res.body.message);
+            let task = body.task;
+            if(!opt.json) console.log("Data Staging Task Created (" + task._id + ")");
+
+            let app_inputs = task.config._outputs;
+            app_inputs.forEach(input=>{
+                input.task_id = task._id;
+                input.keys = keys[input.id];
+            }); 
+            console.dir(app_inputs);
+            let app_outputs = [];
+            app.outputs.forEach(output => {
+                let output_req = {
+                    id: output.id, 
+                    datatype: output.datatype,
+                    desc: output.id + " from "+ app.name,
+                    tags: opt.tags,
+                    meta: output_metadata,
+                    //files: output.files,
+                    archive: {
+                        project: project._id,
+                        desc: output.id + " from " + app.name
+                    },
+                };
+
+                if(output.output_on_root) {
+                    output_req.files = output.files; //optional
+                } else {
+                    output_req.subdir = output.id;
+                }
+                
+                /* not yet implmented -- but I will be refactoring this code to warehouse api eventually
+                //handle datatype tag passthrough
+                var tags = [];
+                if(output.datatype_tags_pass) {
+                    let input = app_inputs.find(i=>i.id == output.datatype_tags_pass);
+                    tags = tags.concat(tags, input.dataset.datatype_tags);
+                }
+                //.. and add app specified output tags at the end
+                tags = tags.concat(tags, output.datatype_tags);
+                output_req.datatype_tags = lib.uniq(tags);
+                */
+
+                app_outputs.push(output_req);
+            });
+            
+            // finalize app config object
+            let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
+            Object.assign(preparedConfig, {
+                _app: app._id,
+                _tid: 1,
+                _inputs: app_inputs,
+                _outputs: app_outputs,
+            });
+            
+            // prepare and run the app task
+            let submissionParams = {
+                instance_id: instance._id,
+                name: app.name.trim(),
+                service: app.github,
+                service_branch: branch,
+                config: preparedConfig,
+                deps: [ task._id ]
+            };
+            if (resource) submissionParams.preferred_resource_id = resource;
+            request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
                 if (err) return reject(err);
                 else if (res.statusCode != 200) return reject(res.body.message);
-                if (!opt.json) console.log("Data Staging Task Created (" + body.task._id + ")");
+                if (!opt.json) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
+                            "To monitor the app as it runs, please execute \nbl app wait " + body.task._id);
                 
-                let task = body.task;
-                let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
-
-                // link task to app inputs
-                app_inputs.forEach(input => input.task_id = task._id);
-                app.outputs.forEach(output => {
-                    let output_req = {
-                        id: output.id, 
-                        datatype: output.datatype,
-                        desc: output.id + " from "+ app.name,
-                        tags: opt.tags,
-                        meta: output_metadata,
-                        //files: output.files,
-                        archive: {
-                            project: project._id,
-                            desc: output.id + " from " + app.name
-                        },
-                    };
-
-                    if(output.output_on_root) {
-                        output_req.files = output.files; //optional
-                    } else {
-                        output_req.subdir = output.id;
-                    }
-                    
-                    /* not yet implmented -- but I will be refactoring this code to warehouse api eventually
-                    //handle datatype tag passthrough
-                    var tags = [];
-                    if(output.datatype_tags_pass) {
-                        let input = app_inputs.find(i=>i.id == output.datatype_tags_pass);
-                        tags = tags.concat(tags, input.dataset.datatype_tags);
-                    }
-                    //.. and add app specified output tags at the end
-                    tags = tags.concat(tags, output.datatype_tags);
-                    output_req.datatype_tags = lib.uniq(tags);
-                    */
-
-                    app_outputs.push(output_req);
-                });
-                
-                // finalize app config object
-                Object.assign(preparedConfig, {
-                    _app: app._id,
-                    _tid: 1,
-                    _inputs: app_inputs,
-                    _outputs: app_outputs,
-                });
-                
-                // prepare and run the app task
-                let submissionParams = {
-                    instance_id: instance._id,
-                    name: app.name.trim(),
-                    service: app.github,
-                    service_branch: branch,
-                    config: preparedConfig,
-                    deps: [ task._id ]
-                };
-                if (resource) submissionParams.preferred_resource_id = resource;
-                request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
-                    if (err) return reject(err);
-                    else if (res.statusCode != 200) return reject(res.body.message);
-                    if (!opt.json) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
-                                "To monitor the app as it runs, please execute \nbl app wait " + body.task._id);
-                    
-                    resolve(body.task);
-                });
-            })
+                resolve(body.task);
+            });
         });
 
         function prepareConfig(values, download_task, inputs, datatypeTable, app) {
