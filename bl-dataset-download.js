@@ -57,12 +57,12 @@ function downloadDataset(headers, id, dir, json) {
     });
     
     function showProgress(percentage) {
-        let progressBar = '', progressBarLength = size.width - 12;
-        for (let i = 0; i < progressBarLength; i++) {
-            if (i / progressBarLength > percentage) progressBar += ' ';
-            else progressBar += '=';
-        }
         if (process.stdout.isTTY && !json) {
+            let progressBar = '', progressBarLength = size.width - 12;
+            for (let i = 0; i < progressBarLength; i++) {
+                if (i / progressBarLength > percentage) progressBar += ' ';
+                else progressBar += '=';
+            }
             // percentage can be NaN if no
             // contentLength is provided from the server
             if (!percentage) {
