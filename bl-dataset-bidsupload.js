@@ -146,7 +146,7 @@ function upload() {
                         break;
                     default:
                         //TODO handle sub-A00000844_ses-20100101_scans.tsv
-                        console.log("unknown file/dir:"+_path+"/"+dir);
+                        //console.log("unknown file/dir:"+_path+"/"+dir);
                         next_dir();
                     }
                 }, cb);
@@ -269,10 +269,13 @@ function upload() {
 
                 //for each group, load appropriate datatype
                 async.eachOfSeries(groups, (group, key, next_group)=>{
-                    if(group["fieldmap.nii.gz"]) handle_fmap_real(_path, group.infos, next_group);
-                    if(group["phasediff.nii.gz"]) handle_fmap_phasediff(_path, group.infos, next_group);
-                    if(group["phase1.nii.gz"]) handle_fmap_2phasemag(_path, group.infos, next_group);
+                    if(group["fieldmap.nii.gz"]) return handle_fmap_real(_path, group.infos, next_group);
+                    if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
+                    if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
                     if(group["epi.nii.gz"]) handle_fmap_epi(_path, group.infos, next_group);
+                    console.log("odd fmap");
+                    console.dir(group)
+                    next_group();
                 }, cb)
             });
         }
