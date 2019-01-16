@@ -141,6 +141,9 @@ function upload() {
                     case "func": 
                         handle_func(_path+"/func", next_dir);
                         break;
+                    case "fmap": 
+                        handle_fmap(_path+"/fmap", next_dir);
+                        break;
                     default:
                         //TODO handle sub-A00000844_ses-20100101_scans.tsv
                         console.log("unknown file/dir:"+_path+"/"+dir);
@@ -154,8 +157,18 @@ function upload() {
             let meta = {};
             for(let key in fileinfo) {
                 let inkey = key;
+
+                //ignore some keys (like _filename, _fullname..)
+                if(key[0] == "_") continue;
+
+                //rename some keys
                 if(key == "sub") inkey = "subject";
                 if(key == "ses") inkey = "session";
+
+                //not sure if I should have these yet..
+                if(key == "acq") inkey = "acquisition";
+                if(key == "run") inkey = "run";
+
                 meta[inkey] = fileinfo[key];
             }
             return meta;
@@ -236,6 +249,116 @@ function upload() {
             });
         }
 
+        function handle_fmap(_path, cb) {
+            fs.readdir(_path, (err, files)=>{
+                if(err) return cb(err);
+
+                //group files by sub/ses/acq/run
+                let groups = {}; 
+                files.forEach(file=>{
+                    let fileinfo = parseBIDSPath(file);
+                    let key = "";
+                    if(fileinfo.sub) key += "sub-"+fileinfo.sub;
+                    if(fileinfo.ses) key += "ses-"+fileinfo.ses;
+                    if(fileinfo.run) key += "run-"+fileinfo.run;
+                    if(fileinfo.acq) key += "acq-"+fileinfo.acq;
+                    if(!groups[key]) groups[key] = {infos: []};
+                    groups[key].infos.push(fileinfo);
+                    groups[key][fileinfo._filename] = true;
+                });
+
+                //for each group, load appropriate datatype
+                async.eachOfSeries(groups, (group, key, next_group)=>{
+                    if(group["fieldmap.nii.gz"]) handle_fmap_real(_path, group.infos, next_group);
+                    if(group["phasediff.nii.gz"]) handle_fmap_phasediff(_path, group.infos, next_group);
+                    if(group["phase1.nii.gz"]) handle_fmap_2phasemag(_path, group.infos, next_group);
+                    if(group["epi.nii.gz"]) handle_fmap_epi(_path, group.infos, next_group);
+                }, cb)
+            });
+        }
+
+        function handle_fmap_real(dir, infos, cb) {
+            //TODO
+            cb();
+        }
+
+        function handle_fmap_phasediff(dir, infos, cb) {
+            let pd_fileinfo = infos.find(info=>info._filename == "phasediff.nii.gz");
+            let pd_sidecar = get_sidecar_from_fileinfo(dir, pd_fileinfo);
+            let dataset = {
+                datatype: datatype_ids["neuro/fmap/phasediff"],
+                desc: pd_fileinfo._fullname,
+                
+                //datatype_tags,
+                tags: get_tags(pd_fileinfo),
+
+                meta: Object.assign(pd_sidecar, get_meta(pd_fileinfo)),
+            }
+
+            let files = {};
+            infos.forEach(info=>{files[info._filename] = dir+"/"+info._fullname});
+            datasets.push({dataset, files});
+            cb();
+        }
+
+        //return array of 3 objects.
+        //0: items that are common in both. 
+        //1: diffrent items for A, 
+        //2: different items for B
+        function object_diff(a, b) {
+            let same = {};
+            let diff_a = {};
+            let diff_b = {};
+            for(let key in a) {
+                let av = a[key];
+                let bv = b[key];
+                if(Array.isArray(av) && av == bv.toString()) same[key] = av;
+                else if(av == bv) same[key] = av;
+                else {
+                    diff_a[key] = av;
+                    diff_b[key] = bv;
+                }
+            }
+
+            //look for things that only exists in b
+            for(let key in b) {
+                if(a[key] === undefined) {
+                    diff_a[key] = null; //should I?
+                    diff_b[key] = b[key];
+                }
+            }
+            return {same, a: diff_a, b: diff_b};
+        }
+
+        function handle_fmap_epi(dir, infos, cb) {
+            let ap_fileinfo = infos.find(info=>{return (info.dir == "AP" && info._filename == "epi.nii.gz")});
+            let ap_sidecar = get_sidecar_from_fileinfo(dir, ap_fileinfo);
+            let pa_fileinfo = infos.find(info=>{return (info.dir == "PA" && info._filename == "epi.nii.gz")});
+            let pa_sidecar = get_sidecar_from_fileinfo(dir, pa_fileinfo);
+
+            let {same: meta_same, a: meta_ap, b: meta_pa} = object_diff(ap_sidecar, pa_sidecar);
+
+            let dataset = {
+                datatype: datatype_ids["neuro/fmap/epi"],
+                desc: ap_fileinfo._fullname,
+                
+                //datatype_tags,
+
+                tags: Array.from(new Set([...get_tags(ap_fileinfo), ...get_tags(pa_fileinfo)])), //merge and dedupe
+                meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
+            }
+
+            let files = {};
+            infos.forEach(info=>{files[info.dir.toLowerCase()+"."+info._filename] = dir+"/"+info._fullname});
+            datasets.push({dataset, files});
+            cb();
+        }
+
+        function handle_fmap_2pharsemag(dir, infos, cb) {
+            //TODO
+            cb();
+        }
+
         function handle_func(_path, cb) {
             fs.readdir(_path, (err, files)=>{
                 if(err) return cb(err);
@@ -291,11 +414,16 @@ function upload() {
             return sidecar;
         }
 
-        function handle_anat_t1(dir, fileinfo, cb) {
-            //load (optional?) sidecar
+        function get_sidecar_from_fileinfo(dir, fileinfo) {
             let fullname = fileinfo._fullname;
             let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
             let sidecar = get_sidecar(dir+"/"+sidecar_name);
+            return sidecar;
+        }
+
+        function handle_anat_t1(dir, fileinfo, cb) {
+            //load (optional?) sidecar
+            let sidecar = get_sidecar_from_fileinfo(dir, fileinfo);
 
             //console.dir(sidecar);
             let dataset = {
@@ -368,6 +496,7 @@ function upload() {
             let archive = archiver('tar', { gzip: true });
             //console.dir(dataset_and_files.files);
             for(var path in dataset_and_files.files) {
+                console.log("looking for", path, dataset_and_files.files[path]);
                 archive.file(fs.realpathSync(dataset_and_files.files[path]), { name: path });
             }
             archive.on('error', err=>{
@@ -397,7 +526,7 @@ function upload() {
                     cb();
                 });  
             });
-         }
+        }
 
         function submit_noop(datatype, datatype_tags) {
             //submit noop to upload data
