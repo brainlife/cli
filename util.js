@@ -386,6 +386,26 @@ exports.resolveProjects = function(headers, query, opt) {
     else return exports.queryProjects(headers, { search: query }, opt);
 }
 
+/*
+//TODO - can we get rid of this and use waitForArchivedDatasets somehow? If 
+//wait for the dataset become "stored" state (archive)
+exports.waitForDataset = function(headers, dataset_id, cb) {
+    request(config.api.warehouse+'/dataset', { json: true, headers, qs: {
+        find: JSON.stringify({_id: dataset_id}),
+    } }, (err, res, body) => {
+        if (err) return cb(err);
+        if (res.statusCode != 200) return cb(res.body.message);
+        if(body.datasets.length == 0) return cb("no such dataset");
+        let dataset = body.datasets[0];
+        if(dataset.status == "stored") return cb(); //stored!
+        console.error(dataset.status+" .. "+dataset.status_msg);
+        setTimeout(()=>{
+            exports.waitForDataset(headers, dataset_id, cb);
+        }, 3000);
+    });
+}
+*/
+
 /**
  * Query the list of apps
  * @param {any} headers
@@ -951,22 +971,25 @@ exports.runApp = function(headers, opt) {
  * @param {boolean} verbose 
  * @param {(error: string) => any} cb 
  */
-function waitForArchivedDatasets(headers, task, verbose, cb) {
+exports.waitForArchivedDatasets = function(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
-    if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
+    //if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
     request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
         find: JSON.stringify({'prov.task_id': task._id}),
     } }, (err, res, body) => {
         if (err) return cb(err);
         if (res.statusCode != 200) return cb(res.body.message);
-        let stored_datasets = body.datasets.filter(dataset=>dataset.status = "stored");
+        let stored_datasets = body.datasets.filter(dataset=>{
+            if(verbose) console.log(dataset._id+"("+dataset.status+") "+dataset.status_msg);
+            return (dataset.status == "stored");
+        });
         if(stored_datasets.length < expected_outputs.length) {
-            if(verbose) console.log(expected_outputs.length+" of "+stored_datasets.length+" datasets archived");
+            //if(verbose) console.log(expected_outputs.length+" of "+stored_datasets.length+" datasets archived");
             //not all datasets archived yet.. wait
             return setTimeout(()=>{
-                waitForArchivedDatasets(header, task, verbose, cb); 
-            }, 1000 * 5);
+                exports.waitForArchivedDatasets(headers, task, verbose, cb); 
+            }, 1000*5);
         } else {
             if(verbose) console.log("Done archiving");
             return cb();
@@ -991,7 +1014,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                                     "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
             }
-            return waitForArchivedDatasets(headers, task, verbose, err=>{
+            exports.waitForArchivedDatasets(headers, task, verbose, err=>{
                 cb(err, task);
             });
         } else if (task.status == "failed") {
@@ -1001,7 +1024,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                                     "STATUS: failed");
                 terminalOverwrite.done();
             }
-            return cb(task.status_msg, null);
+            cb(task.status_msg, null);
         } else {
             if(verbose) {
                 terminalOverwrite.clear();
@@ -1009,7 +1032,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                                     "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
         
             }
-            return setTimeout(function() {
+            setTimeout(function() {
                 exports.waitForFinish(headers, task, verbose, cb);
             }, 1000);  //too short for wait command?
         }

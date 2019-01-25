@@ -236,27 +236,29 @@ async function uploadDataset(headers, options) {
                     }
                     
                     function registerDataset(task) {
-                        if (!options.json) console.log("Registering dataset...");
-
                         request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
                             project: project._id,
                             task_id: task._id, // we archive data from copy task
                             output_id: "output",    // app-noop isn't BL app so we just have to come up with a name (why don't we register one?)
-
-                            //datatype: datatype._id,
-                            //datatype_tags,
-
                             meta: metadata,
                             desc,
                             tags,
-
                         }}, (err, res, dataset) => {
                             if(err) throw err;
-                            if(res.statusCode != "200") throw new Error("Failed to upload: " + res.body.message);
-                            if(!options.json) console.log("Waiting for dataset to archive...");
-                            if(!dataset) throw new Error("Failed to upload dataset - probably validation failed");
-                            if(options.json) console.log(JSON.stringify(dataset, null, 4));
-                            else console.log("Done archiving. dataset id:"+dataset._id);
+                            if(res.statusCode != "200") throw new Error("Failed to register dataset: " + res.body.message);
+                            if(!dataset) throw new Error("Failed to register dataset - probably validation failed?");
+                            if(!options.json) console.log("registered dataset:"+dataset._id+" .. now waiting to archive");
+                            //console.log(JSON.stringify(dataset, null, 4));
+                            /*
+                            util.waitForDataset(headers, dataset._id, err=>{
+                                if(options.json) console.log(JSON.stringify(dataset, null, 4));
+                                else console.log("archived");
+                            });
+                            */
+                            util.waitForArchivedDatasets(headers, dataset.prov.task, !options.json, err=>{
+                                if(options.json) console.log(JSON.stringify(dataset, null, 4));
+                                else console.log("archived");
+                            });
                         });
                     }
                 });

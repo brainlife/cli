@@ -525,7 +525,7 @@ function upload() {
                     tags: dataset.tags,
 
                 }}).then(_dataset=>{
-                    console.log("registered and archived!", _dataset._id);
+                    console.log("registered dataset:", _dataset._id);
                     cb();
                 });  
             });
