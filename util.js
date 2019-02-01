@@ -910,7 +910,7 @@ exports.runApp = function(headers, opt) {
             let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
             Object.assign(preparedConfig, {
                 _app: app._id,
-                _tid: 1,
+                _tid: task.config._tid+1,
                 _inputs: app_inputs,
                 _outputs: app_outputs,
             });
