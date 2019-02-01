@@ -750,7 +750,7 @@ exports.runApp = function(headers, opt) {
         
         // create tables to get from id -> appInput and id -> datatype
         app.inputs.forEach(input => {
-            if (!opt.json) console.log("found app input key '" + input.id + "'");
+            //if (!opt.json) console.log("found app input key '" + input.id + "'");
             idToAppInputTable[input.id] = input;
         });
         datatypes.forEach(d => datatypeTable[d._id] = d);
@@ -790,6 +790,12 @@ exports.runApp = function(headers, opt) {
             inputs[file_id].push(dataset);
         }
 
+        //make sure all required inputs are set
+        let missing_inputs = app.inputs.filter(input=>{
+            return (!input.optional && inputs[input.id] === undefined);
+        });
+        if(missing_inputs.length > 0) return reject("some required inputs are missing:"+missing_inputs.map(input=>input.id).toString());
+
         // create instance
         let instanceName = (apps[0].tags||'CLI Process') + "." + (Math.random());
         let instance = await exports.findOrCreateInstance(headers, instanceName, { project, desc: "(CLI) " + app.name });
@@ -805,28 +811,15 @@ exports.runApp = function(headers, opt) {
                 values[key] = userParam;
             }
         }
-
+            
+        //enumerate all datasets
         let dataset_ids = [];
-        let keys = {};
         app.inputs.forEach(input => {
             inputs[input.id].forEach(user_input=>{
                 dataset_ids.push(user_input._id);
-
-                //enumerate input keys that this dataset resolves
-                keys[user_input._id] = [];
-                for (let key in app.config) {
-                    if (app.config[key].input_id == input.id) {
-                        keys[user_input._id].push(key);
-                    }
-                }
-               
-                //TODO merging meta from all datasets.. probably not good enough
-                //Object.assign(output_metadata, user_input.meta);
-                for(var k in user_input.meta) {
-                    if(!output_metadata[k]) output_metadata[k] = user_input.meta[k]; //use first one
-                }
             });
         });
+        dataset_ids = [...new Set(dataset_ids)]; //TODO - api does this now so I don't have to do it.
 
         request.post({
             url: config.api.warehouse+'/dataset/stage', json: true, headers,
@@ -840,20 +833,51 @@ exports.runApp = function(headers, opt) {
             let task = body.task;
             if(!opt.json) console.log("Data Staging Task Created (" + task._id + ")");
 
+            /*
             let app_inputs = task.config._outputs;
             app_inputs.forEach(input=>{
                 input.task_id = task._id;
                 input.keys = keys[input.id];
             }); 
-            console.dir(app_inputs);
+            */
+
+            let app_inputs = [];
+            app.inputs.forEach(input => {
+                //find config.json key mapped to this input
+                let keys = [];
+                for (let key in app.config) {
+                    if(app.config[key].input_id == input.id) {
+                        keys.push(key);
+                    }
+                }
+
+                //for each input, find dataset info from staged job
+                inputs[input.id].forEach(user_input=>{
+                    let dataset = task.config._outputs.find(output=>output.dataset_id == user_input._id);
+                    app_inputs.push(Object.assign({}, dataset, {
+                        id: input.id,
+                        task_id: task._id,
+                        keys,
+                    }));
+                });
+            });
+            //app_inputs.sort((a,b)=>{return a.id > b.id}); //somehow this is neeeded.. I am pushing in the correct order.. so I am not sure
+            
+            //aggregate meta
+            //TODO - this just concatenate *all* meta from all input datasets.. I should probaby do something smarter..
+            let meta = task.config._outputs.reduce((meta, dataset)=>{
+                for(var k in dataset.meta) if(!meta[k]) meta[k] = dataset.meta[k]; //use first one
+                return meta;
+            }, {});
+
             let app_outputs = [];
-            app.outputs.forEach(output => {
+            app.outputs.forEach(output=>{
                 let output_req = {
                     id: output.id, 
                     datatype: output.datatype,
                     desc: output.id + " from "+ app.name,
                     tags: opt.tags,
-                    meta: output_metadata,
+                    meta,
                     //files: output.files,
                     archive: {
                         project: project._id,
@@ -890,6 +914,8 @@ exports.runApp = function(headers, opt) {
                 _inputs: app_inputs,
                 _outputs: app_outputs,
             });
+
+            console.log(JSON.stringify(preparedConfig, null, 4));
             
             // prepare and run the app task
             let submissionParams = {
