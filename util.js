@@ -915,7 +915,7 @@ exports.runApp = function(headers, opt) {
                 _outputs: app_outputs,
             });
 
-            console.log(JSON.stringify(preparedConfig, null, 4));
+            //console.log(JSON.stringify(preparedConfig, null, 4));
             
             // prepare and run the app task
             let submissionParams = {
