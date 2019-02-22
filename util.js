@@ -218,6 +218,9 @@ exports.queryDatasets = async function(headers, query, opt) {
         orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
     }
     
+    //TODO - I am not sure $elemMAtch is the right way to query this..
+    //using $all for positive and $nin for negative tag is a better approach.
+    //{tags: {$all: ["test", "dev"], $nin: ["xyz123"]}}
     if (query.tags) {
         query.tags.forEach(tag => {
             if (tag.startsWith("!")) andQueries.push({ tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
@@ -451,6 +454,8 @@ exports.queryApps = async function(headers, query, opt) {
     if (query.doi) {
         andQueries.push({ doi: query.doi });
     }
+    
+    //TODO - I should probably use $all and $nin instead of $elemMAtch
     if (input_datatypes.length > 0) {
         andQueries = andQueries.concat(input_datatypes.map(datatype => { 
             if (datatype.not) {
@@ -590,6 +595,7 @@ exports.queryResources = function(headers, query, opt) {
         andQueries.push({ status: query.status });
     }
     if (query.service) {
+        //TODO I think I can just do "config.services.name": query.service
         andQueries.push({ "config.services": { $elemMatch: { "name": query.service } } });
     }
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
