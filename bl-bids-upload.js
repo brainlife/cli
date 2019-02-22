@@ -18,9 +18,8 @@ commander
     .option('-s, --skip', '(deprecated - using --force) Skip BIDS validator')
     .option('--force', 'Skip BIDS validator')
     .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
-    .option('-h, --h');
-
-commander.parse(process.argv);
+    .option('-h, --h')
+    .parse(process.argv);
 
 if (commander.h) commander.help();
 if (!commander.project) throw new Error("no project given to upload dataset to. -p");

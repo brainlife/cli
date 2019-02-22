@@ -429,12 +429,12 @@ exports.queryApps = async function(headers, query, opt) {
     
     if (query.inputs) {
         for (let input of query.inputs) {
-            input_datatypes.push(await getDatatype(headers, input));
+            input_datatypes.push(await util.getDatatype(headers, input));
         }
     }
     if (query.outputs) {
         for (let output of query.outputs) {
-            output_datatypes.push(await getDatatype(headers, output));
+            output_datatypes.push(await util.getDatatype(headers, output));
         }
     }
     let andQueries = [];
@@ -482,39 +482,21 @@ exports.queryApps = async function(headers, query, opt) {
     }).then(res=>{
         return res.apps;
     });
-    
+}
 
-    function getDatatype(headers, query) {
-        return new Promise(async (resolve, reject) => {
-            request(config.api.warehouse + '/datatype', { headers, json: true,
-                qs: {
-                    find: JSON.stringify({
-                        $or: [ {id: query}, {name: query}, ]
-                    }),
-                } 
-            }).then(body=>{;
-                if(body.datatypes.length == 0) return reject("no matching datatype:"+query);
-                return resolve(body.datatypes[0]);
-            });
+exports.getDatatype = function(headers, query) {
+    return new Promise(async (resolve, reject) => {
+        request(config.api.warehouse + '/datatype', { headers, json: true,
+            qs: {
+                find: JSON.stringify({
+                    $or: [ {id: query}, {name: query}, ]
+                }),
+            } 
+        }).then(body=>{;
+            if(body.datatypes.length == 0) return reject("no matching datatype:"+query);
+            return resolve(body.datatypes[0]);
         });
-
-        /*
-            let datatypes = await exports.resolveDatatypes(headers, query);
-            let not = query.startsWith('!');
-            
-            if (not) query = query.substring(1);
-            if (datatypes.length == 0) {
-                reject("No datatype matching '" + query + "'");
-            } else if (datatypes.length > 1) {
-                reject("Multiple datatypes matching '" + query + "'");
-            } else {
-                let datatype = datatypes[0];
-                datatype.not = not;
-                resolve(datatype);
-            }
-        });
-        */
-    }
+    });
 }
 
 //TODO get rid off this
@@ -821,8 +803,7 @@ exports.runApp = function(headers, opt) {
         });
         dataset_ids = [...new Set(dataset_ids)]; //TODO - api does this now so I don't have to do it.
 
-        request.post({
-            url: config.api.warehouse+'/dataset/stage', json: true, headers,
+        request.post({url: config.api.warehouse+'/dataset/stage', json: true, headers,
             body: {
                 instance_id: instance._id,
                 dataset_ids,

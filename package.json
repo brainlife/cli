@@ -27,6 +27,7 @@
     "tar": "^4.4.8",
     "terminal-overwrite": "^2.0.1",
     "time-ago": "^0.2.1",
+    "tmp": "0.0.33",
     "window-size": "^1.1.1"
   },
   "devDependencies": {

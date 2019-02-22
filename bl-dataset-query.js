@@ -25,8 +25,9 @@ commander
     .option('-h, --h')
     .parse(process.argv);
 
+if (commander.h) commander.help();
+
 util.loadJwt().then(jwt => {
-    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     let datatypeTable = {};
     util.queryDatasets(headers, {

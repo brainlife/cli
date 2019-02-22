@@ -15,6 +15,7 @@ commander
     .command('project', 'create and view brainlife projects')
     .command('pub', 'query brainlife publications')
     .command('dataset', 'view and utilize stored datasets')
+    .command('bids', 'bids upload / download')
     .command('app', 'query and run brainlife apps');
 
 // this only returns a value if the user input an invalid command
