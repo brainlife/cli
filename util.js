@@ -1081,7 +1081,6 @@ exports.getFileFromTask = function(headers, filename, task, defaultErr) {
                     p: taskFile.filename
                 },
                 headers,
-                json: true
             });
             return resolve(result);
         } else {
