@@ -48,7 +48,7 @@ async function formatPubs(headers, data) {
         let formattedGuests = [];
         
         formattedAuthors = pub.authors.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-        formattedReleases = pub.releases.map(r=>r.name+" ("+r._id+")");
+        formattedReleases = pub.releases.filter(r=>r.removed == false).map(r=>r.name+" ("+r._id+")");
         
         info.push("Id: " + pub._id);
         info.push("Name: " + pub.name);
