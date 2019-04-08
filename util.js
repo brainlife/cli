@@ -852,7 +852,7 @@ exports.runApp = function(headers, opt) {
             
             //aggregate meta
             //TODO - this just concatenate *all* meta from all input datasets.. I should probaby do something smarter..
-            let meta = task.config._outputs.reduce((meta, dataset)=>{
+            let meta = app_inputs.reduce((meta, dataset)=>{
                 for(var k in dataset.meta) if(!meta[k]) meta[k] = dataset.meta[k]; //use first one
                 return meta;
             }, {});
