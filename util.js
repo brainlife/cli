@@ -218,24 +218,34 @@ exports.queryDatasets = async function(headers, query, opt) {
         orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
     }
     
-    //TODO - I am not sure $elemMAtch is the right way to query this..
-    //using $all for positive and $nin for negative tag is a better approach.
-    //{tags: {$all: ["test", "dev"], $nin: ["xyz123"]}}
     if (query.tags) {
+        let pos_tags = [];
+        let neg_tags = [];
         query.tags.forEach(tag => {
-            if (tag.startsWith("!")) andQueries.push({ tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
-            else {
-                andQueries.push({ tags: { $elemMatch: { $eq: tag } } });
-            }
+            if (tag[0] != "!") pos_tags.push(tag);
+            else neg_tags.push(tag.substring(1));
         });
+        if(pos_tags.length > 0) andQueries.push({tags: {$all:pos_tags}});
+        if(neg_tags.length > 0) andQueries.push({tags: {$nin:neg_tags}});
     }
+
     if (query.datatypeTags) {
+        let pos_tags = [];
+        let neg_tags = [];
+        query.datatypeTags.forEach(tag => {
+            if (tag[0] != "!") pos_tags.push(tag);
+            else neg_tags.push(tag.substring(1));
+        });
+        if(pos_tags.length > 0) andQueries.push({datatype_tags: {$all:pos_tags}});
+        if(neg_tags.length > 0) andQueries.push({datatype_tags: {$nin:neg_tags}});
+        /*
         query.datatypeTags.forEach(tag => {
             if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
             else {
                 andQueries.push({ datatype_tags: { $elemMatch: { $eq: tag } } });
             }
         });
+        */
     }
     
     if (project) andQueries.push({ project });
