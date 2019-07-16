@@ -204,31 +204,27 @@ async function uploadDataset(headers, options) {
                             service: datatype.validator,
                             config: task.config,
                             deps: [ task._id ]
-                        }},
-                        (err, res, body) => {
+                        }}, (err, res, body) => {
                             if (err) throw err;
-                            else if (res.statusCode != 200) throw new Error(res.body.message);
-                            else {
-                                let validationTask = body.task;
-                                
-                                util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
-                                    if (err) {
-                                        let error_log = await util.getFileFromTask(headers, 'error.log', validationTask, err);
-                                        throw new Error("error.log from task (" + validationTask._id + "):\n" + error_log);
-                                    } else {
-                                        if (task.product) {
-                                            if (!options.json) {
-                                                if (task.product.warnings && task.product.warnings.length > 0) {
-                                                    task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                                } else {
-                                                    console.log("Your data looks good!");
-                                                }
+                            if (res.statusCode != 200) throw new Error(res.body.message);
+                            let validationTask = body.task;
+                            util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
+                                if (err) {
+                                    let error_log = await util.getFileFromTask(headers, 'error.log', validationTask, err);
+                                    throw new Error(error_log);
+                                } else {
+                                    if (task.product) {
+                                        if (!options.json) {
+                                            if (task.product.warnings && task.product.warnings.length > 0) {
+                                                task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                            } else {
+                                                console.log("Your data looks good!");
                                             }
                                         }
-                                        registerDataset(validationTask);
                                     }
-                                });
-                            }
+                                    registerDataset(validationTask);
+                                }
+                            });
                         });
                     } else {
                         console.error("No validator available for this datatype. Skipping validation.");
@@ -248,13 +244,6 @@ async function uploadDataset(headers, options) {
                             if(res.statusCode != "200") throw new Error("Failed to register dataset: " + res.body.message);
                             if(!dataset) throw new Error("Failed to register dataset - probably validation failed?");
                             if(!options.json) console.log("registered dataset:"+dataset._id+" .. now waiting to archive");
-                            //console.log(JSON.stringify(dataset, null, 4));
-                            /*
-                            util.waitForDataset(headers, dataset._id, err=>{
-                                if(options.json) console.log(JSON.stringify(dataset, null, 4));
-                                else console.log("archived");
-                            });
-                            */
                             util.waitForArchivedDatasets(headers, dataset.prov.task, !options.json, err=>{
                                 if(options.json) console.log(JSON.stringify(dataset, null, 4));
                                 else console.log("archived");

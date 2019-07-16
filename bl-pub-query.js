@@ -42,6 +42,7 @@ async function formatPubs(headers, data) {
     profiles.forEach(profile => profileTable[profile.id] = profile);
 
     let resultArray = data.map(pub => {
+        if(!pub.releases) return; //old thing?
         let info = [];
         let formattedAdmins = [];
         let formattedMembers = [];

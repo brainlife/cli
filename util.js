@@ -1086,10 +1086,12 @@ exports.getFileFromTask = function(headers, filename, task, defaultErr) {
         
         if (taskFile) {
             let result = await request({
-                url: config.api.wf + '/task/download/' + task._id,
+                url: config.api.wf + '/task/download/' + task._id+'/'+taskFile.filename,
+                /*
                 qs: {
                     p: taskFile.filename
                 },
+                */
                 headers,
             });
             return resolve(result);
