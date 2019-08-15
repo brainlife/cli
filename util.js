@@ -819,6 +819,7 @@ exports.runApp = function(headers, opt) {
         });
         dataset_ids = [...new Set(dataset_ids)]; //TODO - api does this now so I don't have to do it.
 
+        //TODO - similar code exists on UI modals/appsubmit.vue
         request.post({url: config.api.warehouse+'/dataset/stage', json: true, headers,
             body: {
                 instance_id: instance._id,
@@ -858,7 +859,6 @@ exports.runApp = function(headers, opt) {
                     }));
                 });
             });
-            //app_inputs.sort((a,b)=>{return a.id > b.id}); //somehow this is neeeded.. I am pushing in the correct order.. so I am not sure
             
             //aggregate meta
             //TODO - this just concatenate *all* meta from all input datasets.. I should probaby do something smarter..

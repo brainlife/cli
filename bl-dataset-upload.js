@@ -189,7 +189,7 @@ async function uploadDataset(headers, options) {
                 archive.finalize();
                 
                 req.on('response', res => {
-                    if(res.statusCode != "200") throw new Error(res.body.message);
+                    if(res.statusCode != "200") throw new Error(res);
                     if (!options.json) console.log("Dataset successfully uploaded");
                     
                     if (datatype.validator && !datatype.force) {
