@@ -872,7 +872,8 @@ exports.runApp = function(headers, opt) {
                 let output_req = {
                     id: output.id, 
                     datatype: output.datatype,
-                    desc: output.id + " from "+ app.name,
+                    ///desc: output.id + " from "+ app.name,
+                    desc: output.desc||app.name,
                     tags: opt.tags,
                     meta,
                     //files: output.files,
