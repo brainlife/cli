@@ -37,9 +37,9 @@ util.loadJwt().then(jwt => {
 });
 
 async function formatPubs(headers, data) {
-    let profiles = await util.queryAllProfiles(headers);
+    let profiles = await util.queryAllProfiles(headers); //TODO don't use this
     let profileTable = {};
-    profiles.forEach(profile => profileTable[profile.id] = profile);
+    profiles.forEach(profile => profileTable[profile.sub] = profile);
 
     let resultArray = data.map(pub => {
         if(!pub.releases) return; //old thing?

@@ -106,17 +106,19 @@ exports.queryProfiles = function(headers, query, opt) {
             headers,
             json: true,
             qs: {
-                limit: opt.limit || -1,
-                offset: opt.skip || 0,
+                limit: opt.limit,
+                offset: opt.skip,
                 where: JSON.stringify({active: true}),
-            } });
+            } 
+        });
         let profiles = body.profiles;
+
+        //TODO - I should apply search query to the API instad
         if (query.id || query.search) {
             profiles = profiles.filter(profile => {
                 let showProfile = false;
-                
                 if (query.id) {
-                    showProfile = showProfile || profile.id == query.id;
+                    showProfile = showProfile || profile.sub == query.id;
                 }
                 if (query.search) {
                     let pattern = new RegExp(escapeRegExp(query.search), 'ig');
@@ -139,7 +141,7 @@ exports.queryAllProfiles = function(headers) {
         headers,
         json: true,
         qs: {
-            limit: -1,
+            limit: 0,
             offset: 0,
             where: JSON.stringify({active: true}),
         }
@@ -269,7 +271,7 @@ exports.queryDatasets = async function(headers, query, opt) {
     });
 }
 
-//GET rid of this
+//TOD GET rid of this
 exports.queryAllDatasets = function(headers) {
     return request(config.api.warehouse + '/dataset', {
         headers,

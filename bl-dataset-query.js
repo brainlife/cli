@@ -52,6 +52,7 @@ util.loadJwt().then(jwt => {
 });
 
 async function outputDatasets(headers, data, skip) {
+    //TODO - don't this this
     let projects = await util.queryAllProjects(headers);
     let datatypes = await util.queryAllDatatypes(headers);
     let profiles = await util.queryAllProfiles(headers);
@@ -59,7 +60,7 @@ async function outputDatasets(headers, data, skip) {
     let projectTable = {}, datatypeTable = {}, profileTable = {};
     projects.forEach(project => projectTable[project._id] = project);
     datatypes.forEach(datatype => datatypeTable[datatype._id] = datatype);
-    profiles.forEach(profile => profileTable[profile.id] = profile);
+    profiles.forEach(profile => profileTable[profile.sub] = profile);
     
     data.forEach(dataset => {
         let createDateObject = new Date(dataset.create_date);
@@ -72,7 +73,9 @@ async function outputDatasets(headers, data, skip) {
 
         if (projectTable[dataset.project]) {
             formattedProject = projectTable[dataset.project].name;
-            if (projectTable[dataset.project].admins) formattedAdmins = projectTable[dataset.project].admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+            if (projectTable[dataset.project].admins) {
+                formattedAdmins = projectTable[dataset.project].admins.map(s => profileTable[s.toString()] ? profileTable[s].username : 'unknown');
+            }
             if (projectTable[dataset.project].members) formattedMembers = projectTable[dataset.project].members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
             if (projectTable[dataset.project].guests) formattedGuests = projectTable[dataset.project].guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
         }

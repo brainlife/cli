@@ -21,21 +21,21 @@ util.loadJwt().then(jwt => {
         search: commander.query
     }).then(profiles=>{
         if (commander.json) console.log(JSON.stringify(profiles));
-        else console.log(formatProfiles(headers, profiles, { all: true }));
+        else console.log(formatProfiles(headers, profiles));
     }).catch(err=>{
         console.error(err);
     });
 });
 
-function formatProfiles(headers, data, whatToShow) {
+function formatProfiles(headers, data) {
     data = data.sort((a, b) => a.id > b.id);
     let resultArray = data.map(profile => {
         let info = [];
-        if (whatToShow.all || whatToShow.id) info.push("Id: " + profile.id);
-        if (whatToShow.all || whatToShow.username) info.push("Username: " + profile.username);
-        if (whatToShow.all || whatToShow.fullname) info.push("Full Name: " + profile.fullname);
-        if (whatToShow.all || whatToShow.email) info.push("Email: " + profile.email);
-        if (whatToShow.all || whatToShow.active) info.push("Active: " + profile.active);
+        info.push("sub: " + profile.sub);
+        info.push("Username: " + profile.username);
+        info.push("Full Name: " + profile.fullname);
+        info.push("Email: " + profile.email);
+        info.push("Active: " + profile.active);
         return info.join('\n');
     });
     resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");

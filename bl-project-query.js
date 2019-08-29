@@ -38,34 +38,46 @@ util.loadJwt().then(jwt => {
     });
 });
 
-async function formatProjects(headers, data) {
-    let profiles = await util.queryAllProfiles(headers);
-    let profileTable = {};
-    profiles.forEach(profile => profileTable[profile.id] = profile);
+async function formatProjects(headers, projects) {
 
-    let resultArray = data.map(project => {
+    //query all sub that I need to query for profiles
+    let subs = [];
+    function add_to_subs(sub) {
+        if(!subs.includes(sub)) subs.push(sub);
+    }
+    projects.forEach(project=>{
+        if(project.admins) project.admins.forEach(add_to_subs);
+        if(project.guests) project.guests.forEach(add_to_subs);
+        if(project.members) project.members.forEach(add_to_subs);
+    });
+    let users = await util.queryProfiles(headers, {subs: {$in: subs}}, {limit: 0});
+
+    function find_user_by_sub(sub) {
+        return users.find(u=>u.sub == sub);
+    }
+    let resultArray = projects.map(project => {
         let info = [];
-        let formattedAdmins = [];
-        let formattedMembers = [];
-        let formattedGuests = [];
-        
-        if (project.admins) formattedAdmins = project.admins.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-        if (project.members) formattedMembers = project.members.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
-        if (project.guests) formattedGuests = project.guests.map(s => profileTable[s] ? profileTable[s].username : 'unknown');
+
+        let admins = [];
+        if(project.admins) admins = project.admins.map(find_user_by_sub).map(i=>i.username);
+        let members = [];
+        if(project.members) members = project.members.map(find_user_by_sub).map(i=>i.username);
+        let guests = [];
+        if(project.guests) guests = project.guests.map(find_user_by_sub).map(i=>i.username);
         
         let formattedAccess = "Access: " + project.access;
         if (project.listed) formattedAccess += " (but listed for all users)";
 
         info.push("Id: " + project._id);
         info.push("Name: " + project.name);
-        info.push("Admins: " + formattedAdmins.join(', '));
-        info.push("Members: " + formattedMembers.join(', '));
-        info.push("Guests: " + formattedGuests.join(', '));
+        info.push("Admins: " + admins.join(', '));
+        info.push("Members: " + members.join(', '));
+        info.push("Guests: " + guests.join(', '));
         info.push("Access: " + formattedAccess);
         info.push("Description: " + project.desc);
         return info.join('\n');
     });
     
-    resultArray.push("(Returned " + data.length + " " + util.pluralize("result", data) + ")");
+    resultArray.push("(Returned " + projects.length + " " + util.pluralize("result", projects) + ")");
     return resultArray.join('\n\n');
 }
