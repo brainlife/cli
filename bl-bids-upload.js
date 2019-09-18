@@ -391,9 +391,16 @@ function upload() {
                         };
 
                         let events_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"events.tsv"; 
-                        //console.log("checking path", events_fullname);
                         if(fs.existsSync(events_fullname)) {
                             files["events.tsv"] = events_fullname;
+                        }
+                        let sbref_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.nii.gz"; 
+                        if(fs.existsSync(sbref_fullname)) {
+                            files["sbref.nii.gz"] = sbref_fullname;
+                        }
+                        let sbrefjson_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.json"; 
+                        if(fs.existsSync(sbrefjson_fullname)) {
+                            files["sbref.json"] = sbrefjson_fullname;
                         }
                         datasets.push({dataset, files});
                         next_file(); 
