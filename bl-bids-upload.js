@@ -479,7 +479,7 @@ function upload() {
                     }),
                 }}).then(async body=>{
                     if(body.count == 0) {
-                        let noop = await submit_noop(dataset_and_files.dataset.datatype, dataset_and_files.dataset.datatype_tags);
+                        let noop = await submit_noop(dataset_and_files.dataset);
                         do_upload(noop, dataset_and_files, next_dataset);
                     } else {
                         console.log("already uploaded");
@@ -531,7 +531,7 @@ function upload() {
             });
         }
 
-        function submit_noop(datatype, datatype_tags) {
+        function submit_noop(dataset) {
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
             return request.post({ url: config.api.wf + "/task", headers, json: true, body: {
@@ -540,9 +540,10 @@ function upload() {
                 service: 'brainlife/app-noop',
                 config: {
                     _outputs: [{
-                         id: "output",
-                         datatype,
-                         datatype_tags,
+                        id: "output",
+                        datatype: dataset.datatype,
+                        datatype_tags: dataset.datatype_tags,
+                        meta: dataset.meta,
                     }]
                 }
             }}).then(body=>{
