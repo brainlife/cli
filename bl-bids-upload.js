@@ -271,7 +271,7 @@ function upload() {
                     if(group["fieldmap.nii.gz"]) return handle_fmap_real(_path, group.infos, next_group);
                     if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
                     if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
-                    if(group["epi.nii.gz"]) handle_fmap_epi(_path, group.infos, next_group);
+                    if(group["epi.nii.gz"]) return handle_fmap_epi(_path, group.infos, next_group);
                     console.log("odd fmap");
                     console.dir(group)
                     next_group();
