@@ -272,6 +272,7 @@ function upload() {
                     if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
                     if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
                     if(group["epi.nii.gz"]) return handle_fmap_epi(_path, group.infos, next_group);
+
                     console.log("odd fmap");
                     console.dir(group)
                     next_group();
@@ -288,10 +289,10 @@ function upload() {
             let pd_fileinfo = infos.find(info=>info._filename == "phasediff.nii.gz");
             let pd_sidecar = get_sidecar_from_fileinfo(dir, pd_fileinfo);
             let dataset = {
-                datatype: datatype_ids["neuro/fmap/phasediff"],
+                datatype: datatype_ids["neuro/fmap"],
                 desc: pd_fileinfo._fullname,
                 
-                //datatype_tags,
+                datatype_tags: ["phasediff"],
                 tags: get_tags(pd_fileinfo),
 
                 meta: Object.assign(pd_sidecar, get_meta(pd_fileinfo)),
@@ -341,10 +342,10 @@ function upload() {
             let {same: meta_same, a: meta_ap, b: meta_pa} = object_diff(ap_sidecar, pa_sidecar);
 
             let dataset = {
-                datatype: datatype_ids["neuro/fmap/epi"],
+                datatype: datatype_ids["neuro/fmap"],
                 desc: ap_fileinfo._fullname,
                 
-                //datatype_tags,
+                datatype_tags: ["epi"],
 
                 tags: Array.from(new Set([...get_tags(ap_fileinfo), ...get_tags(pa_fileinfo)])), //merge and dedupe
                 meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
@@ -498,7 +499,7 @@ function upload() {
             let archive = archiver('tar', { gzip: true });
             //console.dir(dataset_and_files.files);
             for(var path in dataset_and_files.files) {
-                console.log("looking for", path, dataset_and_files.files[path]);
+                //console.log("looking for", path, dataset_and_files.files[path]);
                 archive.file(fs.realpathSync(dataset_and_files.files[path]), { name: path });
             }
             archive.on('error', err=>{
