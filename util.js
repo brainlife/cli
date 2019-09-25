@@ -106,14 +106,14 @@ exports.queryProfiles = function(headers, query, opt) {
             headers,
             json: true,
             qs: {
-                limit: opt.limit,
-                offset: opt.skip,
+                limit: opt.limit||0,
+                offset: opt.skip||0,
                 where: JSON.stringify({active: true}),
             } 
         });
         let profiles = body.profiles;
 
-        //TODO - I should apply search query to the API instad
+        //TODO - I should apply search query to the API instad (I can't until I migrate to mongo)
         if (query.id || query.search) {
             profiles = profiles.filter(profile => {
                 let showProfile = false;
@@ -130,7 +130,6 @@ exports.queryProfiles = function(headers, query, opt) {
                 return showProfile;
             });
         }
-        //console.log("resolved profile", query, profiles);
         resolve(profiles);
     });
 }
@@ -153,7 +152,7 @@ exports.queryAllProfiles = function(headers) {
 //TODO get rid of this
 exports.resolveProfiles = function(headers, query, opt) {
     if (!query) return new Promise(r => r([]));
-    if (exports.isValidObjectId(query)) return exports.queryProfiles(headers, { id: query }, opt);
+    if (exports.isValidObjectId(query)) return exports.queryProfiles(headers, { query }, opt);
     else return exports.queryProfiles(headers, { search: query }, opt);
 }
 
@@ -302,7 +301,6 @@ exports.queryProjects = async function(headers, query, opt) {
     if (query.admin) projectAdmin = await exports.resolveProfiles(headers, query.admin);
     if (query.member) projectMember = await exports.resolveProfiles(headers, query.member);
     if (query.guest) projectGuest = await exports.resolvePRofiles(headers, query.guest);
-    
     let find = { removed: false }, andQueries = [], orQueries = [];
     
     if (query.id) {
@@ -315,13 +313,13 @@ exports.queryProjects = async function(headers, query, opt) {
     }
     
     if (projectAdmin) {
-        andQueries.push({ admins: { $in: projectAdmin.map(p=>{return p.id})} });
+        andQueries.push({ admins: { $in: projectAdmin.map(p=>{return p.sub})} });
     }
     if (projectMember) {
-        andQueries.push({ members: { $in: projectMember.map(p=>{return p.id})} });
+        andQueries.push({ members: { $in: projectMember.map(p=>{return p.sub})} });
     }
     if (projectGuest) {
-        andQueries.push({ quests: { $in: projectQuest.map(p=>{return p.id})} });
+        andQueries.push({ quests: { $in: projectQuest.map(p=>{return p.sub})} });
     }
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
@@ -359,7 +357,7 @@ exports.queryPubs = async function(headers, query, opt) {
     }
     
     if (pubAuthors) {
-        andQueries.push({ authors: { $in: pubAuthors.map(p=>{return p.id})} });
+        andQueries.push({ authors: { $in: pubAuthors.map(p=>{return p.sub})} });
     }
     if (query.doi) {
         andQueries.push({ doi: { $regex: escapeRegExp(query.doi), $options: 'ig'} });

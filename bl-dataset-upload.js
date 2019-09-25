@@ -172,6 +172,7 @@ async function uploadDataset(headers, options) {
                     id: "output",
                     datatype: datatype._id,
                     datatype_tags,
+                    meta: metadata,
                 }],
             }
 

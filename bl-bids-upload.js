@@ -263,7 +263,8 @@ if(commander.validate) {
                     if(group["fieldmap.nii.gz"]) return handle_fmap_real(_path, group.infos, next_group);
                     if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
                     if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
-                    if(group["epi.nii.gz"]) handle_fmap_epi(_path, group.infos, next_group);
+                    if(group["epi.nii.gz"]) return handle_fmap_epi(_path, group.infos, next_group);
+
                     console.log("odd fmap");
                     console.dir(group)
                     next_group();
@@ -280,10 +281,10 @@ if(commander.validate) {
             let pd_fileinfo = infos.find(info=>info._filename == "phasediff.nii.gz");
             let pd_sidecar = get_sidecar_from_fileinfo(dir, pd_fileinfo);
             let dataset = {
-                datatype: datatype_ids["neuro/fmap/phasediff"],
+                datatype: datatype_ids["neuro/fmap"],
                 desc: pd_fileinfo._fullname,
                 
-                //datatype_tags,
+                datatype_tags: ["phasediff"],
                 tags: get_tags(pd_fileinfo),
 
                 meta: Object.assign(pd_sidecar, get_meta(pd_fileinfo)),
@@ -333,10 +334,10 @@ if(commander.validate) {
             let {same: meta_same, a: meta_ap, b: meta_pa} = object_diff(ap_sidecar, pa_sidecar);
 
             let dataset = {
-                datatype: datatype_ids["neuro/fmap/epi"],
+                datatype: datatype_ids["neuro/fmap"],
                 desc: ap_fileinfo._fullname,
                 
-                //datatype_tags,
+                datatype_tags: ["epi"],
 
                 tags: Array.from(new Set([...get_tags(ap_fileinfo), ...get_tags(pa_fileinfo)])), //merge and dedupe
                 meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
@@ -382,9 +383,16 @@ if(commander.validate) {
                         };
 
                         let events_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"events.tsv"; 
-                        //console.log("checking path", events_fullname);
                         if(fs.existsSync(events_fullname)) {
                             files["events.tsv"] = events_fullname;
+                        }
+                        let sbref_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.nii.gz"; 
+                        if(fs.existsSync(sbref_fullname)) {
+                            files["sbref.nii.gz"] = sbref_fullname;
+                        }
+                        let sbrefjson_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.json"; 
+                        if(fs.existsSync(sbrefjson_fullname)) {
+                            files["sbref.json"] = sbrefjson_fullname;
                         }
                         datasets.push({dataset, files});
                         next_file(); 
@@ -470,7 +478,7 @@ if(commander.validate) {
                     }),
                 }}).then(async body=>{
                     if(body.count == 0) {
-                        let noop = await submit_noop(dataset_and_files.dataset.datatype, dataset_and_files.dataset.datatype_tags);
+                        let noop = await submit_noop(dataset_and_files.dataset);
                         do_upload(noop, dataset_and_files, next_dataset);
                     } else {
                         console.log("already uploaded");
@@ -490,7 +498,7 @@ if(commander.validate) {
             let archive = archiver('tar', { gzip: true });
             //console.dir(dataset_and_files.files);
             for(var path in dataset_and_files.files) {
-                console.log("looking for", path, dataset_and_files.files[path]);
+                //console.log("looking for", path, dataset_and_files.files[path]);
                 archive.file(fs.realpathSync(dataset_and_files.files[path]), { name: path });
             }
             archive.on('error', err=>{
@@ -522,7 +530,7 @@ if(commander.validate) {
             });
         }
 
-        function submit_noop(datatype, datatype_tags) {
+        function submit_noop(dataset) {
             //submit noop to upload data
             //warehouse dataset post api need a real task to submit from
             return request.post({ url: config.api.wf + "/task", headers, json: true, body: {
@@ -531,9 +539,10 @@ if(commander.validate) {
                 service: 'brainlife/app-noop',
                 config: {
                     _outputs: [{
-                         id: "output",
-                         datatype,
-                         datatype_tags,
+                        id: "output",
+                        datatype: dataset.datatype,
+                        datatype_tags: dataset.datatype_tags,
+                        meta: dataset.meta,
                     }]
                 }
             }}).then(body=>{
