@@ -15,8 +15,7 @@ commander
     .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
     .option('-d, --directory <directory>', 'path to the root of bids directory')
     .option('-p, --project <projectid>', 'project id to upload the dataset to')
-    .option('-s, --skip', '(deprecated - using --force) Skip BIDS validator')
-    .option('--force', 'Skip BIDS validator')
+    .option('-v, --validate', 'Run BIDS validator')
     .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
     .option('-h, --h')
     .parse(process.argv);
@@ -43,20 +42,13 @@ function parseBIDSPath(_path) {
     return obj;
 }
 
-if(commander.skip) upload();
-else {
+if(commander.validate) {
     console.log("Running bids validator");
     validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>{
         console.log(JSON.stringify(issues, null, 4));
-        if(!commander.force && issues.errors.length > 0) {
-            console.error("BIDS validator detected errors! Please specify --skip to skip validating and try uploading them anyways");
-            process.exit(1);
-        }
-        upload();
     });
-}
-
-function upload() {
+} else {
+    console.log("Uploading..");
     util.loadJwt().then(async jwt => {
         let headers = { "Authorization": "Bearer " + jwt };
 
@@ -557,4 +549,3 @@ function upload() {
         }
     });
 }
-
