@@ -21,7 +21,6 @@ commander
     .parse(process.argv);
 
 if (commander.h) commander.help();
-if (!commander.project) throw new Error("no project given to upload dataset to. -p");
 if (commander.args.length > 0) commander.directory = commander.args[0];
 if (!commander.directory) throw new Error("please specify BIDS root directory. -d");
 
@@ -48,6 +47,8 @@ if(commander.validate) {
         console.log(JSON.stringify(issues, null, 4));
     });
 } else {
+    if (!commander.project) throw new Error("no project given to upload dataset to. -p");
+
     console.log("Uploading..");
     util.loadJwt().then(async jwt => {
         let headers = { "Authorization": "Bearer " + jwt };
