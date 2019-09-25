@@ -425,6 +425,8 @@ function upload() {
         }
 
         function get_sidecar_from_fileinfo(dir, fileinfo) {
+            if(!fileinfo) return {}
+
             let fullname = fileinfo._fullname;
             let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
             let sidecar = get_sidecar(dir+"/"+sidecar_name);
