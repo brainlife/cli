@@ -87,7 +87,7 @@ exports.loadJwt = function() {
                 return reject("Couldn't find your access token. Please try logging in by running 'bl login'");
                 process.exit(1);
             }
-            let jwt = fs.readFileSync(config.path.jwt);
+            let jwt = fs.readFileSync(config.path.jwt, "ascii").trim();
             let dec = jsonwebtoken.decode(jwt);
             if(!dec) return reject("Failed to decode you access token. Please try logging in by running 'bl login'");
             if(dec.exp < Date.now()/1000) return reject("You access token is expired. Please try logging in by running 'bl login'.");
