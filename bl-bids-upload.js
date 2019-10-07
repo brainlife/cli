@@ -10,6 +10,7 @@ const commander = require('commander');
 const util = require('./util');
 const path = require('path');
 const validate = require('bids-validator');
+const terminalOverwrite = require('terminal-overwrite');
 
 commander
     .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
@@ -264,6 +265,7 @@ if(commander.validate) {
                     if(group["fieldmap.nii.gz"]) return handle_fmap_real(_path, group.infos, next_group);
                     if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
                     if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
+                    if(group["epi.bvec"]) return handle_fmap_b0(_path, group.infos, next_group);
                     if(group["epi.nii.gz"]) return handle_fmap_epi(_path, group.infos, next_group);
 
                     console.log("odd fmap");
@@ -324,6 +326,66 @@ if(commander.validate) {
                 }
             }
             return {same, a: diff_a, b: diff_b};
+        }
+
+        function handle_fmap_b0(dir, infos, cb) {
+            /*
+            { infos:
+               [ { _fullname: 'sub-C01087_ses-01_dir-PA_run-01_epi.bval',
+                   sub: 'C01087',
+                   ses: '01',
+                   dir: 'PA',
+                   run: '01',
+                   _filename: 'epi.bval' },
+                 { _fullname: 'sub-C01087_ses-01_dir-PA_run-01_epi.bvec',
+                   sub: 'C01087',
+                   ses: '01',
+                   dir: 'PA',
+                   run: '01',
+                   _filename: 'epi.bvec' },
+                 { _fullname: 'sub-C01087_ses-01_dir-PA_run-01_epi.json',
+                   sub: 'C01087',
+                   ses: '01',
+                   dir: 'PA',
+                   run: '01',
+                   _filename: 'epi.json' },
+                 { _fullname: 'sub-C01087_ses-01_dir-PA_run-01_epi.nii.gz',
+                   sub: 'C01087',
+                   ses: '01',
+                   dir: 'PA',
+                   run: '01',
+                   _filename: 'epi.nii.gz' } ],
+              'epi.bval': true,
+              'epi.bvec': true,
+              'epi.json': true,
+              'epi.nii.gz': true }
+            */
+
+            let epi = infos.find(info=>{return (info._filename == "epi.nii.gz")});
+            let bvec = infos.find(info=>{return (info._filename == "epi.bvec")});
+            let bval = infos.find(info=>{return (info._filename == "epi.bval")});
+            let sidecar = get_sidecar_from_fileinfo(dir, epi);
+
+            let dataset = {
+                datatype: datatype_ids["neuro/dwi"],
+                desc: epi._fullname,
+                
+                //datatype_tags: ["epi", epi.dir],
+                datatype_tags: [], 
+
+                //tags: get_tags(epi),
+                tags: [ "fmap", "b0", epi.dir ],
+
+                meta: get_meta(epi),
+            }
+
+            let files = {
+                "dwi.nii.gz": dir+"/"+epi._fullname,
+                "dwi.bvecs": dir+"/"+bvec._fullname,
+                "dwi.bvals": dir+"/"+bval._fullname,
+            };
+            datasets.push({dataset, files});
+            cb();
         }
 
         function handle_fmap_epi(dir, infos, cb) {
@@ -495,7 +557,7 @@ if(commander.validate) {
         }
 
         function do_upload(noop, dataset_and_files, cb) {
-            console.log("uploading dataset", dataset_and_files);
+            //console.log("uploading dataset", dataset_and_files);
             
             //create tar ball with all files
             let archive = archiver('tar', { gzip: true });
@@ -512,8 +574,22 @@ if(commander.validate) {
             let req = request.post({url: config.api.wf + "/task/upload/" + noop._id + "?p=upload.tar.gz&untar=true", headers: headers});
             archive.pipe(req);
             archive.finalize();
+
+            let total = 0;
+            archive.on('data', data=>{
+                total += data.length; 
+                //console.log(total);
+            });
+            let progress = setInterval(()=>{
+                terminalOverwrite.clear();
+                terminalOverwrite("transferred: "+(total/(1024*1024)).toFixed(1)+"MB");
+            }, 5000);
+
             req.on('response', async res=>{
-                if(res.statusCode != "200") throw new Error(res.body.message);
+                clearInterval(progress);
+                terminalOverwrite.done();
+
+                if(res.statusCode != "200") throw res;
                 let dataset = dataset_and_files.dataset;
                 console.log("Dataset successfully uploaded.. now registering dataset");
                 //console.dir(dataset.meta);
