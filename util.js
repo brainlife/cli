@@ -1015,7 +1015,7 @@ exports.waitForArchivedDatasets = function(headers, task, verbose, cb) {
                 exports.waitForArchivedDatasets(headers, task, verbose, cb); 
             }, 1000*5);
         } else {
-            if(verbose) console.log("Done archiving");
+            //if(verbose) console.log("Done archiving");
             return cb();
         }
     });
@@ -1034,8 +1034,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
         if (task.status == "finished") {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" +
-                                    "STATUS: Successfully finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
+                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" + "finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
             }
             exports.waitForArchivedDatasets(headers, task, verbose, err=>{
@@ -1044,16 +1043,14 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
         } else if (task.status == "failed") {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite(task.name + "("+ task.service + ")\n" +
-                                    "STATUS: failed");
+                terminalOverwrite(task.name + "("+ task.service + ")\n" + " failed");
                 terminalOverwrite.done();
             }
             cb(task.status_msg, null);
         } else {
             if(verbose) {
                 terminalOverwrite.clear();
-                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" +
-                                    "STATUS: " + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
+                terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
         
             }
             setTimeout(function() {
