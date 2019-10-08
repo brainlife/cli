@@ -223,16 +223,16 @@ if(commander.validate) {
             fs.readdir(_path, (err, files)=>{
                 if(err) return cb(err);
                 async.forEach(files, (file, next_file)=>{
-
                     let fileinfo = parseBIDSPath(file);
-                    //console.log(file);
-                    //console.dir(fileinfo);
                     switch(fileinfo._filename) {
                     case "T1w.nii.gz":
                         handle_anat_t1(_path, fileinfo, next_file);
                         break;
                     case "T2w.nii.gz":
                         handle_anat_t2(_path, fileinfo, next_file);
+                        break;
+                    case "FLAIR.nii.gz":
+                        handle_anat_flair(_path, fileinfo, next_file);
                         break;
                     default:
                         //console.log("ignoring", file);
@@ -523,6 +523,25 @@ if(commander.validate) {
             }
 
             let files = {"t2.nii.gz": dir+"/"+fileinfo._fullname};
+            datasets.push({dataset, files});
+            cb();
+        }
+
+        function handle_anat_flair(dir, fileinfo, cb) {
+            //load sidecar
+            let fullname = fileinfo._fullname;
+            let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
+            let sidecar = get_sidecar(dir+"/"+sidecar_name);
+            
+            let dataset = {
+                datatype: datatype_ids["neuro/anat/flair"],
+                desc: fileinfo._fullname,
+                tags: get_tags(fileinfo),
+
+                meta: Object.assign(sidecar, get_meta(fileinfo)),
+            }
+
+            let files = {"flair.nii.gz": dir+"/"+fileinfo._fullname};
             datasets.push({dataset, files});
             cb();
         }
