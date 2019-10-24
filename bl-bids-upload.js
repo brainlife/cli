@@ -166,14 +166,22 @@ if(commander.validate) {
             }
             return meta;
         }
+
         function get_tags(fileinfo) {
             let tags = [];
             if(commander.tag) tags = commander.tag.slice();
             for(let key in fileinfo) {
                 if(key == "_filename") continue;
                 if(key == "_fullname") continue;
+
+                /*
+                //ignore some structural tag as they will be stored in metadata
                 if(key == "sub") continue;
                 if(key == "ses") continue;
+                if(key == "run") continue;
+                */
+                
+                //store other things as tag
                 tags.push(key+"-"+fileinfo[key]);
             }
             return tags;
@@ -186,7 +194,6 @@ if(commander.validate) {
                     let fileinfo = parseBIDSPath(file);
                     switch(fileinfo._filename) {
                     case "dwi.nii.gz":
-                        //console.dir(fileinfo);
                         let fullname = fileinfo._fullname;
                         let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
                         let sidecar = get_sidecar(_path+"/"+sidecar_name);

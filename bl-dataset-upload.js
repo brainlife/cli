@@ -92,9 +92,17 @@ async function uploadDataset(headers, options) {
     let metadata = options.meta || {};
     let filenames = Object.keys(files);
     
-    if (options.subject) metadata.subject = options.subject;
-    if (options.session) metadata.session = options.session;
-    if (options.run) metadata.run = options.run;
+    if (options.subject) {
+        metadata.subject = options.subject;
+    }
+    if (options.session) {
+        metadata.session = options.session;
+        //tags.push("ses-"+options.session); //let's add session to tag
+    }
+    if (options.run) {
+        metadata.run = options.run;
+        //tags.push("run-"+options.run); //let's add run to tag
+    }
     
     let datatype = await getDatatype(headers, options.datatype);
     let instance = await util.findOrCreateInstance(headers, instanceName);

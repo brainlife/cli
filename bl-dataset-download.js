@@ -33,38 +33,38 @@ function downloadDataset(headers, id, dir, json) {
     dir = dir || id;
     
     if (!json) console.log("Download dataset to " + dir);
+    let progress_int = setInterval(showProgress, 200);
     showProgress(0);
 
     fs.mkdir(dir, err => {
-        request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers, encoding: null }, (err, res, body)=>{
-            if(err) throw err;
-            if(res.statusCode != 200) throw body;
-        })
+        //don't use callback for get(). it will buffer all output and it will run out of buffer (2G max)
+        request.get({ url: config.api.warehouse + "/dataset/download/" + id, headers, encoding: null })
         .on('error', err=>{
-            console.error(err);
+            throw err;
         })
         .on('response', res=>{
-            contentLength = res.headers['content-length'];
+            contentLength = parseInt(res.headers['content-length']);
         })
         .on('data', chunk => {
             loaded += chunk.length;
-            showProgress(loaded / contentLength);
+            //showProgress(loaded / contentLength);
+            //console.log(loaded);
         })
         .on('end', () => {
             if (process.stdout.isTTY) terminalOverwrite.done();
+            clearInterval(progress_int);
             //if (!json) console.log("Done!");
         }).pipe(tar.x({ C: dir }));
     });
-    
-    function showProgress(percentage) {
+
+    function showProgress() {
         if (process.stdout.isTTY && !json) {
+            let percentage = loaded / contentLength;
             let progressBar = '', progressBarLength = size.width - 12;
             for (let i = 0; i < progressBarLength; i++) {
                 if (i / progressBarLength > percentage) progressBar += ' ';
                 else progressBar += '=';
             }
-            // percentage can be NaN if no
-            // contentLength is provided from the server
             if (!percentage) {
                 terminalOverwrite('Waiting..');
             } else {
