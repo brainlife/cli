@@ -53,17 +53,17 @@ async function formatProjects(headers, projects) {
     let users = await util.queryProfiles(headers, {subs: {$in: subs}}, {limit: 0});
 
     function find_user_by_sub(sub) {
-        return users.find(u=>u.sub == sub);
+        return users.find(u=>u.sub.toString() == sub);
     }
     let resultArray = projects.map(project => {
         let info = [];
 
         let admins = [];
-        if(project.admins) admins = project.admins.map(find_user_by_sub).map(i=>i.username);
+        if(project.admins) admins = project.admins.map(find_user_by_sub).filter(i=>i != null).map(i=>i.username);
         let members = [];
-        if(project.members) members = project.members.map(find_user_by_sub).map(i=>i.username);
+        if(project.members) members = project.members.map(find_user_by_sub).filter(i=>i != null).map(i=>i.username);
         let guests = [];
-        if(project.guests) guests = project.guests.map(find_user_by_sub).map(i=>i.username);
+        if(project.guests) guests = project.guests.map(find_user_by_sub).filter(i=>i != null).map(i=>i.username);
         
         let formattedAccess = "Access: " + project.access;
         if (project.listed) formattedAccess += " (but listed for all users)";
