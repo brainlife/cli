@@ -269,11 +269,11 @@ if(commander.validate) {
 
                 //for each group, load appropriate datatype
                 async.eachOfSeries(groups, (group, key, next_group)=>{
-                    if(group["fieldmap.nii.gz"]) return handle_fmap_real(_path, group.infos, next_group);
+                    if(group["fieldmap.nii.gz"]) return handle_fmap_single(_path, group.infos, next_group);
                     if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(_path, group.infos, next_group);
                     if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(_path, group.infos, next_group);
-                    if(group["epi.bvec"]) return handle_fmap_b0(_path, group.infos, next_group);
-                    if(group["epi.nii.gz"]) return handle_fmap_epi(_path, group.infos, next_group);
+                    if(group["epi.nii.gz"]) return handle_fmap_pepolar(_path, group.infos, next_group);
+                    if(group["epi.bvec"]) return handle_fmap_b0(_path, group.infos, next_group); //"5th fieldmap..
 
                     console.log("odd fmap");
                     console.dir(group)
@@ -282,7 +282,7 @@ if(commander.validate) {
             });
         }
 
-        function handle_fmap_real(dir, infos, cb) {
+        function handle_fmap_single(dir, infos, cb) {
             //TODO
             cb();
         }
@@ -395,26 +395,64 @@ if(commander.validate) {
             cb();
         }
 
-        function handle_fmap_epi(dir, infos, cb) {
-            let ap_fileinfo = infos.find(info=>{return (info.dir == "AP" && info._filename == "epi.nii.gz")});
-            let ap_sidecar = get_sidecar_from_fileinfo(dir, ap_fileinfo);
-            let pa_fileinfo = infos.find(info=>{return (info.dir == "PA" && info._filename == "epi.nii.gz")});
-            let pa_sidecar = get_sidecar_from_fileinfo(dir, pa_fileinfo);
+        function handle_fmap_pepolar(dir, infos, cb) {
+            /* infos
+            [ { _fullname: 'sub-01_dir-ap_epi.json',
+                sub: '01',
+                dir: 'ap',
+                _filename: 'epi.json' },
+              { _fullname: 'sub-01_dir-ap_epi.nii.gz',
+                sub: '01',
+                dir: 'ap',
+                _filename: 'epi.nii.gz' },
+              { _fullname: 'sub-01_dir-pa_epi.json',
+                sub: '01',
+                dir: 'pa',
+                _filename: 'epi.json' },
+              { _fullname: 'sub-01_dir-pa_epi.nii.gz',
+                sub: '01',
+                dir: 'pa',
+                _filename: 'epi.nii.gz' } ]
+            */
+            
+            //count number of dirs
+            let dirs = [];
+            infos.forEach(info=>{
+                if(!dirs.includes(info.dir)) dirs.push(info.dir);
+                if(info._filename == "epi.json") {
+                    dirs[info.dir] = get_sidecar(dir+"/"+info._fullname);
+                }
+            });
 
-            let {same: meta_same, a: meta_ap, b: meta_pa} = object_diff(ap_sidecar, pa_sidecar);
+            //create epiN.json, etc..
+            let files = {};
+            let all_tags = [];
+            let meta = {};
+            infos.forEach(info=>{
+                let id = dirs.indexOf(info.dir) + 1;
+                if(info._filename == "epi.json") {
+                    files["epi"+id+".json"] = dir+"/"+info._fullname;
+                }
+                if(info._filename == "epi.nii.gz") {
+                    files["epi"+id+".nii.gz"] = dir+"/"+info._fullname;
+                    let tags = get_tags(info);
+                    meta = get_meta(info);
+                    all_tags = Array.from(new Set([...all_tags, ...tags]));
+                }
+            });
+
+            delete meta.dir;
 
             let dataset = {
                 datatype: datatype_ids["neuro/fmap"],
-                desc: ap_fileinfo._fullname,
-                
-                datatype_tags: ["epi"],
+                //desc: first_fileinfo._fullname,
 
-                tags: Array.from(new Set([...get_tags(ap_fileinfo), ...get_tags(pa_fileinfo)])), //merge and dedupe
-                meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
+                datatype_tags: ["pepolar"],
+                tags: all_tags,
+                //meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
+                meta,
             }
 
-            let files = {};
-            infos.forEach(info=>{files[info.dir.toLowerCase()+"."+info._filename] = dir+"/"+info._fullname});
             datasets.push({dataset, files});
             cb();
         }
