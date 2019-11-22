@@ -97,11 +97,10 @@ async function uploadDataset(headers, options) {
     }
     if (options.session) {
         metadata.session = options.session;
-        //tags.push("ses-"+options.session); //let's add session to tag
     }
     if (options.run) {
         metadata.run = options.run;
-        //tags.push("run-"+options.run); //let's add run to tag
+        tags.push("run-"+options.run); //let's add run to tag
     }
     
     let datatype = await getDatatype(headers, options.datatype);
