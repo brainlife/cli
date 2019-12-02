@@ -37,3 +37,5 @@ module.exports.login = function (username, password) {
 		});
 	});
 }
+
+module.exports.bids_walker = require('./bids-walker.js').walk;
