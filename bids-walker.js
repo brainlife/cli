@@ -18,10 +18,24 @@ function parseBIDSPath(_path) {
         if(tokens.length == 1) {
             obj._filename = tokens[0];
         }
-        if(tokens.length == 2) {
-            obj[tokens[0]] = tokens[1];
+        if(tokens.length > 1) {
+            obj[tokens[0]] = tokens.splice(1).join("-");
         }
     });
+    return obj;
+}
+
+function escape_dot(obj) {
+    if(typeof obj == "object") {
+        for(let key in obj) {
+            escape_dot(obj[key]);
+            if(key.includes(".")) {
+                let newkey = key.replace(/\./g, '-');
+                obj[newkey] = obj[key];
+                delete obj[key];
+            }
+        }
+    }
     return obj;
 }
 
@@ -30,8 +44,9 @@ exports.walk = (root, cb)=>{
         README: null,
         CHANGES: null,
         dataset_description: {},
-        participants: {}, //keyed by subjects (from participants.tsv)
-        datasets: [],
+        participants: [], //from participants.tsv
+        participants_json: null, //from participants.json
+        datasets: [], //{dataset, files} ... you have to do dataset.dataset.meta... maybe I should rename it to items"
     }
 
     let tsv = null;
@@ -43,7 +58,7 @@ exports.walk = (root, cb)=>{
     }
     if(tsv) {
         console.log("loading participants.tsv (or -data.tsv)", root);
-        let tsv_head = tsv.shift().split("\t");
+        let tsv_head = escape_dot(tsv.shift().split("\t"));
         
         //look for subject header..
         let subject_col = 0; //first one by default..
@@ -52,15 +67,25 @@ exports.walk = (root, cb)=>{
             if(~col) subject_col = col;
         });
         tsv.forEach(row=>{
-            let cols = row.split("\t");
+            let cols = row.trim().split("\t");
             let subject = cols[subject_col];
-            let participant = {};
+            if(subject.toLowerCase().startsWith("sub-")) subject = subject.substring(4);
+            let participant = {subject};
             cols.forEach((col, idx)=>{
                 if(idx == subject_col) return;
                 participant[tsv_head[idx]] = col;
             });
-            bids.participants[subject] = participant;
+            bids.participants.push(escape_dot(participant));
         });
+    }
+    try {
+        if(fs.existsSync(root+"/participants.json")) {
+            bids.participants_json = escape_dot(require(process.cwd()+"/"+root+"/participants.json"));
+        }
+    } catch(err) {
+        console.error(err);
+        console.error("failed to parse participants.json.. ignoring");
+        ///mnt/datalad/datasets.datalad.org/openfmri/ds000201 contains participants.json that's basically the participants.tsv
     }
 
     if(fs.existsSync(root+"/README")) {
@@ -70,7 +95,11 @@ exports.walk = (root, cb)=>{
         bids.CHANGES = fs.readFileSync(root+"/CHANGES", "utf8");
     }
     if(fs.existsSync(root+"/dataset_description.json")) {
-        bids.dataset_description = require(root+"/dataset_description.json");
+        bids.dataset_description = require(process.cwd()+"/"+root+"/dataset_description.json");
+        if(Array.isArray(bids.dataset_description.HowToAcknowledge)) {
+            //ds000222 is storing this as array..
+            bids.dataset_description.HowToAcknowledge = bids.dataset_description.HowToAcknowledge.toString();
+        }
     }
     
     //start iterating subject directory
@@ -82,7 +111,11 @@ exports.walk = (root, cb)=>{
         async.eachSeries(paths, (path, next_path)=>{
             if(path.endsWith(".json")) { //load things like root level task-XXX_bold.json
                 console.log("loading root level sidecar:"+path);
-                common_sidecar[path] = require(root+"/"+path);
+                try {
+                    common_sidecar[path] = require(process.cwd()+"/"+root+"/"+path);
+                } catch(err) {
+                    console.error("failed to parse it");
+                }
             }
             return next_path();
         }, err=>{
@@ -90,8 +123,13 @@ exports.walk = (root, cb)=>{
             
             //then handle subjects
             async.eachSeries(paths, (path, next_path)=>{
-                const stats = fs.statSync(root+"/"+path);
-                if(!stats.isDirectory()) return next_path(); 
+                try {
+                    const stats = fs.statSync(root+"/"+path);
+                    if(!stats.isDirectory()) return next_path(); 
+                } catch (err) {
+                    //probably broken link?
+                    return next_path();
+                }
                 let fileinfo = parseBIDSPath(path);
                 if(!fileinfo['sub']) {
                     console.log("couldn't find subject directory.. not bids root? "+path);
@@ -101,6 +139,13 @@ exports.walk = (root, cb)=>{
                 handle_subject(common_sidecar, root+"/"+path, next_path);
             }, err=>{
                 //all done load bids
+
+                //escape "."(dot) inside meta
+                //uncaughtException: key PVTMotivation1.1 must not contain '.'
+                bids.datasets.forEach(dataset=>{
+                    escape_dot(dataset.dataset.meta);
+                });
+
                 cb(err, bids);
             });
         });
@@ -120,9 +165,14 @@ exports.walk = (root, cb)=>{
             //first handle sidecars at subject level
             async.forEach(dirs, (dir, next_dir)=>{
                 if(dir.endsWith(".json")) {
-                    let sidecar = require(root+"/"+path);
-                    if(!common_sidecar[path]) common_sidecar[path] = sidecar;
-                    else for(let key in sidecar) common_sidecar[path][key] = sidecar[key]; //need to replace parent's value
+                    console.log("loading "+_path+"/"+dir);
+                    try {
+                        let sidecar = require(process.cwd()+"/"+_path+"/"+dir);
+                        if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
+                        else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
+                    } catch(err) {
+                        console.error("failed to parse json");
+                    }
                 }
                 next_dir();
             }, err=>{
@@ -142,6 +192,12 @@ exports.walk = (root, cb)=>{
                         break;
                     case "fmap": 
                         handle_fmap(common_sidecar, _path+"/fmap", next_dir);
+                        break;
+                    case "eeg": 
+                        handle_eeg(common_sidecar, _path+"/eeg", next_dir);
+                        break;
+                    case "meg": 
+                        handle_meg(common_sidecar, _path+"/meg", next_dir);
                         break;
                     default:
                         //TODO handle sub-A00000844_ses-20100101_scans.tsv
@@ -198,12 +254,13 @@ exports.walk = (root, cb)=>{
             async.forEach(files, (file, next_file)=>{
                 let fileinfo = parseBIDSPath(file);
                 switch(fileinfo._filename) {
+                case "dwi.nii":
                 case "dwi.nii.gz":
                     //let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
                     //let sidecar = get_sidecar(_path+"/"+sidecar_name);
                     let sidecar = {};
                     Object.assign(sidecar, parent_sidecar["dwi.json"]);
-                    Object.assign(sidecar, get_sidecar_from_fileinfo(_path, fileinfo));
+                    Object.assign(sidecar, get_sidecar_from_fileinfo(_path, fileinfo, "dwi.json"));
 
                     let dataset = {
                         datatype: "neuro/dwi",
@@ -215,13 +272,11 @@ exports.walk = (root, cb)=>{
                         meta: Object.assign(sidecar, get_meta(fileinfo)),
                     }
 
-                    let fullname = fileinfo._fullname;
-                    let bvecs = fullname.substring(0, fullname.length-7)+".bvec"; 
-                    let bvals = fullname.substring(0, fullname.length-7)+".bval"; 
+                    let basename = get_basename(fileinfo);
                     let files = {
                         "dwi.nii.gz": _path+"/"+fileinfo._fullname,
-                        "dwi.bvecs": _path+"/"+bvecs,
-                        "dwi.bvals": _path+"/"+bvals,
+                        "dwi.bvecs": _path+"/"+basename+"dwi.bvecs",
+                        "dwi.bvals": _path+"/"+basename+"dwi.bvals",
                     };
                     bids.datasets.push({dataset, files});
                     next_file(); 
@@ -239,12 +294,15 @@ exports.walk = (root, cb)=>{
             async.forEach(files, (file, next_file)=>{
                 let fileinfo = parseBIDSPath(file);
                 switch(fileinfo._filename) {
+                case "T1w.nii":
                 case "T1w.nii.gz":
                     handle_anat_t1(parent_sidecar, _path, fileinfo, next_file);
                     break;
+                case "T2w.nii":
                 case "T2w.nii.gz":
                     handle_anat_t2(parent_sidecar, _path, fileinfo, next_file);
                     break;
+                case "FLAIR.nii":
                 case "FLAIR.nii.gz":
                     handle_anat_flair(parent_sidecar, _path, fileinfo, next_file);
                     break;
@@ -254,6 +312,7 @@ exports.walk = (root, cb)=>{
             }, cb);
         });
     }
+
 
     function handle_fmap(parent_sidecar, _path, cb) {
         fs.readdir(_path, (err, files)=>{
@@ -289,7 +348,56 @@ exports.walk = (root, cb)=>{
     }
 
     function handle_fmap_single(parent_sidecar, dir, infos, cb) {
-        //TODO
+        let fileinfo = infos.find(info=>info._filename == "fieldmap.nii.gz");
+        let sidecar = {};
+        Object.assign(sidecar, parent_sidecar["fieldmap.json"]);
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, "fieldmap.json"));
+
+        let dataset = {
+            datatype: "neuro/fmap",
+            desc: fileinfo._fullname,
+            
+            datatype_tags: ["single"],
+            tags: get_tags(fileinfo),
+
+            meta: Object.assign(sidecar, get_meta(fileinfo)),
+        }
+
+        let files = {};
+        infos.forEach(info=>{files[info._filename] = dir+"/"+info._fullname});
+        bids.datasets.push({dataset, files});
+        cb();
+    }
+
+    function handle_fmap_2phasemag(parent_sidecar, dir, infos, cb) {
+        let fileinfo1 = infos.find(info=>info._filename == "phase1.nii.gz");
+        let fileinfo2 = infos.find(info=>info._filename == "phase2.nii.gz");
+
+        if(!fileinfo1 || !fileinfo2) {
+            console.error("2phasemag given with only phase1?");
+            console.dir(infos);
+            return cb();
+        }
+
+        let sidecar = {};
+        //Object.assign(sidecar, parent_sidecar["phase.json"]); //not sure if this is it..
+        Object.assign(sidecar, 
+            get_sidecar_from_fileinfo(dir, fileinfo1, "phase1.json"),  //is this right?
+            get_sidecar_from_fileinfo(dir, fileinfo2, "phase2.json")); //is this right?
+
+        let dataset = {
+            datatype: "neuro/fmap",
+            desc: fileinfo1._fullname+" and "+fileinfo2._fullname,
+            
+            datatype_tags: ["2phasemag"],
+            tags: [...new Set([...get_tags(fileinfo1), ...get_tags(fileinfo2)])],
+
+            meta: Object.assign(sidecar, get_meta(fileinfo1), get_meta(fileinfo2)),
+        }
+
+        let files = {};
+        infos.forEach(info=>{files[info._filename] = dir+"/"+info._fullname});
+        bids.datasets.push({dataset, files});
         cb();
     }
 
@@ -297,7 +405,7 @@ exports.walk = (root, cb)=>{
         let pd_fileinfo = infos.find(info=>info._filename == "phasediff.nii.gz");
         let sidecar = {};
         Object.assign(sidecar, parent_sidecar["phasediff.json"]);
-        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, pd_fileinfo));
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, pd_fileinfo, "phasediff.json"));
 
         let dataset = {
             datatype: "neuro/fmap",
@@ -383,7 +491,7 @@ exports.walk = (root, cb)=>{
 
         let sidecar = {};
         Object.assign(sidecar, parent_sidecar["epi.json"]); //is this right?
-        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, epi));
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, epi, "epi.json"));
 
         let dataset = {
             datatype: "neuro/dwi",
@@ -434,7 +542,8 @@ exports.walk = (root, cb)=>{
             if(info._filename == "epi.json") {
                 let sidecar = {};
                 Object.assign(sidecar, parent_sidecar["epi.json"]);
-                Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
+                //Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
+                Object.assign(sidecar, get_parent_sidecar(parent_sidecar, info._filename));
                 Object.assign(sidecar, get_sidecar(dir+"/"+info._fullname));
                 dirs[info.dir] = sidecar;
             }
@@ -474,25 +583,212 @@ exports.walk = (root, cb)=>{
     }
 
     function handle_fmap_2pharsemag(parent_sidecar, dir, infos, cb) {
-        //TODO
+        throw "2pahsemag todo";
         cb();
     }
 
+    //deprecated by get_parent_sidecar()
     //convert 
     //  sub-01_ses-01_task-ClipsVal05_acq-ap_bold.json
     //to 
     //  task-ClipsVal05_acq-ap_bold.json
-    function strip_hierachy(filename) {
+
+    //look for parent sidecars that belongs to the sidecar filename
+    function get_parent_sidecar(parent_sidecars, filename) {
+
         let tokens = filename.split("_");
-        let name = "";
-        tokens.forEach(token=>{
-            if(token.startsWith("sub-")) return;
-            if(token.startsWith("ses-")) return;
-            if(token.startsWith("run-")) return;
-            if(name != "") name += "_";
-            name += token;
+        function strip_token(hie) {
+            let found;
+            tokens.forEach((token, idx)=>{
+                if(token.startsWith(hie)) {
+                    found = idx;
+                }
+            });
+            if(found !== undefined) tokens.splice(found, 1);
+        }
+        
+        //look for json with no run  
+        sidecar = {};
+        strip_token("run-"); 
+        filename = tokens.join("_");
+        console.log(filename);
+        if(parent_sidecars[filename]) {
+            console.debug("using", filename);
+            sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
+        }
+        strip_token("ses-"); 
+        filename = tokens.join("_");
+        if(parent_sidecars[filename]) {
+            console.debug("using", filename);
+            sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
+        }
+        strip_token("sub-"); 
+        filename = tokens.join("_");
+        if(parent_sidecars[filename]) {
+            console.debug("using", filename);
+            sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
+        }
+
+        return sidecar;
+    }
+
+    function handle_eeg(parent_sidecar, _path, cb) {
+        fs.readdir(_path, (err, files)=>{
+            if(err) return cb(err);
+            async.forEach(files, (file, next_file)=>{
+                let fileinfo = parseBIDSPath(file);
+                if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
+
+                let basename = get_basename(fileinfo);
+                let dtag;
+                let files;
+                switch(fileinfo._filename) {
+                case "eeg.edf":
+                    dtag = "edf";     
+                    files = {
+                        "eeg.edf": _path+"/"+fileinfo._fullname,
+                    };
+                    break;
+                case "eeg.eeg":
+                    dtag = "brainvision";     
+                    files = {
+                        "eeg.eeg": _path+"/"+fileinfo._fullname,
+                        "eeg.vhdr": _path+"/"+basename+"eeg.vhdr",
+                        "eeg.vmrk": _path+"/"+basename+"eeg.vmrk",
+                    };
+                    break;
+                case "eeg.fdt":
+                    dtag = "eeglab";
+                    files = {
+                        "eeg.fdt": _path+"/"+fileinfo._fullname,
+                        "eeg.set": _path+"/"+basename+"eeg.set",
+                    };
+                    break;
+                default: 
+                    return next_file(); 
+                }
+
+                let sidecar_name = basename+"eeg.json"; //remove .nii.gz to replace it with .json
+
+                //compose sidecar
+                let sidecar = {};
+                Object.assign(sidecar, parent_sidecar["eeg.json"]);
+                //Object.assign(sidecar, parent_sidecar[strip_hierachy(sidecar_name)]);
+                Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
+                Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
+
+                let dataset = {
+                    datatype: "neuro/eeg",
+                    desc: fileinfo._fullname,
+                    
+                    datatype_tags: [ dtag, fileinfo.task.toLowerCase() ], 
+                    tags: get_tags(fileinfo),
+
+                    meta: Object.assign(sidecar, get_meta(fileinfo)),
+                }
+
+                let channels_fullname = _path+"/"+basename+"channels.tsv"; 
+                if(fs.existsSync(channels_fullname)) {
+                    files["channels.tsv"] = channels_fullname;
+                }
+                let events_fullname = _path+"/"+basename+"events.tsv"; 
+                if(fs.existsSync(events_fullname)) {
+                    files["events.tsv"] = events_fullname;
+                }
+
+                //electrodes and coordsystem should come together if they are set
+                let electrodes_fullname = _path+"/"+basename+"electrodes.tsv"; 
+                if(fs.existsSync(electrodes_fullname)) {
+                    files["electrodes.tsv"] = electrodes_fullname;
+                }
+                let coordsystem_fullname = _path+"/"+basename+"coordsystem.tsv"; 
+                if(fs.existsSync(coordsystem_fullname)) {
+                    files["coordsystem.tsv"] = coordsystem_fullname;
+                }
+
+                bids.datasets.push({dataset, files});
+                next_file(); 
+            }, cb);
         });
-        return name;
+    }
+
+    function handle_meg(parent_sidecar, _path, cb) {
+        fs.readdir(_path, (err, files)=>{
+            if(err) return cb(err);
+            async.forEach(files, (file, next_file)=>{
+                let fileinfo = parseBIDSPath(file);
+                if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165 (for eeg)
+
+                let basename = get_basename(fileinfo);
+                let dtag;
+                let files;
+                switch(fileinfo._filename) {
+                case "meg.ds":
+                    dtag = "ctf";     
+                    //TODO - I don't think setting it to directory will work.. but maybe it's downstream issue. let'sd see
+                    files = {
+                        "meg.ds": _path+"/"+fileinfo._fullname,
+                    };
+                    break;
+                case "meg.fif":
+                    dtag = "fif";     
+                    files = {
+                        "meg.fif": _path+"/"+fileinfo._fullname,
+                    };
+                    break;
+                default: 
+                    return next_file(); 
+                }
+
+                let sidecar_name = basename+"meg.json"; //remove .nii.gz to replace it with .json
+
+                //compose sidecar
+                let sidecar = {};
+                Object.assign(sidecar, parent_sidecar["meg.json"]);
+                //Object.assign(sidecar, parent_sidecar[strip_hierachy(sidecar_name)]);
+                Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
+                Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
+
+                let dataset = {
+                    datatype: "neuro/meg",
+                    desc: fileinfo._fullname,
+                    
+                    datatype_tags: [ dtag, fileinfo.task.toLowerCase() ], 
+                    tags: get_tags(fileinfo),
+
+                    meta: Object.assign(sidecar, get_meta(fileinfo)),
+                }
+
+                let channels_fullname = _path+"/"+basename+"channels.tsv"; 
+                if(fs.existsSync(channels_fullname)) {
+                    files["channels.tsv"] = channels_fullname;
+                }
+                let events_fullname = _path+"/"+basename+"events.tsv"; 
+                if(fs.existsSync(events_fullname)) {
+                    files["events.tsv"] = events_fullname;
+                }
+
+                //electrodes and coordsystem should come together if they are set
+                let electrodes_fullname = _path+"/"+basename+"electrodes.tsv"; 
+                if(fs.existsSync(electrodes_fullname)) {
+                    files["electrodes.tsv"] = electrodes_fullname;
+                }
+                let coordsystem_fullname = _path+"/"+basename+"coordsystem.tsv"; 
+                if(fs.existsSync(coordsystem_fullname)) {
+                    files["coordsystem.tsv"] = coordsystem_fullname;
+                }
+
+                bids.datasets.push({dataset, files});
+                next_file(); 
+            }, cb);
+        });
+    }
+
+
+    //converts /something-123_another-123_bold.nii.gz to
+    //         /something-123_another-123
+    function get_basename(fileinfo) {
+        return fileinfo._fullname.substring(0, fileinfo._fullname.length-fileinfo._filename.length);
     }
 
     function handle_func(parent_sidecar, _path, cb) {
@@ -500,19 +796,24 @@ exports.walk = (root, cb)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
                 let fileinfo = parseBIDSPath(file);
+                if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
                 //console.log(file);
                 //console.dir(fileinfo);
                 switch(fileinfo._filename) {
+                case "bold.nii":
                 case "bold.nii.gz":
                     //console.dir(fileinfo);
 
-                    let fullname = fileinfo._fullname;
-                    let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
-                    let sidecar = {};
-
+                    //let fullname = fileinfo._fullname;
+                    //let sidecar_name = fullname.substring(0, fullname.length-fileinfo._filename.length)+"bold.json"; //remove .nii.gz to replace it with .json
+                    let basename = get_basename(fileinfo);
+                    let sidecar_name = basename+"bold.json";
+                        
                     //compose sidecar
+                    let sidecar = {};
                     Object.assign(sidecar, parent_sidecar["bold.json"]);
-                    Object.assign(sidecar, parent_sidecar[strip_hierachy(sidecar_name)]);
+                    //Object.assign(sidecar, parent_sidecar[strip_hierachy(sidecar_name)]);
+                    Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
                     Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
 
                     let dataset = {
@@ -528,15 +829,15 @@ exports.walk = (root, cb)=>{
                         "bold.nii.gz": _path+"/"+fileinfo._fullname,
                     };
 
-                    let events_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"events.tsv"; 
+                    let events_fullname = _path+"/"+basename+"events.tsv"; 
                     if(fs.existsSync(events_fullname)) {
                         files["events.tsv"] = events_fullname;
                     }
-                    let sbref_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.nii.gz"; 
+                    let sbref_fullname = _path+"/"+basename+"sbref.nii.gz"; 
                     if(fs.existsSync(sbref_fullname)) {
                         files["sbref.nii.gz"] = sbref_fullname;
                     }
-                    let sbrefjson_fullname = _path+"/"+fullname.substring(0, fullname.length-11)+"sbref.json"; 
+                    let sbrefjson_fullname = _path+"/"+basename+"sbref.json"; 
                     if(fs.existsSync(sbrefjson_fullname)) {
                         files["sbref.json"] = sbrefjson_fullname;
                     }
@@ -565,20 +866,21 @@ exports.walk = (root, cb)=>{
         return sidecar;
     }
 
-    function get_sidecar_from_fileinfo(dir, fileinfo) {
+    function get_sidecar_from_fileinfo(dir, fileinfo, jsonname) {
         if(!fileinfo) return {}
 
-        let fullname = fileinfo._fullname;
-        let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
-        let sidecar = get_sidecar(dir+"/"+sidecar_name);
+        //let fullname = fileinfo._fullname;
+        //let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
+        let basename = get_basename(fileinfo);
+        let sidecar = get_sidecar(dir+"/"+basename+jsonname);
         return sidecar;
     }
 
     function handle_anat_t1(parent_sidecar, dir, fileinfo, cb) {
         //load (optional?) sidecar
         let sidecar = {};
-        Object.assign(sidecar, parent_sidecar["t1w.json"]);
-        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo));
+        Object.assign(sidecar, parent_sidecar["T1w.json"]);
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, "T1w.json"));
 
         //console.dir(sidecar);
         let dataset = {
@@ -602,8 +904,8 @@ exports.walk = (root, cb)=>{
         //let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
         //let sidecar = get_sidecar(dir+"/"+sidecar_name);
         let sidecar = {};
-        Object.assign(sidecar, parent_sidecar["t2w.json"]);
-        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo));
+        Object.assign(sidecar, parent_sidecar["T2w.json"]);
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, "T2w.json"));
         
         let dataset = {
             datatype: "neuro/anat/t2w",
@@ -624,8 +926,8 @@ exports.walk = (root, cb)=>{
         //let sidecar_name = fullname.substring(0, fullname.length-7)+".json"; //remove .nii.gz to replace it with .json
         //let sidecar = get_sidecar(dir+"/"+sidecar_name);
         let sidecar = {};
-        Object.assign(sidecar, parent_sidecar["flair.json"]); //TODO is this right? (I haven't seen it)
-        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo));
+        Object.assign(sidecar, parent_sidecar["FLAIR.json"]); //TODO is this right? (I haven't seen it)
+        Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, "FLAIR.json"));
         
         let dataset = {
             datatype: "neuro/anat/flair",
@@ -635,7 +937,7 @@ exports.walk = (root, cb)=>{
             meta: Object.assign(sidecar, get_meta(fileinfo)),
         }
 
-        let files = {"flair.nii.gz": dir+"/"+fileinfo._fullname};
+        let files = {"FLAIR.nii.gz": dir+"/"+fileinfo._fullname};
         bids.datasets.push({dataset, files});
         cb();
     }

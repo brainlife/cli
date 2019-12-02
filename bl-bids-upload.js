@@ -73,7 +73,7 @@ if(commander.validate) {
                         removed: false, 
                         datatype: datatypes[dataset_and_files.dataset.datatype],
                         desc: dataset_and_files.dataset.desc, 
-                        'meta.subject': dataset_and_files.dataset.meta.subject, 
+                        'meta.subject': dataset_and_files.dataset.meta.subject,  //TODO subject should be part of desc(filename), isn't it? do I need this?
                         //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
                     }),
                 }}).then(async body=>{
