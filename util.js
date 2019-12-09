@@ -102,13 +102,13 @@ exports.queryProfiles = function(headers, query, opt) {
     if(!opt) opt = {};
     
     return new Promise(async (resolve, reject) => {
-        let body = await request(config.api.auth + '/profile', {
+        let body = await request(config.api.auth + '/profile/list', {
             headers,
             json: true,
             qs: {
                 limit: opt.limit||0,
                 offset: opt.skip||0,
-                where: JSON.stringify({active: true}),
+                find: JSON.stringify({active: true}),
             } 
         });
         let profiles = body.profiles;
@@ -136,7 +136,7 @@ exports.queryProfiles = function(headers, query, opt) {
 
 //TODO get rid of this - merged into queryProfiles?
 exports.queryAllProfiles = function(headers) {
-    return request(config.api.auth + '/profile', {
+    return request(config.api.auth + '/profile/list', {
         headers,
         json: true,
         qs: {
