@@ -67,15 +67,25 @@ if(commander.validate) {
             console.log("preparing upload destination");
             async.eachSeries(datasets, (dataset_and_files, next_dataset)=>{
                 console.log("duplication check..", dataset_and_files.dataset.meta.subject, dataset_and_files.dataset.desc);
+                //similar code exists in bin/importdatalad.js
+                let key = {
+                    project: project._id,
+                    removed: false, 
+                    datatype: datatypes[dataset_and_files.dataset.datatype],
+                    desc: dataset_and_files.dataset.desc,  //TODO - too brittle.. what if user updates desc?
+                    'meta.subject': dataset_and_files.dataset.meta.subject,
+                    //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
+                };
+                if(dataset_and_files.dataset.meta.session) {
+                    key['meta.session'] = dataset_and_files.dataset.meta.session;
+                }
+                if(dataset_and_files.dataset.meta.run) {
+                    key['meta.run'] = dataset_and_files.dataset.meta.run;
+                }
+                //TODO - what if sub/ses/run collides? should I also key by tag?
+
                 request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                    find: JSON.stringify({
-                        project: project._id,
-                        removed: false, 
-                        datatype: datatypes[dataset_and_files.dataset.datatype],
-                        desc: dataset_and_files.dataset.desc, 
-                        'meta.subject': dataset_and_files.dataset.meta.subject,  //TODO subject should be part of desc(filename), isn't it? do I need this?
-                        //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
-                    }),
+                    find: JSON.stringify(key),
                 }}).then(async body=>{
                     if(body.count == 0) {
                         let noop = await submit_noop(dataset_and_files.dataset);

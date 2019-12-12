@@ -73,7 +73,7 @@ exports.walk = (root, cb)=>{
             let participant = {subject};
             cols.forEach((col, idx)=>{
                 if(idx == subject_col) return;
-                participant[tsv_head[idx]] = col;
+                participant[tsv_head[idx]] = col.trim();
             });
             bids.participants.push(escape_dot(participant));
         });
@@ -340,7 +340,7 @@ exports.walk = (root, cb)=>{
                 if(group["epi.nii.gz"]) return handle_fmap_pepolar(parent_sidecar, _path, group.infos, next_group);
                 if(group["epi.bvec"]) return handle_fmap_b0(parent_sidecar, _path, group.infos, next_group); //"5th fieldmap..
 
-                console.log("odd fmap");
+                console.log("odd fmap .. skipping");
                 console.dir(group)
                 next_group();
             }, cb)
@@ -503,7 +503,7 @@ exports.walk = (root, cb)=>{
             //tags: get_tags(epi),
             tags: [ "fmap", "b0", epi.dir ],
 
-            meta: get_meta(epi),
+            meta: Object.assign(sidecar, get_meta(epi)),
         }
 
         let files = {
@@ -534,25 +534,35 @@ exports.walk = (root, cb)=>{
             dir: 'pa',
             _filename: 'epi.nii.gz' } ]
         */
+        let sidecar = {};
         
         //count number of dirs
         let dirs = [];
         infos.forEach(info=>{
             if(!dirs.includes(info.dir)) dirs.push(info.dir);
             if(info._filename == "epi.json") {
-                let sidecar = {};
                 Object.assign(sidecar, parent_sidecar["epi.json"]);
                 //Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
                 Object.assign(sidecar, get_parent_sidecar(parent_sidecar, info._filename));
                 Object.assign(sidecar, get_sidecar(dir+"/"+info._fullname));
-                dirs[info.dir] = sidecar;
             }
         });
+
+        /*
+        let sidecar = {};
+        Object.assign(sidecar, parent_sidecar["epi.json"]);
+        //Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
+        Object.assign(sidecar, get_parent_sidecar(parent_sidecar, info._filename));
+        Object.assign(sidecar, get_sidecar(dir+"/"+info._fullname));
+
+        console.dir(sidecar);
+        process.exit(1);
+        */
+
 
         //create epiN.json, etc..
         let files = {};
         let all_tags = [];
-        let meta = {};
         infos.forEach(info=>{
             let id = dirs.indexOf(info.dir) + 1;
             if(info._filename == "epi.json") {
@@ -575,10 +585,12 @@ exports.walk = (root, cb)=>{
             datatype_tags: ["pepolar"],
             tags: all_tags,
             //meta: Object.assign(meta_same, {ap: meta_ap, pa: meta_pa}, get_meta(ap_fileinfo)),
-            meta,
+            meta: Object.assign(sidecar, meta),
         }
 
         bids.datasets.push({dataset, files});
+
+
         cb();
     }
 
@@ -609,6 +621,7 @@ exports.walk = (root, cb)=>{
         
         //look for json with no run  
         sidecar = {};
+
         strip_token("run-"); 
         filename = tokens.join("_");
         console.log(filename);
@@ -616,12 +629,14 @@ exports.walk = (root, cb)=>{
             console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
+
         strip_token("ses-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
             console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
+
         strip_token("sub-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
@@ -942,3 +957,5 @@ exports.walk = (root, cb)=>{
         cb();
     }
 }
+
+
