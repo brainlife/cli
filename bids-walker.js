@@ -275,8 +275,8 @@ exports.walk = (root, cb)=>{
                     let basename = get_basename(fileinfo);
                     let files = {
                         "dwi.nii.gz": _path+"/"+fileinfo._fullname,
-                        "dwi.bvecs": _path+"/"+basename+"dwi.bvecs",
-                        "dwi.bvals": _path+"/"+basename+"dwi.bvals",
+                        "dwi.bvecs": _path+"/"+basename+"dwi.bvec",
+                        "dwi.bvals": _path+"/"+basename+"dwi.bval",
                     };
                     bids.datasets.push({dataset, files});
                     next_file(); 
