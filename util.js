@@ -442,12 +442,12 @@ exports.queryApps = async function(headers, query, opt) {
     
     if (query.inputs) {
         for (let input of query.inputs) {
-            input_datatypes.push(await util.getDatatype(headers, input));
+            input_datatypes.push(await exports.getDatatype(headers, input));
         }
     }
     if (query.outputs) {
         for (let output of query.outputs) {
-            output_datatypes.push(await util.getDatatype(headers, output));
+            output_datatypes.push(await exports.getDatatype(headers, output));
         }
     }
     let andQueries = [];
@@ -831,14 +831,6 @@ exports.runApp = function(headers, opt) {
             let task = body.task;
             if(!opt.json) console.log("Data Staging Task Created (" + task._id + ")");
 
-            /*
-            let app_inputs = task.config._outputs;
-            app_inputs.forEach(input=>{
-                input.task_id = task._id;
-                input.keys = keys[input.id];
-            }); 
-            */
-
             let app_inputs = [];
             app.inputs.forEach(input => {
                 //find config.json key mapped to this input
@@ -922,7 +914,7 @@ exports.runApp = function(headers, opt) {
                 service: app.github,
                 service_branch: branch,
                 config: preparedConfig,
-                deps: [ task._id ]
+                deps_config: [ {task: task._id} ],
             };
             if (resource) submissionParams.preferred_resource_id = resource;
             request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {

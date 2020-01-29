@@ -211,7 +211,7 @@ async function uploadDataset(headers, options) {
                             name: "validation",
                             service: datatype.validator,
                             config: task.config,
-                            deps: [ task._id ]
+                            deps_config: [ {task: task._id } ],
                         }}, (err, res, body) => {
                             if (err) throw err;
                             if (res.statusCode != 200) throw new Error(res.body.message);
