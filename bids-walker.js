@@ -57,6 +57,8 @@ exports.walk = (root, cb)=>{
         tsv = fs.readFileSync(root+"/participant_data.tsv", "utf8").trim().split("\n");
     }
     if(tsv) {
+        tsv = tsv.map(line=>line.trim()); //remove \r
+
         console.log("loading participants.tsv (or -data.tsv)", root);
         let tsv_head = escape_dot(tsv.shift().split("\t"));
         

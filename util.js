@@ -864,11 +864,9 @@ exports.runApp = function(headers, opt) {
                 let output_req = {
                     id: output.id, 
                     datatype: output.datatype,
-                    ///desc: output.id + " from "+ app.name,
-                    desc: output.desc||app.name,
+                    desc: output.desc||app.name, //what is this for?
                     tags: opt.tags,
                     meta,
-                    //files: output.files,
                     archive: {
                         project: project._id,
                         desc: output.id + " from " + app.name
@@ -881,18 +879,6 @@ exports.runApp = function(headers, opt) {
                     output_req.subdir = output.id;
                 }
                 
-                /* not yet implmented -- but I will be refactoring this code to warehouse api eventually
-                //handle datatype tag passthrough
-                var tags = [];
-                if(output.datatype_tags_pass) {
-                    let input = app_inputs.find(i=>i.id == output.datatype_tags_pass);
-                    tags = tags.concat(tags, input.dataset.datatype_tags);
-                }
-                //.. and add app specified output tags at the end
-                tags = tags.concat(tags, output.datatype_tags);
-                output_req.datatype_tags = lib.uniq(tags);
-                */
-
                 app_outputs.push(output_req);
             });
             
@@ -980,6 +966,23 @@ exports.runApp = function(headers, opt) {
     });
 }
 
+/*
+//wait for task with specified query
+exports.waitForTask = function(headers, query) {
+    return new Promise((resolve, reject)=>{
+        function queryTask() {
+            request({ url: config.api.wf + "/task?find=" + JSON.stringify(query), headers, json: true}, (err, res, body)=>{
+                if(err) return reject(err);
+                if(res.statusCode != 200) return reject(err);
+                if(body.tasks.length == 0) return setTimeout(queryTask, 1000); //repeat until we find it
+                resolve(body.tasks[0]); //found it!
+            });
+        }
+        queryTask(); //start looping
+    });
+}
+*/
+
 /**
  * Wait for datasets from task to be archived
  * @param {any} headers 
@@ -1008,7 +1011,7 @@ exports.waitForArchivedDatasets = function(headers, task, verbose, cb) {
             }, 1000*5);
         } else {
             //if(verbose) console.log("Done archiving");
-            return cb();
+            return cb(null, stored_datasets);
         }
     });
 }
@@ -1043,7 +1046,6 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
             if(verbose) {
                 terminalOverwrite.clear();
                 terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
-        
             }
             setTimeout(function() {
                 exports.waitForFinish(headers, task, verbose, cb);

@@ -180,6 +180,8 @@ async function uploadDataset(headers, options) {
                     datatype: datatype._id,
                     datatype_tags,
                     meta: metadata,
+                    tags,
+                    desc,
                 }],
             }
 
@@ -188,9 +190,8 @@ async function uploadDataset(headers, options) {
             let task = body.task;
 
             if (!options.json) console.log("Waiting for upload task to be ready...");
-            util.waitForFinish(headers, task, process.stdout.isTTY && !options.json, function(err) {
+            util.waitForFinish(headers, task, false, function(err) {
                 if(err) throw err;
-
                 if (!options.json) console.log("Uploading data..");
                 let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                 archive.pipe(req);
@@ -206,32 +207,75 @@ async function uploadDataset(headers, options) {
                             if(!files[file.id]) return; //not set.. probably optional
                             task.config[file.id] = "../" + task._id + "/" + file.filename;
                         });
+
+                        //make archive request 
+                        Object.assign(task.config._outputs[0], {
+                            archive: {
+                                project: project._id,
+                                desc,
+                            },
+                            subdir: "output",
+                        });
+
+                        if(!options.json) console.log("submitting validation task..");
                         request.post({ url: config.api.wf + '/task', headers, json: true, body: {
                             instance_id: instance._id,
                             name: "validation",
                             service: datatype.validator,
+                            service_branch: datatype.validator_branch,
                             config: task.config,
                             deps_config: [ {task: task._id } ],
                         }}, (err, res, body) => {
                             if (err) throw err;
                             if (res.statusCode != 200) throw new Error(res.body.message);
                             let validationTask = body.task;
-                            util.waitForFinish(headers, validationTask, process.stdout.isTTY && !options.json, async (err, task) => {
+                            if(!options.json) console.log("waiting for validation task..");
+                            util.waitForFinish(headers, validationTask, false, async (err, task) => {
                                 if (err) {
+                                    //show why the task failed
+                                    if(!options.json) console.log("loading error.log");
                                     let error_log = await util.getFileFromTask(headers, 'error.log', validationTask, err);
                                     throw new Error(error_log);
                                 } else {
-                                    if (task.product) {
-                                        if (!options.json) {
-                                            if (task.product.warnings && task.product.warnings.length > 0) {
-                                                task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                            } else {
-                                                console.log("Your data looks good!");
-                                            }
+                                    if (task.product && !options.json) {
+                                        if (task.product.warnings && task.product.warnings.length > 0) {
+                                            task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                        } else {
+                                            console.log("Your data looks good!");
                                         }
                                     }
-                                    registerDataset(validationTask);
-                                }
+
+                                    /*
+                                    if(task.status != "finished") {
+                                        if(!options.json) console.log("Validator failed");
+                                        return;
+                                    }
+                                    */
+                                    
+                                    if(!options.json) console.log("waiting for archive request made on the validation output");
+                                    /*
+                                    let archiverTask = await util.waitForTask(headers, {
+                                        service: "brainlife/app-archive",
+                                        "deps_config.task": task._id,
+                                    }); 
+
+                                    if(!options.json) console.log("waiting to archive ..");
+                                    util.waitForFinish(headers, archiverTask, !options.json, (err, task)=>{
+                                        if(err) throw err;
+                                        console.dir(task.config);
+                                        let dataset_id = task.config.datasets[0].dataset._id;
+                                        if(options.json) console.log(JSON.stringify({dataset_id}, null, 4));
+                                        else console.log("archived dataset:", dataset_id);
+                                    });
+                                    */
+                                    util.waitForArchivedDatasets(headers, task, !options.json, (err, datasets)=>{
+                                        if(options.json) console.log(JSON.stringify(datasets[0], null, 4));
+                                        else {
+                                            console.log("archived!", datasets[0]._id);
+                                        }
+                                    });
+
+                                 }
                             });
                         });
                     } else {
