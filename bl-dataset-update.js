@@ -34,6 +34,7 @@ util.loadJwt().then(jwt => {
         }, 
         qs: {
             find: JSON.stringify({_id: commander.id }),
+            limit: 1,
         } 
     }).then(body=>{
         if(body.datasets.length != 1) throw new Error("failed to find the dataset");
