@@ -954,7 +954,7 @@ exports.walk = (root, cb)=>{
             meta: Object.assign(sidecar, get_meta(fileinfo)),
         }
 
-        let files = {"FLAIR.nii.gz": dir+"/"+fileinfo._fullname};
+        let files = {"flair.nii.gz": dir+"/"+fileinfo._fullname};
         bids.datasets.push({dataset, files});
         cb();
     }
