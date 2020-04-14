@@ -656,7 +656,6 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
                     body.config = { brainlife: true };
                     body.group_id = options.project.group_id;
                 }
-
                 request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
                     if (err) return reject(err);

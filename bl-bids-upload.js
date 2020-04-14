@@ -46,7 +46,7 @@ util.loadJwt().then(async jwt => {
     if (projects.length > 1) throw new Error("multiple projects matching '");
     let project = projects[0];
 
-    let instanceName = 'warehouse-cli.bidsupload'.project.group_id;
+    let instanceName = 'warehouse-cli.bidsupload.'+project.group_id;
     let instance = await util.findOrCreateInstance(headers, instanceName, {project});
 
     let datatypes = {};
