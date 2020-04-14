@@ -81,7 +81,6 @@ util.loadJwt().then(jwt => {
 });
 
 async function uploadDataset(headers, options) {
-    let instanceName = 'warehouse-cli.upload';
 
     options = options || {};
     let directory = options.directory || '.';
@@ -104,7 +103,6 @@ async function uploadDataset(headers, options) {
     }
     
     let datatype = await getDatatype(headers, options.datatype);
-    let instance = await util.findOrCreateInstance(headers, instanceName);
 
     let projects = await util.resolveProjects(headers, options.project);
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");
@@ -112,6 +110,9 @@ async function uploadDataset(headers, options) {
     
     let archive = archiver('tar', { gzip: true });
     let project = projects[0];
+
+    let instanceName = 'warehouse-cli.upload.'+project.group_id;
+    let instance = await util.findOrCreateInstance(headers, instanceName, {project});
     
     archive.on('error', err=>{
         throw new Error(err);
@@ -145,7 +146,7 @@ async function uploadDataset(headers, options) {
             }
         } else {
             if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
-            fs.stat(directory + "/" + file.filename, (err,stats)=>{
+            fs.stat(directory + "/" + (file.filename||file.dirname), (err,stats)=>{
                 if(err) {
                     if (file.dirname) {
                         fs.stat(directory + "/" + file.dirname, (err, stats) => {
@@ -156,11 +157,11 @@ async function uploadDataset(headers, options) {
                         });
                     } else {
                         if(file.required) throw new Error(err);
-                        if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
+                        if (!options.json) console.log("Couldn't find " + file.filename + " but it's not required for this datatype");
                         next_file();
                     }
                 } else {
-                    archive.file(directory + '/' + file.filename, { name: file.filename });
+                    archive.file(directory + '/' + file.filename, { name: (file.filename||file.dirname) });
                     next_file();
                 }
             });
@@ -205,7 +206,7 @@ async function uploadDataset(headers, options) {
                         if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
                         datatype.files.forEach(file => {
                             if(!files[file.id]) return; //not set.. probably optional
-                            task.config[file.id] = "../" + task._id + "/" + file.filename;
+                            task.config[file.id] = "../" + task._id + "/" + (file.filename||file.dirname);
                         });
 
                         //make archive request 
@@ -220,7 +221,7 @@ async function uploadDataset(headers, options) {
                         if(!options.json) console.log("submitting validation task..");
                         request.post({ url: config.api.wf + '/task', headers, json: true, body: {
                             instance_id: instance._id,
-                            name: "validation",
+                            name: "__dtv",
                             service: datatype.validator,
                             service_branch: datatype.validator_branch,
                             config: task.config,
@@ -230,7 +231,7 @@ async function uploadDataset(headers, options) {
                             if (res.statusCode != 200) throw new Error(res.body.message);
                             let validationTask = body.task;
                             if(!options.json) console.log("waiting for validation task..");
-                            util.waitForFinish(headers, validationTask, false, async (err, task) => {
+                            util.waitForFinish(headers, validationTask, !options.json, async (err, task) => {
                                 if (err) {
                                     //show why the task failed
                                     if(!options.json) console.log("loading error.log");
@@ -244,30 +245,8 @@ async function uploadDataset(headers, options) {
                                             console.log("Your data looks good!");
                                         }
                                     }
-
-                                    /*
-                                    if(task.status != "finished") {
-                                        if(!options.json) console.log("Validator failed");
-                                        return;
-                                    }
-                                    */
                                     
                                     if(!options.json) console.log("waiting for archive request made on the validation output");
-                                    /*
-                                    let archiverTask = await util.waitForTask(headers, {
-                                        service: "brainlife/app-archive",
-                                        "deps_config.task": task._id,
-                                    }); 
-
-                                    if(!options.json) console.log("waiting to archive ..");
-                                    util.waitForFinish(headers, archiverTask, !options.json, (err, task)=>{
-                                        if(err) throw err;
-                                        console.dir(task.config);
-                                        let dataset_id = task.config.datasets[0].dataset._id;
-                                        if(options.json) console.log(JSON.stringify({dataset_id}, null, 4));
-                                        else console.log("archived dataset:", dataset_id);
-                                    });
-                                    */
                                     util.waitForArchivedDatasets(headers, task, !options.json, (err, datasets)=>{
                                         if(options.json) console.log(JSON.stringify(datasets[0], null, 4));
                                         else {

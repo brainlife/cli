@@ -41,12 +41,14 @@ console.log("Uploading..");
 util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    let instanceName = 'warehouse-cli.bidsupload';
-    let instance = await util.findOrCreateInstance(headers, instanceName);
     let projects = await util.queryProjects(headers, {id: commander.project, search: commander.project});
     if (projects.length == 0) throw new Error("project '" + commander.project + "' not found");
     if (projects.length > 1) throw new Error("multiple projects matching '");
     let project = projects[0];
+
+    let instanceName = 'warehouse-cli.bidsupload'.project.group_id;
+    let instance = await util.findOrCreateInstance(headers, instanceName, {project});
+
     let datatypes = {};
     (await util.queryAllDatatypes(headers)).forEach(datatype=>{
         datatypes[datatype.name] = datatype._id;

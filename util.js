@@ -966,23 +966,6 @@ exports.runApp = function(headers, opt) {
     });
 }
 
-/*
-//wait for task with specified query
-exports.waitForTask = function(headers, query) {
-    return new Promise((resolve, reject)=>{
-        function queryTask() {
-            request({ url: config.api.wf + "/task?find=" + JSON.stringify(query), headers, json: true}, (err, res, body)=>{
-                if(err) return reject(err);
-                if(res.statusCode != 200) return reject(err);
-                if(body.tasks.length == 0) return setTimeout(queryTask, 1000); //repeat until we find it
-                resolve(body.tasks[0]); //found it!
-            });
-        }
-        queryTask(); //start looping
-    });
-}
-*/
-
 /**
  * Wait for datasets from task to be archived
  * @param {any} headers 
@@ -993,7 +976,11 @@ exports.waitForTask = function(headers, query) {
 exports.waitForArchivedDatasets = function(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
-    //if(verbose) console.log("Waiting for output datasets: ", expected_outputs.length);
+
+    console.log("waiting to archive", task);
+    console.dir(task);
+
+    if(verbose) console.log("Waiting for output datasets: ", expected_outputs);
     request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
         find: JSON.stringify({'prov.task_id': task._id}),
     } }, (err, res, body) => {
