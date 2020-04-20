@@ -54,10 +54,10 @@ util.loadJwt().then(async jwt => {
         datatypes[datatype.name] = datatype._id;
     });
 
-    console.log("uploading to following project");
-    console.dir(project);
+    //console.log("uploading to following project");
+    //console.dir(project);
 
-    console.log("walking bids directory");
+    //console.log("walking bids directory");
     bids_walker.walk(commander.directory, (err, bids)=>{
         if(err) throw err;
 
@@ -68,9 +68,10 @@ util.loadJwt().then(async jwt => {
         //bids.participants
         //bids.dataset_description
 
-        console.log("preparing upload destination");
+        //console.log("preparing upload destination");
         async.eachSeries(datasets, (dataset_and_files, next_dataset)=>{
-            console.log("duplication check..", dataset_and_files.dataset.meta.subject, dataset_and_files.dataset.desc);
+            console.log(dataset_and_files);
+            //console.log("duplication check.. sub:", dataset_and_files.dataset.meta.subject, "desc:", dataset_and_files.dataset.desc);
             //similar code exists in bin/importdatalad.js
             let key = {
                 project: project._id,

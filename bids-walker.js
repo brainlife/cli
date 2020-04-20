@@ -82,7 +82,7 @@ exports.walk = (root, cb)=>{
     }
     try {
         if(fs.existsSync(root+"/participants.json")) {
-            bids.participants_json = escape_dot(require(process.cwd()+"/"+root+"/participants.json"));
+            bids.participants_json = escape_dot(require(root+"/participants.json"));
         }
     } catch(err) {
         console.error(err);
@@ -97,7 +97,7 @@ exports.walk = (root, cb)=>{
         bids.CHANGES = fs.readFileSync(root+"/CHANGES", "utf8");
     }
     if(fs.existsSync(root+"/dataset_description.json")) {
-        bids.dataset_description = require(process.cwd()+"/"+root+"/dataset_description.json");
+        bids.dataset_description = require(root+"/dataset_description.json");
         if(Array.isArray(bids.dataset_description.HowToAcknowledge)) {
             //ds000222 is storing this as array..
             bids.dataset_description.HowToAcknowledge = bids.dataset_description.HowToAcknowledge.toString();
@@ -114,7 +114,7 @@ exports.walk = (root, cb)=>{
             if(path.endsWith(".json")) { //load things like root level task-XXX_bold.json
                 console.log("loading root level sidecar:"+path);
                 try {
-                    common_sidecar[path] = require(process.cwd()+"/"+root+"/"+path);
+                    common_sidecar[path] = require(root+"/"+path);
                 } catch(err) {
                     console.error("failed to parse it");
                 }
@@ -169,7 +169,7 @@ exports.walk = (root, cb)=>{
                 if(dir.endsWith(".json")) {
                     console.log("loading "+_path+"/"+dir);
                     try {
-                        let sidecar = require(process.cwd()+"/"+_path+"/"+dir);
+                        let sidecar = require(root+"/"+_path+"/"+dir);
                         if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
                         else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
                     } catch(err) {
