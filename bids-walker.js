@@ -5,7 +5,6 @@
 const fs = require('fs');
 const async = require('async');
 const path = require('path');
-
 const bids_walker = require('./bids-walker');
 
 //sub-CC510395_ses-001_T1w.nii.gz
@@ -82,7 +81,8 @@ exports.walk = (root, cb)=>{
     }
     try {
         if(fs.existsSync(root+"/participants.json")) {
-            bids.participants_json = escape_dot(require(root+"/participants.json"));
+            let json = fs.readFileSync(root+"/participants.json");
+            bids.participants_json = escape_dot(JSON.parse(json));
         }
     } catch(err) {
         console.error(err);
@@ -97,7 +97,8 @@ exports.walk = (root, cb)=>{
         bids.CHANGES = fs.readFileSync(root+"/CHANGES", "utf8");
     }
     if(fs.existsSync(root+"/dataset_description.json")) {
-        bids.dataset_description = require(root+"/dataset_description.json");
+        let json = fs.readFileSync(root+"/dataset_description.json");
+        bids.dataset_description = JSON.parse(json);
         if(Array.isArray(bids.dataset_description.HowToAcknowledge)) {
             //ds000222 is storing this as array..
             bids.dataset_description.HowToAcknowledge = bids.dataset_description.HowToAcknowledge.toString();
@@ -114,7 +115,8 @@ exports.walk = (root, cb)=>{
             if(path.endsWith(".json")) { //load things like root level task-XXX_bold.json
                 console.log("loading root level sidecar:"+path);
                 try {
-                    common_sidecar[path] = require(root+"/"+path);
+                    let json = fs.readFileSync(root+"/"+path);
+                    common_sidecar[path] = JSON.parse(json);
                 } catch(err) {
                     console.error("failed to parse it");
                 }
@@ -169,7 +171,8 @@ exports.walk = (root, cb)=>{
                 if(dir.endsWith(".json")) {
                     console.log("loading "+_path+"/"+dir);
                     try {
-                        let sidecar = require(root+"/"+_path+"/"+dir);
+                        let json = fs.readFileSync(root+"/"+_path+"/"+dir);
+                        let sidecar = JSON.parse(json);
                         if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
                         else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
                     } catch(err) {
@@ -878,7 +881,7 @@ exports.walk = (root, cb)=>{
             sidecar = fs.readFileSync(path, "utf8");
             sidecar = JSON.parse(sidecar);
         } catch (err) {
-            console.error('no sidecar!', path);
+            //console.error('no sidecar!', path);
         }
         return sidecar;
     }
