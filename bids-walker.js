@@ -118,7 +118,8 @@ exports.walk = (root, cb)=>{
                     let json = fs.readFileSync(root+"/"+path);
                     common_sidecar[path] = JSON.parse(json);
                 } catch(err) {
-                    console.error("failed to parse it");
+                    console.error("failed to parse "+root+"/"+path);
+                    console.error(err);
                 }
             }
             return next_path();
@@ -176,7 +177,8 @@ exports.walk = (root, cb)=>{
                         if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
                         else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
                     } catch(err) {
-                        console.error("failed to parse json");
+                        console.error("failed to parse subject level json: "+root+"/"+_path+"/"+dir);
+                        console.error(err);
                     }
                 }
                 next_dir();
