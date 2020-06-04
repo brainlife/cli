@@ -170,9 +170,9 @@ exports.walk = (root, cb)=>{
             //first handle sidecars at subject level
             async.forEach(dirs, (dir, next_dir)=>{
                 if(dir.endsWith(".json")) {
-                    console.log("loading "+_path+"/"+dir);
+                    //console.log("loading "+root+"/"+dir);
                     try {
-                        let json = fs.readFileSync(root+"/"+_path+"/"+dir);
+                        let json = fs.readFileSync(root+"/"+dir);
                         let sidecar = JSON.parse(json);
                         if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
                         else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
@@ -883,6 +883,7 @@ exports.walk = (root, cb)=>{
             sidecar = fs.readFileSync(path, "utf8");
             sidecar = JSON.parse(sidecar);
         } catch (err) {
+            //TODO - generates too many error messages
             //console.error('no sidecar!', path);
         }
         return sidecar;
