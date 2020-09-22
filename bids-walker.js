@@ -172,12 +172,12 @@ exports.walk = (root, cb)=>{
                 if(dir.endsWith(".json")) {
                     //console.log("loading "+root+"/"+dir);
                     try {
-                        let json = fs.readFileSync(root+"/"+dir);
+                        let json = fs.readFileSync(_path+"/"+dir);
                         let sidecar = JSON.parse(json);
                         if(!common_sidecar[dir]) common_sidecar[dir] = sidecar;
                         else for(let key in sidecar) common_sidecar[dir][key] = sidecar[key]; //need to replace parent's value
                     } catch(err) {
-                        console.error("failed to parse subject level json: "+root+"/"+_path+"/"+dir);
+                        console.error("failed to parse subject level json: "+_path+"/"+dir);
                         console.error(err);
                     }
                 }
