@@ -44,6 +44,8 @@ function downloadDataset(headers, id, dir, json) {
         })
         .on('response', res=>{
             contentLength = parseInt(res.headers['content-length']);
+            //console.dir(res.headers);
+            if(res.statusCode != 200) throw res.statusMessage;
         })
         .on('data', chunk => {
             loaded += chunk.length;

@@ -121,6 +121,7 @@ util.loadJwt().then(async jwt => {
         });
 
         //then pipe to the noop
+        //TODO - replace with axios, and use upload2 API which uses muti-part
         let req = request.post({url: config.api.wf + "/task/upload/" + noop._id + "?p=upload.tar.gz&untar=true", headers: headers});
         archive.pipe(req);
         archive.finalize();

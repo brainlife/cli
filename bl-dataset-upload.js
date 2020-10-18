@@ -194,6 +194,8 @@ async function uploadDataset(headers, options) {
             util.waitForFinish(headers, task, false, function(err) {
                 if(err) throw err;
                 if (!options.json) console.log("Uploading data..");
+
+                //TODO - update to use axios, and use upload2 api that uses formdata/multipart
                 let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
                 archive.pipe(req);
                 archive.finalize();
