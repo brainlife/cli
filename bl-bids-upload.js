@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const request = require('request-promise-native');
+const axios = require('axios');
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
@@ -18,7 +19,6 @@ commander
     .usage('[options] (path to the root of bids directory - where you have participants.tsv)')
     .option('-d, --directory <directory>', 'path to the root of bids directory')
     .option('-p, --project <projectid>', 'project id to upload the dataset to')
-    //.option('-v, --validate', 'Run BIDS validator')
     .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
     .option('-h, --h')
     .parse(process.argv);
@@ -26,15 +26,6 @@ commander
 if (commander.h) commander.help();
 if (commander.args.length > 0) commander.directory = commander.args[0];
 if (!commander.directory) throw new Error("please specify BIDS root directory. -d");
-
-/*
-if(commander.validate) {
-    console.log("Running bids validator");
-    validate.BIDS(commander.directory, {ignoreWarnings: true}, (issues, structure)=>{
-        console.log(JSON.stringify(issues, null, 4));
-    });
-} else {
-*/
 if (!commander.project) throw new Error("no project given to upload dataset to. -p");
 
 console.log("Uploading..");
@@ -54,24 +45,15 @@ util.loadJwt().then(async jwt => {
         datatypes[datatype.name] = datatype._id;
     });
 
-    //console.log("uploading to following project");
-    //console.dir(project);
-
-    //console.log("walking bids directory");
     bids_walker.walk(commander.directory, (err, bids)=>{
         if(err) throw err;
 
-        let datasets = bids.datasets;
-        //other things will be..
-        //bids.README
-        //bids.CHANGES
-        //bids.participants
-        //bids.dataset_description
+        updateProjectAndParticipant(bids);
 
-        //console.log("preparing upload destination");
+        let datasets = bids.datasets;
         async.eachSeries(datasets, (dataset_and_files, next_dataset)=>{
             console.log(dataset_and_files);
-            //console.log("duplication check.. sub:", dataset_and_files.dataset.meta.subject, "desc:", dataset_and_files.dataset.desc);
+            
             //similar code exists in bin/importdatalad.js
             let key = {
                 project: project._id,
@@ -192,4 +174,22 @@ util.loadJwt().then(async jwt => {
             });
         });
     }
+    
+    function updateProjectAndParticipant(bids) {
+        let body = {}
+        body.name = bids.dataset_description.Name;
+        if(bids.README) body.readme = bids.README;
+        axios.put(config.api.warehouse+'/project/'+commander.project, body, {headers}).then(res=>{
+            if(bids.participants || bids.participant_json) {
+                let pbody = {
+                    subjects: bids.participants,
+                    columns: bids.participants_json,
+                }
+                axios.put(config.api.warehouse+'/participant/'+commander.project, pbody, {headers}).then(res=>{
+                }).catch(util.handleAxiosError);
+            }
+
+        }).catch(util.handleAxiosError);
+    }
+
 });

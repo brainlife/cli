@@ -6,6 +6,7 @@ const fs = require('fs');
 const async = require('async');
 const path = require('path');
 const bids_walker = require('./bids-walker');
+const util = require('./util');
 
 //sub-CC510395_ses-001_T1w.nii.gz
 function parseBIDSPath(_path) {
@@ -21,20 +22,6 @@ function parseBIDSPath(_path) {
             obj[tokens[0]] = tokens.splice(1).join("-");
         }
     });
-    return obj;
-}
-
-function escape_dot(obj) {
-    if(typeof obj == "object") {
-        for(let key in obj) {
-            escape_dot(obj[key]);
-            if(key.includes(".")) {
-                let newkey = key.replace(/\./g, '-');
-                obj[newkey] = obj[key];
-                delete obj[key];
-            }
-        }
-    }
     return obj;
 }
 
@@ -55,34 +42,12 @@ exports.walk = (root, cb)=>{
     if(fs.existsSync(root+"/participant_data.tsv")) {
         tsv = fs.readFileSync(root+"/participant_data.tsv", "utf8").trim().split("\n");
     }
-    if(tsv) {
-        tsv = tsv.map(line=>line.trim()); //remove \r
+    if(tsv) bids.participants = util.parseParticipantTSV(tsv);
 
-        console.log("loading participants.tsv (or -data.tsv)", root);
-        let tsv_head = escape_dot(tsv.shift().split("\t"));
-        
-        //look for subject header..
-        let subject_col = 0; //first one by default..
-        [ "Observations", "participant_id" ].forEach(key=>{
-            let col = tsv_head.indexOf(key);
-            if(~col) subject_col = col;
-        });
-        tsv.forEach(row=>{
-            let cols = row.trim().split("\t");
-            let subject = cols[subject_col];
-            if(subject.toLowerCase().startsWith("sub-")) subject = subject.substring(4);
-            let participant = {subject};
-            cols.forEach((col, idx)=>{
-                if(idx == subject_col) return;
-                participant[tsv_head[idx]] = col.trim();
-            });
-            bids.participants.push(escape_dot(participant));
-        });
-    }
     try {
         if(fs.existsSync(root+"/participants.json")) {
-            let json = fs.readFileSync(root+"/participants.json");
-            bids.participants_json = escape_dot(JSON.parse(json));
+            let json = fs.readFileSync(root+"/participants.json", "utf8");
+            bids.participants_json = util.escape_dot(JSON.parse(json));
         }
     } catch(err) {
         console.error(err);
@@ -148,7 +113,7 @@ exports.walk = (root, cb)=>{
                 //escape "."(dot) inside meta
                 //uncaughtException: key PVTMotivation1.1 must not contain '.'
                 bids.datasets.forEach(dataset=>{
-                    escape_dot(dataset.dataset.meta);
+                    util.escape_dot(dataset.dataset.meta);
                 });
 
                 cb(err, bids);
@@ -273,7 +238,7 @@ exports.walk = (root, cb)=>{
                         datatype: "neuro/dwi",
                         desc: fileinfo._fullname,
                         
-                        //datatype_tags,
+                        datatype_tags: [],
                         tags: get_tags(fileinfo),
 
                         meta: Object.assign(sidecar, get_meta(fileinfo)),
@@ -504,7 +469,6 @@ exports.walk = (root, cb)=>{
             datatype: "neuro/dwi",
             desc: epi._fullname,
             
-            //datatype_tags: ["epi", epi.dir],
             datatype_tags: [], 
 
             //tags: get_tags(epi),
@@ -909,8 +873,7 @@ exports.walk = (root, cb)=>{
         let dataset = {
             datatype: "neuro/anat/t1w",
             desc: fileinfo._fullname,
-            
-            //datatype_tags,
+            datatype_tags: [],
             tags: get_tags(fileinfo),
 
             meta: Object.assign(sidecar, get_meta(fileinfo)),
@@ -933,6 +896,7 @@ exports.walk = (root, cb)=>{
         let dataset = {
             datatype: "neuro/anat/t2w",
             desc: fileinfo._fullname,
+            datatype_tags: [],
             tags: get_tags(fileinfo),
 
             meta: Object.assign(sidecar, get_meta(fileinfo)),
@@ -956,6 +920,7 @@ exports.walk = (root, cb)=>{
             datatype: "neuro/anat/flair",
             desc: fileinfo._fullname,
             tags: get_tags(fileinfo),
+            datatype_tags: [],
 
             meta: Object.assign(sidecar, get_meta(fileinfo)),
         }

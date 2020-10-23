@@ -14,7 +14,8 @@ commander
     .command('datatype', 'query the available list of datatypes')
     .command('project', 'create and view brainlife projects')
     .command('pub', 'query brainlife publications')
-    .command('dataset', 'view and utilize stored datasets')
+    .command('data', 'view and utilize stored data objects')
+    .command('dataset', '(deprecated .. please use bl data)')
     .command('bids', 'bids upload / download')
     .command('app', 'query and run brainlife apps');
 

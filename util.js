@@ -1114,3 +1114,62 @@ exports.collect = function(val, all) {
     all.push(val);
     return all;
 }
+
+//remove "." in object keys as it screws up mongo db
+exports.escape_dot = function(obj) {
+    if(typeof obj == "object") {
+        for(let key in obj) {
+            exports.escape_dot(obj[key]);
+            if(key.includes(".")) {
+                let newkey = key.replace(/\./g, '-');
+                obj[newkey] = obj[key];
+                delete obj[key];
+            }
+        }
+    }
+    return obj;
+}
+
+exports.parseParticipantTSV = function(tsv) {
+    let participants = [];
+    tsv = tsv.map(line=>line.trim()); //remove \r
+    //console.log("loading participants.tsv (or -data.tsv)", root);
+    let tsv_head = exports.escape_dot(tsv.shift().split("\t"));
+    
+    //look for subject header..
+    let subject_col = 0; //first one by default..
+    [ "Observations", "participant_id" ].forEach(key=>{
+        let col = tsv_head.indexOf(key);
+        if(~col) subject_col = col;
+    });
+    tsv.forEach(row=>{
+        let cols = row.trim().split("\t");
+        let subject = cols[subject_col];
+        if(subject.toLowerCase().startsWith("sub-")) subject = subject.substring(4);
+        let participant = {subject};
+        cols.forEach((col, idx)=>{
+            if(idx == subject_col) return;
+            participant[tsv_head[idx]] = col.trim();
+        });
+        participants.push(exports.escape_dot(participant));
+    });
+
+    return participants;
+}
+
+exports.handleAxiosError = function(err) {
+    if (err.response) {
+        console.error(err.response.data);
+        console.error(err.response.status);
+        console.error(err.response.headers);
+    } else if (err.request) {
+        // The request was made but no response was received
+        // `err.request` is an instance of XMLHttpRequest in the browser and an instance of
+        // http.ClientRequest in node.js
+        console.error(err.request);
+    } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error', err.message);
+    }
+    console.error(err.config);
+}
