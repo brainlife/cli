@@ -7,6 +7,4 @@ commander
     .command('run', 'run a brainlife app')
     .command('wait', 'wait for a running app task to finish');
 
-if (commander.parse(process.argv)) {
-    commander.help();
-}
+commander.parse(process.argv);

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
-const request = require('request-promise-native');
+const request = require('request-promise-native'); //deprecated..
+const axios = require('axios');
 const config = require('./config');
 const fs = require('fs');
 const jsonwebtoken = require('jsonwebtoken');
@@ -42,38 +43,36 @@ const gearFrames = [
     '              B',
 ];
 
-/* this is buggy and masks errors
-//trap exception
-process.on('uncaughtException', err=>{
-    if(err.message) console.error(err.message);
-    else console.error(err.toString());
-    if(process.env.DEBUG && err.stack) console.error(err.stack);
-    process.exit(1);
-})
-*/
-
 exports.login = function(opt) {
     return new Promise((resolve, reject) => {
         let url = config.api.auth;
+
         if(opt.ldap) url += "/ldap/auth";
         else url += "/local/auth";
-        
-        request.post({ url, json: true, body: {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)} }, (err, res, body) => {
-            if(err) throw err;
-            if(res.statusCode != 200) throw new Error("Error: " + res.body.message);
 
-            //make sure .sca/keys directory exists
+        axios.post(url, {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)}).then(res=>{
+            if(res.status != 200) throw new Error("Error: " + res.data.message);
             let dirname = path.dirname(config.path.jwt);
-            mkdirp(dirname, function (err) {
-                if (err) throw err;
+            mkdirp(dirname).then(err=>{
                 fs.chmodSync(dirname, '700');
-                fs.writeFileSync(config.path.jwt, body.jwt);
+                fs.writeFileSync(config.path.jwt, res.data.jwt);
                 fs.chmodSync(config.path.jwt, '600');
-                
-                return resolve(body.jwt);
+                return resolve(res.data.jwt);
             });
         });
     });
+}
+
+exports.refresh = async function(opt, headers) {
+    let url = config.api.auth+"/refresh";
+    let res = await axios.post(url, {ttl: 1000*60*60*24*(opt.ttl || 1)}, {headers});
+    if(res.status != 200) throw new Error("Error: " + res.data.message);
+    let dirname = path.dirname(config.path.jwt);
+    await mkdirp(dirname);
+    fs.chmodSync(dirname, '700');
+    fs.writeFileSync(config.path.jwt, res.data.jwt);
+    fs.chmodSync(config.path.jwt, '600');
+    return res.data.jwt;
 }
 
 /**
@@ -324,7 +323,7 @@ exports.queryProjects = async function(headers, query, opt) {
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
-    //console.log(JSON.stringify(find, null, 4));
+    console.log(config.api.warehouse);
     return request(config.api.warehouse + '/project', { headers, json: true, 
         qs: {
             find: JSON.stringify(find),

@@ -6,6 +6,4 @@ commander
     .command('query', 'run a query against all projects')
     .command('update', 'update project desc/readme');
 
-if (commander.parse(process.argv)) {
-    commander.help();
-}
+commander.parse(process.argv);

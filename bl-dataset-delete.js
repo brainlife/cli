@@ -1,1 +1,0 @@
-bl-data-delete.js

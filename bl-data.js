@@ -9,6 +9,4 @@ commander
     .command('update', 'update desc/metadata/tag of a data object')
     .command('delete', 'delete a data object');
 
-if (commander.parse(process.argv)) {
-    commander.help();
-}
+commander.parse(process.argv);
