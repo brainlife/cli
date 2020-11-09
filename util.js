@@ -323,7 +323,6 @@ exports.queryProjects = async function(headers, query, opt) {
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
-    console.log(config.api.warehouse);
     return request(config.api.warehouse + '/project', { headers, json: true, 
         qs: {
             find: JSON.stringify(find),
