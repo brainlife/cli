@@ -186,7 +186,7 @@ exports.queryDatasets = async function(headers, query, opt) {
             limit: 1,
         }});
         if (body.datatypes.length != 1) throw new Error("No datatypes found matching '" + query.datatype + "'");
-        datatype = body.datatypes[0];
+        datatype = body.datatypes[0]._id;
     }
     
     if (query.project) {
