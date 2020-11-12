@@ -1,6 +1,6 @@
 {
   "name": "brainlife",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "datetime-difference": "^1.0.2",
     "jsonwebtoken": "^8.5.1",
     "mkdirp": "^1.0.4",
-    "prompt": "^1.0.0",
+    "readline-sync": "^1.4.10",
     "request": "^2.88.2",
     "request-promise-native": "^1.0.9",
     "tar": "^6.0.5",

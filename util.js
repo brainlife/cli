@@ -12,7 +12,6 @@ const tar = require('tar');
 const terminalOverwrite = require('terminal-overwrite');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const prompt = require('prompt');
 const colors = require('colors');
 
 const delimiter = ',';
