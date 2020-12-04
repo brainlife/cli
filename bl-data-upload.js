@@ -182,7 +182,6 @@ async function uploadDataset(headers, options) {
             config: {}, //must exists
         }, {headers}).then(res=>{
             let task = res.data.task;
-            console.dir(task);
             if (!options.json) console.log("preparing to upload..");
             util.waitForFinish(headers, task, !options.json, function(err) {
                 if(err) throw err;
@@ -210,7 +209,7 @@ async function uploadDataset(headers, options) {
                     }, {headers}).then(res=>{
                         if(res.data.validator_task) {
                             if (!options.json) console.log("validating...");
-                            util.waitForFinish(headers, res.data.validator_task, !options.json, async (err, archive_task) => {
+                            util.waitForFinish(headers, res.data.validator_task, !options.json, async (err, archive_task, datasets) => {
                                 if (err) {
                                     //show why the task failed
                                     if(!options.json) console.log("validator failed.");
@@ -223,113 +222,27 @@ async function uploadDataset(headers, options) {
                                             task.product.warnings.forEach(warning => console.log("Warning: " + warning));
                                         }
                                     }
-
-                                    console.log("TODO - now we need to wait for archiver");
-                                    /*
-                                    if(!options.json) console.log("waiting for archive request made on the validation output");
-                                    util.waitForArchivedDatasets(headers, task, !options.json, (err, datasets)=>{
-                                        if(options.json) console.log(JSON.stringify(datasets[0], null, 4));
-                                        else {
-                                            console.log("archived!", datasets[0]._id);
-                                        }
-                                    });
-                                    */
+                                    if(!options.json) console.log("successfully uploaded. data object id:", datasets[0]._id);
+                                    else {
+                                        console.log(JSON.stringify(datasets[0], null, 4));
+                                    }
                                  }
                             });
                         }
-                        if(res.data.archive_task) {
+                        if(!res.data.validator_task) {
                             if(!options.json) console.log("no validator registered for this datatype. skipping validation");
-                            util.waitForFinish(headers, res.data.archive_task, !options.json, async (err, task) => {
-                                console.log("archive finished");
-                            });
+                            util.waitForArchivedDatasets(headers, 1, task, !options.json, (err, datasets)=>{
+                                if(err) throw err;
+                                if(!options.json) console.log("successfully uploaded. data object id:", datasets[0]._id);
+                                else {
+                                    console.log(JSON.stringify(datasets[0], null, 4));
+                                }
+                            })
                         }
-
                     }).catch(err=>{
                         if(err.response && err.response.data && err.response.data.message) console.log(err.response.data.message);
                         else console.dir(err);
                     });
-
-                    /*
-                    if (datatype.validator && !datatype.force) {
-                        if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
-                        datatype.files.forEach(file => {
-                            if(!files[file.id]) return; //not set.. probably optional
-                            task.config[file.id] = "../" + task._id + "/" + (file.filename||file.dirname);
-                        });
-
-                        //make archive request 
-                        Object.assign(task.config._outputs[0], {
-                            archive: {
-                                project: project._id,
-                                desc,
-                            },
-                            subdir: "output",
-                        });
-
-                        if(!options.json) console.log("submitting validation task..");
-                        request.post({ url: config.api.amaretti + '/task', headers, json: true, body: {
-                            instance_id: instance._id,
-                            name: "__dtv",
-                            service: datatype.validator,
-                            service_branch: datatype.validator_branch,
-                            config: task.config,
-                            deps_config: [ {task: task._id } ],
-                        }}, (err, res, body) => {
-                            if (err) throw err;
-                            if (res.statusCode != 200) throw new Error(res.body.message);
-                            let validationTask = body.task;
-                            if(!options.json) console.log("waiting for validation task..");
-                            util.waitForFinish(headers, validationTask, !options.json, async (err, task) => {
-                                if (err) {
-                                    //show why the task failed
-                                    if(!options.json) console.log("loading error.log");
-                                    let error_log = await util.getFileFromTask(headers, 'error.log', validationTask, err);
-                                    throw new Error(error_log);
-                                } else {
-                                    if (task.product && !options.json) {
-                                        if (task.product.warnings && task.product.warnings.length > 0) {
-                                            task.product.warnings.forEach(warning => console.log("Warning: " + warning));
-                                        } else {
-                                            console.log("Your data looks good!");
-                                        }
-                                    }
-                                    
-                                    if(!options.json) console.log("waiting for archive request made on the validation output");
-                                    util.waitForArchivedDatasets(headers, task, !options.json, (err, datasets)=>{
-                                        if(options.json) console.log(JSON.stringify(datasets[0], null, 4));
-                                        else {
-                                            console.log("archived!", datasets[0]._id);
-                                        }
-                                    });
-
-                                 }
-                            });
-                        });
-                    } else {
-                        console.error("No validator available for this datatype. Skipping validation.");
-                        registerDataset(task);
-                    }
-                    
-                    function registerDataset(task) {
-                        request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
-                            project: project._id,
-                            task_id: task._id, // we archive data from copy task
-                            output_id: "output",    // app-noop isn't BL app so we just have to come up with a name (why don't we register one?)
-                            meta: metadata,
-                            desc,
-                            tags,
-                        }}, (err, res, dataset) => {
-                            if(err) throw err;
-                            if(res.statusCode != "200") throw new Error("Failed to register dataset: " + res.body.message);
-                            if(!dataset) throw new Error("Failed to register dataset - probably validation failed?");
-                            if(!options.json) console.log("registered dataset:"+dataset._id+" .. now waiting to archive");
-                            util.waitForArchivedDatasets(headers, dataset.prov.task, !options.json, err=>{
-                                if(options.json) console.log(JSON.stringify(dataset, null, 4));
-                                else console.log("archived");
-                            });
-                        });
-                    }
-                    */
                 });
             });
         });
