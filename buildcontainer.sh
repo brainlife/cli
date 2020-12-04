@@ -3,7 +3,7 @@ set -e
 set -x
 
 docker build -t brainlife/cli .
-docker tag brainlife/cli brainlife/cli:1.5.2
+docker tag brainlife/cli brainlife/cli:1.5.4
 docker push brainlife/cli
 
 #test 

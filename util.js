@@ -9,12 +9,13 @@ const jsonwebtoken = require('jsonwebtoken');
 const timeago = require('time-ago');
 const async = require('async');
 const tar = require('tar');
-const terminalOverwrite = require('terminal-overwrite');
+//const terminalOverwrite = require('terminal-overwrite');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const colors = require('colors');
 
 const delimiter = ',';
+/*
 const gearFrames = [
     '               ',
     ' e             ',
@@ -41,6 +42,7 @@ const gearFrames = [
     '             Br',
     '              B',
 ];
+*/
 
 exports.login = function(opt) {
     return new Promise((resolve, reject) => {
@@ -973,66 +975,89 @@ exports.waitForArchivedDatasets = function(headers, task, verbose, cb) {
     if (!task.config || !task.config._outputs) return cb();
     let expected_outputs = task.config._outputs.filter(output=>output.archive);
 
-    console.log("waiting to archive", task);
-    console.dir(task);
+    //console.log("waiting to task archive", task._id);
+    //console.dir(task);
 
-    if(verbose) console.log("Waiting for output datasets: ", expected_outputs);
+    if(verbose) console.debug(new Date(), "Waiting for output archive", task._id, task.status, task.status_msg);
     request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
         find: JSON.stringify({'prov.task_id': task._id}),
     } }, (err, res, body) => {
         if (err) return cb(err);
         if (res.statusCode != 200) return cb(res.body.message);
+        let failed = false;
         let stored_datasets = body.datasets.filter(dataset=>{
-            if(verbose) console.log(dataset._id+"("+dataset.status+") "+dataset.status_msg);
+            if(verbose) console.debug(new Date(), dataset._id+"("+dataset.status+") "+dataset.status_msg);
+            if(dataset.status == "failed") failed = true;
             return (dataset.status == "stored");
         });
-        if(stored_datasets.length < expected_outputs.length) {
+        if(failed) return cb("failed to archive", null);
+        if(stored_datasets.length == expected_outputs.length) {
+            //finished!
+            return cb(null, stored_datasets);
+        } else {
             //if(verbose) console.log(expected_outputs.length+" of "+stored_datasets.length+" datasets archived");
             //not all datasets archived yet.. wait
             return setTimeout(()=>{
                 exports.waitForArchivedDatasets(headers, task, verbose, cb); 
             }, 1000*5);
-        } else {
-            //if(verbose) console.log("Done archiving");
-            return cb(null, stored_datasets);
         }
     });
 }
 
-let wait_gear = 0;
+//wait for the task to finish
+//2nd parameter for cb will be set to archive_task for output
 exports.waitForFinish = function(headers, task, verbose, cb) {
-    if(wait_gear++ >= gearFrames.length) wait_gear = 0;
+    //if(wait_gear++ >= gearFrames.length) wait_gear = 0;
 
     var find = {_id: task._id};
     request({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
         if(err) return cb(err, null);
         if(res.statusCode != 200) return cb(err);
-        if(body.tasks.length != 1) return cb("Couldn't find exactly oone task id");
+        if(body.tasks.length != 1) return cb("Couldn't find exactly one task id. len:", body.tasks.length);
         let task = body.tasks[0];
+        if(verbose) console.log(new Date, task.name, task.service, task.status, task.status_msg);
         if (task.status == "finished") {
+            /*
             if(verbose) {
                 terminalOverwrite.clear();
                 terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" + "finished\n(" + timeago.ago(new Date(task.finish_date)) + ")");
                 terminalOverwrite.done();
             }
-            exports.waitForArchivedDatasets(headers, task, verbose, err=>{
-                cb(err, task);
-            });
+            */
+            //if(verbose) console.log("archiving output...");
+            let needArchive = false;
+            if(task.config && task.config._outputs) {
+                task.config._outputs.forEach(output=>{
+                    if(output.archive) needArchive = true;
+                });
+            }
+            if(needArchive) {
+                if(verbose) config.log("waiting for output to be archived...")
+                exports.waitForArchivedDatasets(headers, task, verbose, err=>{
+                    cb(err, task);
+                });
+            } else {
+                cb(err, null);
+            }
         } else if (task.status == "failed") {
+            /*
             if(verbose) {
                 terminalOverwrite.clear();
                 terminalOverwrite(task.name + "("+ task.service + ")\n" + " failed");
                 terminalOverwrite.done();
             }
+            */
             cb(task.status_msg, null);
         } else {
+            /*
             if(verbose) {
                 terminalOverwrite.clear();
                 terminalOverwrite(task.name + "("+task.service + ")"+ gearFrames[wait_gear] + "\n" + task.status_msg + "\n(running since " + timeago.ago(new Date(task.create_date)) + ")");
             }
+            */
             setTimeout(function() {
                 exports.waitForFinish(headers, task, verbose, cb);
-            }, 1000);  //too short for wait command?
+            }, 3000);
         }
     });
 }

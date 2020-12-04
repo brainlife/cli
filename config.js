@@ -8,7 +8,7 @@ exports.api = {
 
 	event_ws: "wss://"+exports.host+"/api/event",
 }
-exports.api.wf = exports.api.amaretti; //deprecated
+exports.api.wf = exports.api.amaretti; //deprecated .. use api.amaretti
 
 exports.path = {
     jwt: process.env.HOME+"/.config/" + exports.host + "/.jwt",

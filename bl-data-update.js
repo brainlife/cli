@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const request = require('request-promise-native');
+const axios = require('axios');
 const config = require('./config');
 const commander = require('commander');
 const util = require('./util');
@@ -19,24 +19,22 @@ commander
     .parse(process.argv);
 
 if(commander.h) return commander.help();
-
 if(!commander.id) throw new Error("please specify dataset id to update");
 
 util.loadJwt().then(jwt => {
 
     //find the dataset to update
-    request(config.api.warehouse + '/dataset', { 
-        json: true, 
+    axios.get(config.api.warehouse + '/dataset', { 
         headers: { 
             Authorization: "Bearer " + jwt,
         }, 
-        qs: {
+        params: {
             find: JSON.stringify({_id: commander.id }),
             limit: 1,
         } 
-    }).then(body=>{
-        if(body.datasets.length != 1) throw new Error("failed to find the dataset");
-        let dataset = body.datasets[0];
+    }).then(res=>{
+        if(res.data.datasets.length != 1) throw new Error("failed to find the dataset");
+        let dataset = res.data.datasets[0];
         let req = { 
             meta: dataset.meta, 
             tags: dataset.tags, 
@@ -61,7 +59,6 @@ util.loadJwt().then(jwt => {
             if(~pos) req.tags.splice(pos, 1);
         });
 
-
         //datatype tags
         commander.add_dtag.forEach(tag=>{
             if(!tag) return;
@@ -73,12 +70,11 @@ util.loadJwt().then(jwt => {
             if(~pos) req.datatype_tags.splice(pos, 1);
         });
 
-        request.put(config.api.warehouse+'/dataset/'+commander.id, {
+        axios.put(config.api.warehouse+'/dataset/'+commander.id, req, {
             json : true,
             headers: { 
                 Authorization: "Bearer " + jwt,
             }, 
-            body: req,
         });
     });
 });

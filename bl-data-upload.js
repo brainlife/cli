@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const request = require('request-promise-native');
+const axios = require('axios');
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
@@ -22,8 +23,10 @@ commander
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', util.collect, [])
     .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
     .option('-j, --json', 'output uploaded dataset information in json format')
-    .option('--force', 'force the dataset to be uploaded, even if no validator is present')
     .option('-h, --h');
+
+//TODO..
+//.option('--force', 'force the dataset to be uploaded, even if no validator is present')
 
 function getcliopt(key) {
     let match = commander.options.find(option=>{
@@ -81,7 +84,6 @@ util.loadJwt().then(jwt => {
 });
 
 async function uploadDataset(headers, options) {
-
     options = options || {};
     let directory = options.directory || '.';
     let files = options.files || {};
@@ -168,42 +170,86 @@ async function uploadDataset(headers, options) {
         }
     }, err => {
         if(err) throw new Error(err);
+
+        archive.finalize();
         
         //submit noop to upload data
         //warehouse dataset post api need a real task to submit from
-        request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+        axios.post(config.api.amaretti+"/task", {
             instance_id: instance._id,
             name: instanceName,
             service: 'brainlife/app-noop',
-            config: {
-                _outputs: [{
-                    id: "output",
-                    datatype: datatype._id,
-                    datatype_tags,
-                    meta: metadata,
-                    tags,
-                    desc,
-                }],
-            }
-
-        }}, (err, res, body) => {
-            if(err) throw new Error(res.body.message);
-            let task = body.task;
-
-            if (!options.json) console.log("Waiting for upload task to be ready...");
-            util.waitForFinish(headers, task, false, function(err) {
+            config: {}, //must exists
+        }, {headers}).then(res=>{
+            let task = res.data.task;
+            console.dir(task);
+            if (!options.json) console.log("preparing to upload..");
+            util.waitForFinish(headers, task, !options.json, function(err) {
                 if(err) throw err;
-                if (!options.json) console.log("Uploading data..");
+                if (!options.json) console.log("uploading data..");
 
                 //TODO - update to use axios, and use upload2 api that uses formdata/multipart
-                let req = request.post({url: config.api.wf + "/task/upload/" + task._id + "?p=upload.tar.gz&untar=true", headers: headers});
+                let req = request.post({url: config.api.amaretti+"/task/upload/"+task._id+"?p=upload/upload.tar.gz&untar=true", headers});
                 archive.pipe(req);
-                archive.finalize();
-                
-                req.on('response', res => {
+
+                req.on('response', res=>{
                     if(res.statusCode != "200") throw new Error(res);
-                    if (!options.json) console.log("Dataset successfully uploaded");
-                    
+
+                    if (!options.json) console.log("data successfully uploaded. finalizing upload..");
+                    axios.post(config.api.warehouse+'/dataset/finalize-upload', {
+                        task: task._id,
+                        subdir: "upload",
+
+                        //data object info
+                        datatype: datatype._id,
+                        datatype_tags,
+                        meta: metadata,
+                        tags,
+                        desc,
+
+                    }, {headers}).then(res=>{
+                        if(res.data.validator_task) {
+                            if (!options.json) console.log("validating...");
+                            util.waitForFinish(headers, res.data.validator_task, !options.json, async (err, archive_task) => {
+                                if (err) {
+                                    //show why the task failed
+                                    if(!options.json) console.log("validator failed.");
+                                    let error_log = await util.getFileFromTask(headers, 'error.log', task, err);
+                                    throw new Error(error_log);
+                                } else {
+                                    if(!options.json) console.log("validator finished");
+                                    if (task.product && !options.json) {
+                                        if (task.product.warnings && task.product.warnings.length > 0) {
+                                            task.product.warnings.forEach(warning => console.log("Warning: " + warning));
+                                        }
+                                    }
+
+                                    console.log("TODO - now we need to wait for archiver");
+                                    /*
+                                    if(!options.json) console.log("waiting for archive request made on the validation output");
+                                    util.waitForArchivedDatasets(headers, task, !options.json, (err, datasets)=>{
+                                        if(options.json) console.log(JSON.stringify(datasets[0], null, 4));
+                                        else {
+                                            console.log("archived!", datasets[0]._id);
+                                        }
+                                    });
+                                    */
+                                 }
+                            });
+                        }
+                        if(res.data.archive_task) {
+                            if(!options.json) console.log("no validator registered for this datatype. skipping validation");
+                            util.waitForFinish(headers, res.data.archive_task, !options.json, async (err, task) => {
+                                console.log("archive finished");
+                            });
+                        }
+
+                    }).catch(err=>{
+                        if(err.response && err.response.data && err.response.data.message) console.log(err.response.data.message);
+                        else console.dir(err);
+                    });
+
+                    /*
                     if (datatype.validator && !datatype.force) {
                         if (!options.json) console.log("Validating data... (" + datatype.validator + ")");
                         datatype.files.forEach(file => {
@@ -221,7 +267,7 @@ async function uploadDataset(headers, options) {
                         });
 
                         if(!options.json) console.log("submitting validation task..");
-                        request.post({ url: config.api.wf + '/task', headers, json: true, body: {
+                        request.post({ url: config.api.amaretti + '/task', headers, json: true, body: {
                             instance_id: instance._id,
                             name: "__dtv",
                             service: datatype.validator,
@@ -283,6 +329,7 @@ async function uploadDataset(headers, options) {
                             });
                         });
                     }
+                    */
                 });
             });
         });
@@ -291,15 +338,18 @@ async function uploadDataset(headers, options) {
 
 async function getDatatype(headers, query) {
     return new Promise(async (resolve, reject) => {
-        request(config.api.warehouse + '/datatype', { headers, json: true,
-            qs: {
+        axios.get(config.api.warehouse+'/datatype', { 
+            headers,
+            params: {
                 find: JSON.stringify({
                     $or: [ {id: query}, {name: query}, ]
                 }),
             } 
-        }).then(body=>{;
-            if(body.datatypes.length == 0) return reject("no matching datatype:"+query);
-            return resolve(body.datatypes[0]);
+        }).then(res=>{
+            if(res.data.datatypes.length == 0) return reject("no matching datatype:"+query);
+            return resolve(res.data.datatypes[0]);
         });
     });
 }
+
+

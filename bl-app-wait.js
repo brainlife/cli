@@ -14,7 +14,7 @@ util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0) commander.id = commander.id || commander.args[0];
     if (!commander.id) throw new Error("please specify task id");
-    request.get({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: commander.id}), headers, json: true}).then(body=>{
+    request.get({ url: config.api.amaretti+"/task?find=" + JSON.stringify({_id: commander.id}), headers, json: true}).then(body=>{
         if (body.tasks.length == 0) throw new Error("no tasks found with id " + commander.id);
         util.waitForFinish(headers, body.tasks[0], process.stdout.isTTY, async err => {
             if (err) {

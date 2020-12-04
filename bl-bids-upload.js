@@ -112,7 +112,7 @@ util.loadJwt().then(async jwt => {
     function submit_noop(instance, datatypes, dataset) {
         //submit noop to upload data
         //warehouse dataset post api need a real task to submit from
-        return request.post({ url: config.api.wf + "/task", headers, json: true, body: {
+        return request.post({ url: config.api.amaretti + "/task", headers, json: true, body: {
             instance_id: instance._id,
             name: instance.name,
             service: 'brainlife/app-noop',
@@ -151,7 +151,7 @@ util.loadJwt().then(async jwt => {
         //then pipe to the noop
         //TODO - replace with axios, and use upload2 API which uses muti-part
         let req = request.post({
-            url: config.api.wf + "/task/upload/" + noop._id + "?p=upload.tar.gz&untar=true", 
+            url: config.api.amaretti+"/task/upload/"+noop._id+"?p=upload.tar.gz&untar=true", 
             headers,
         });
         archive.pipe(req);
@@ -178,7 +178,7 @@ util.loadJwt().then(async jwt => {
                 let all = new Set([...commander.tags, ...dataset.tags]); //dedup
                 dataset.tags = [...all]; //convert back to array
             }
-            request.post({url: config.api.warehouse + '/dataset', json: true, headers: headers, body: {
+            request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {
                 project: project._id,
                 task_id: noop._id,
                 output_id: "output", //app-noop isn't BL app so we just have to come up with a name (TODO why not register app?)
