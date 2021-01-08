@@ -11,8 +11,7 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .usage('[options] (directory)')
-    .option('--directory <directory>', 'directory where your dataset is located')
+    .usage('[options]')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
     .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', util.collect, [])
@@ -54,14 +53,14 @@ if (commander.h) commander.help();
 if (!commander.project) throw new Error("no project given to upload dataset to");
 if (!commander.datatype) throw new Error("no datatype of dataset given");
 if (!commander.subject) throw new Error("no subject name provided");
-if (commander.args.length > 0) commander.directory = commander.args[0];
+//if (commander.args.length > 0) commander.directory = commander.args[0];
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let dataset = {
         datatype: commander.datatype,
         project: commander.project,
-        directory: commander.directory,
+        //directory: commander.directory,
         files: fileList,
         desc: commander.desc,
 
@@ -85,7 +84,7 @@ util.loadJwt().then(jwt => {
 
 async function uploadDataset(headers, options) {
     options = options || {};
-    let directory = options.directory || '.';
+    //let directory = options.directory || '.';
     let files = options.files || {};
     let desc = options.desc || '';
     let datatype_tags = options.datatype_tags || [];
@@ -147,14 +146,14 @@ async function uploadDataset(headers, options) {
                 next_file();
             }
         } else {
-            if (!options.json) console.log("Looking for " + directory + "/" + (file.filename||file.dirname));
-            fs.stat(directory + "/" + (file.filename||file.dirname), (err,stats)=>{
+            if (!options.json) console.log("Looking for " + (file.filename||file.dirname));
+            fs.stat(file.filename||file.dirname, (err,stats)=>{
                 if(err) {
                     if (file.dirname) {
-                        fs.stat(directory + "/" + file.dirname, (err, stats) => {
-                            if (err) throw new Error("unable to stat " + directory + "/" + file.dirname + " ... Does the directory exist?");
+                        fs.stat(file.dirname, (err, stats) => {
+                            if (err) throw new Error("unable to stat " + file.dirname + " ... Does the specified directory exist?");
                             
-                            archive.directory(directory + '/' + file.dirname, file.dirname);
+                            archive.directory(file.dirname, file.dirname);
                             next_file();
                         });
                     } else {
@@ -163,7 +162,7 @@ async function uploadDataset(headers, options) {
                         next_file();
                     }
                 } else {
-                    archive.file(directory + '/' + file.filename, { name: (file.filename||file.dirname) });
+                    archive.file(file.filename, { name: (file.filename||file.dirname) });
                     next_file();
                 }
             });
@@ -222,8 +221,10 @@ async function uploadDataset(headers, options) {
                                             task.product.warnings.forEach(warning => console.log("Warning: " + warning));
                                         }
                                     }
-                                    if(!options.json) console.log("successfully uploaded. data object id:", datasets[0]._id);
-                                    else {
+                                    if(!options.json) {
+                                        console.log("successfully uploaded");
+                                        console.log("https://"+process.env.BLHOST+"/projects/"+project._id+"/dataset/"+datasets[0]._id);
+                                    } else {
                                         console.log(JSON.stringify(datasets[0], null, 4));
                                     }
                                  }

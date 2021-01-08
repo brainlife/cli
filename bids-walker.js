@@ -5,7 +5,6 @@
 const fs = require('fs');
 const async = require('async');
 const path = require('path');
-const bids_walker = require('./bids-walker');
 const util = require('./util');
 
 //sub-CC510395_ses-001_T1w.nii.gz
