@@ -18,8 +18,15 @@ util.loadJwt().then(jwt => {
         if (body.tasks.length == 0) throw new Error("no tasks found with id " + commander.id);
         util.waitForFinish(headers, body.tasks[0], process.stdout.isTTY, async err => {
             if (err) {
-                let error_log = await util.getFileFromTask(headers, 'error.log', body.tasks[0], err);
-                throw "error.log from task (" + body.tasks[0]._id + "):\n" + error_log;
+                /*
+                try {
+                    err = await util.getFileFromTask(headers, 'error.log', body.tasks[0]);
+                } catch(err) {
+                    //failed to load error.log
+                }
+                throw "error.log from task (" + body.tasks[0]._id + "):\n" + err;
+                */
+                throw err;
             }
             console.log("(done waiting)");
         });

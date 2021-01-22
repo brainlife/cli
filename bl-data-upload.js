@@ -114,7 +114,7 @@ async function uploadDataset(headers, options) {
 
     let instanceName = 'warehouse-cli.upload.'+project.group_id;
     let instance = await util.findOrCreateInstance(headers, instanceName, {project});
-    
+    console.debug("using instance", instance._id);
     archive.on('error', err=>{
         throw new Error(err);
     });
@@ -168,7 +168,7 @@ async function uploadDataset(headers, options) {
             });
         }
     }, err => {
-        if(err) throw new Error(err);
+        if(err) throw err;
 
         archive.finalize();
         
@@ -210,10 +210,17 @@ async function uploadDataset(headers, options) {
                             if (!options.json) console.log("validating...");
                             util.waitForFinish(headers, res.data.validator_task, !options.json, async (err, archive_task, datasets) => {
                                 if (err) {
-                                    //show why the task failed
-                                    if(!options.json) console.log("validator failed.");
-                                    let error_log = await util.getFileFromTask(headers, 'error.log', task, err);
-                                    throw new Error(error_log);
+                                    //show why the validator failed
+                                    /*
+                                    if(!options.json) console.error("validator failed.", err);
+                                    try {
+                                        err = await util.getFileFromTask(headers, 'error.log', task);
+                                    } catch (err) {
+                                        //couldn't load error.log.. 
+                                    }
+                                    */
+                                    console.error("validation failed", err);
+                                    process.exit(1);
                                 } else {
                                     if(!options.json) console.log("validator finished");
                                     if (task.product && !options.json) {
@@ -223,14 +230,13 @@ async function uploadDataset(headers, options) {
                                     }
                                     if(!options.json) {
                                         console.log("successfully uploaded");
-                                        console.log("https://"+process.env.BLHOST+"/projects/"+project._id+"/dataset/"+datasets[0]._id);
+                                        console.log("https://"+config.host+"/project/"+project._id+"/dataset/"+datasets[0]._id);
                                     } else {
                                         console.log(JSON.stringify(datasets[0], null, 4));
                                     }
                                  }
                             });
-                        }
-                        if(!res.data.validator_task) {
+                        } else {
                             if(!options.json) console.log("no validator registered for this datatype. skipping validation");
                             util.waitForArchivedDatasets(headers, 1, task, !options.json, (err, datasets)=>{
                                 if(err) throw err;
@@ -246,6 +252,8 @@ async function uploadDataset(headers, options) {
                     });
                 });
             });
+        }).catch(err=>{
+            console.error(err);
         });
     });
 }

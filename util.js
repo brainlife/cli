@@ -590,7 +590,7 @@ exports.queryResources = function(headers, query, opt) {
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
 
-    return request(config.api.wf + '/resource', { headers, json: true, 
+    return request(config.api.amaretti + '/resource', { headers, json: true, 
         qs: {
             find: JSON.stringify(find),
             sort: JSON.stringify({ name: 1 }),
@@ -624,7 +624,7 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
         var find = { name: instanceName };
         options = options || {};
 
-        request({url: config.api.wf + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
+        request({url: config.api.amaretti + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
             if(err) return reject(err);
             if(res.statusCode != 200) return reject(res.statusCode);
             if(body.instances[0]) resolve(body.instances[0]);
@@ -635,7 +635,7 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
                     body.config = { brainlife: true };
                     body.group_id = options.project.group_id;
                 }
-                request.post({url: config.api.wf + "/instance", headers: headers, json: true, body,
+                request.post({url: config.api.amaretti + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
                     if (err) return reject(err);
                     else if (res.statusCode != 200) {
@@ -881,7 +881,7 @@ exports.runApp = function(headers, opt) {
                 deps_config: [ {task: task._id} ],
             };
             if (resource) submissionParams.preferred_resource_id = resource;
-            request.post({ url: config.api.wf + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
+            request.post({ url: config.api.amaretti + "/task", headers, json: true, body: submissionParams }, (err, res, body) => {
                 if (err) return reject(err);
                 else if (res.statusCode != 200) return reject(res.body.message);
                 if (!opt.json) console.log(app.name + " task for app '" + app.name + "' has been created.\n" +
@@ -935,7 +935,7 @@ exports.runApp = function(headers, opt) {
          * @returns {Promise<{ resource: string, considered: resource[] }>}
          */
         function getResource(headers, service) {
-            return request(config.api.wf + '/resource/best', {
+            return request(config.api.amaretti + '/resource/best', {
                 headers,
                 qs: { service: service },
                 json: true
@@ -976,14 +976,11 @@ exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose,
 //wait for the task to finish
 //2nd parameter for cb will be set to archive_task for output
 exports.waitForFinish = function(headers, task, verbose, cb) {
-    //if(wait_gear++ >= gearFrames.length) wait_gear = 0;
-
     var find = {_id: task._id};
-    request({ url: config.api.wf + "/task?find=" + JSON.stringify({_id: task._id}), headers, json: true}, (err, res, body) => {
-        if(err) return cb(err, null);
-        if(res.statusCode != 200) return cb(err);
-        if(body.tasks.length != 1) return cb("Couldn't find exactly one task id. len:", body.tasks.length);
-        let task = body.tasks[0];
+    axios.get(config.api.amaretti + "/task?find=" + JSON.stringify({_id: task._id}), {headers}).then(res=>{
+        if(res.status != 200) return cb(err);
+        if(res.data.tasks.length != 1) return cb("Couldn't find exactly one task id. len:", res.data.tasks.length);
+        let task = res.data.tasks[0];
         if(verbose) console.debug(new Date, "task:", task._id, task.name, task.service, task.status, task.status_msg);
         if (task.status == "finished") {
             let datasetCount = 0;
@@ -992,21 +989,44 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                     if(output.archive) datasetCount++;
                 });
             }
-            if(datasetCount > 0) {
-                if(verbose) console.log("waiting for output to be archived...")
-                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
-                    cb(err, task, datasets);
+            
+            if(datasetCount == 0) return cb(null, null, []); //no output for this task.
+
+            if(verbose) console.log("waiting for output to be archived...")
+            
+            if(task.name == "__dtv") {
+                //check for validation result
+                if(verbose) console.debug("loading product for __dtv", task._id);
+                let params = {ids: [task._id]};
+                axios.get(config.api.amaretti+"/task/product", {headers, params}).then(res=>{
+                    if(res.data.length == 0) return cb("couldn't find validation result");
+                    let product = res.data[0].product;
+                    if(verbose && product.warnings && product.warnings.length > 0) console.error("warnings", product.warnings);
+                    if(product.errors && product.errors.length > 0) return cb(product.errors);
+
+                    //now wait for the output to be archived
+                    exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
+                        return cb(err, task, datasets);
+                    });
+
+                }).catch(err=>{
+                    return cb(err);
                 });
             } else {
-                cb(err, null, []);
+                //datatype without validator should immediately archive
+                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
+                    return cb(err, task, datasets);
+                });
             }
         } else if (task.status == "failed") {
-            cb(task.status_msg, null);
+            return cb(task.status_msg, null);
         } else {
             setTimeout(function() {
                 exports.waitForFinish(headers, task, verbose, cb);
             }, 3000);
         }
+    }).catch(err=>{
+        return cb(err, null);
     });
 }
 
@@ -1015,12 +1035,12 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
  * @param {any} headers 
  * @param {string} filename 
  * @param {task} task 
- * @param {string} defaultErr 
  */
-exports.getFileFromTask = function(headers, filename, task, defaultErr) {
+/*
+exports.getFileFromTask = function(headers, filename, task) {
     return new Promise(async (resolve, reject) => {
         let fileBody = await request({
-            url: config.api.wf + '/task/ls/' + task._id,
+            url: config.api.amaretti + '/task/ls/' + task._id,
             headers,
             json: true });
         
@@ -1034,20 +1054,16 @@ exports.getFileFromTask = function(headers, filename, task, defaultErr) {
         
         if (taskFile) {
             let result = await request({
-                url: config.api.wf + '/task/download/' + task._id+'/'+taskFile.filename,
-                /*
-                qs: {
-                    p: taskFile.filename
-                },
-                */
+                url: config.api.amaretti + '/task/download/' + task._id+'/'+taskFile.filename,
                 headers,
             });
             return resolve(result);
         } else {
-            return reject(defaultErr);
+            return reject("failed to load "+filename);
         }
     });
 }
+*/
 
 //TODO - not very effective - as user can easily go around this check by directly accessing to our REST API. 
 /**
