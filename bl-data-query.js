@@ -18,6 +18,8 @@ commander
     .option('-p, --project <projectid>', 'filter datasets by project id')
     .option('-u, --pub <releaseID>', 'filter datasets by publication release id')
     .option('-b, --subject <subject>', 'filter datasets by subject')
+    .option('--session <session>', 'filter datasets by session ID')
+    .option('--run <run>', 'filter datasets by run ID')
     .option('--taskid <projectid>', 'filter datasets by provenance task id')
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
@@ -39,6 +41,8 @@ util.loadJwt().then(jwt => {
         project: commander.project,
         pub: commander.pub,
         subject: commander.subject,
+        session: commander.session,
+        run: commander.run,
         taskId: commander.taskid
     }, {
         skip: commander.skip,
@@ -65,7 +69,6 @@ async function outputDatasets(headers, data, skip) {
     data.forEach(dataset => {
         let createDateObject = new Date(dataset.create_date);
         let formattedDate = createDateObject.toLocaleString() + " (" + timeago.ago(createDateObject) + ")";
-        let subject = dataset.meta && dataset.meta.subject ? dataset.meta.subject : 'N/A';
         let formattedDatatype = datatypeTable[dataset.datatype].name;
         let formattedDatatypeTags = dataset.datatype_tags.length == 0 ? '' : "<" + dataset.datatype_tags.join(', ') + ">";
         let formattedTags = (dataset.tags || []).join(', ');
@@ -85,8 +88,9 @@ async function outputDatasets(headers, data, skip) {
         console.log("Admins: " + formattedAdmins.join(', '));
         console.log("Members: " + formattedMembers.join(', '));
         console.log("Guests: " + formattedGuests.join(', '));
-        console.log("Subject: " + subject);
-        console.log("Session: " + (dataset.meta ? (dataset.meta.session || "") : ""));
+        console.log("Subject: " + (dataset.meta && dataset.meta.subject ? dataset.meta.subject : 'N/A'));
+        console.log("Session: " + (dataset.meta && dataset.meta.session ? dataset.meta.session : ""));
+        console.log("Run: " + (dataset.meta && dataset.meta.run ? dataset.meta.run : ""));
         console.log("Datatype: " + formattedDatatype + formattedDatatypeTags);
         console.log("Description: " + (dataset.desc||''));
         console.log("Create Date: " + formattedDate);

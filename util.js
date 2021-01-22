@@ -158,18 +158,6 @@ exports.resolveProfiles = function(headers, query, opt) {
 
 /**
  * Query the list of datasets
- * @param {any} headers
- * @param {Object} query
- * @param {string} query.id
- * @param {string} query.search
- * @param {string} query.datatype
- * @param {string[]} query.datatypeTags
- * @param {string} query.project
- * @param {string} query.subject
- * @param {Object} opt
- * @param {number} opt.skip
- * @param {number} opt.limit
- * @returns {Promise<dataset[]>}
  */
 exports.queryDatasets = async function(headers, query, opt) {
     if(!query) query = {};
@@ -252,6 +240,8 @@ exports.queryDatasets = async function(headers, query, opt) {
     if (project) andQueries.push({ project });
     if (datatype) andQueries.push({ datatype });
     if (query.subject) andQueries.push({ "meta.subject": query.subject });
+    if (query.session) andQueries.push({ "meta.session": query.session});
+    if (query.run) andQueries.push({ "meta.run": query.run});
     if (query.taskId) {
         if (!exports.isValidObjectId(query.taskId)) throw new Error("Not a valid task id: " + query.taskId);
         andQueries.push({ 'prov.task_id': query.taskId });
