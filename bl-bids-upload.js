@@ -73,7 +73,8 @@ util.loadJwt().then(async jwt => {
 
         let datasets = bids.datasets;
         async.eachSeries(datasets, (dataset_and_files, next_dataset)=>{
-            //console.log(dataset_and_files);
+            console.info("uploading an object...")
+            console.dir(dataset_and_files);
             
             //similar code exists in bin/importdatalad.js
             let key = {

@@ -12,7 +12,8 @@ const readlineSync = require('readline-sync');
 
 commander
     .option('ldap', 'login using ldap')
-    .option('--username <username>', 'your username')
+    .option('--username <username>', 'your brainlife username (optional)')
+    .option('--password <username>', 'your brainlife password (optional)')
     .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 1)', 1)
     .parse(process.argv);
 
@@ -20,7 +21,10 @@ async function login() {
     try {
         let username = commander.username;
         if(!username) username = readlineSync.question("enter username: ");
-        let password = readlineSync.question("enter password: ", {hideEchoBack: true});
+
+        let password = commander.password;
+        if(!password) password = readlineSync.question("enter password: ", {hideEchoBack: true});
+
         let rawJwt = await util.login({
             ldap: commander.ldap,
             ttl: commander.ttl,

@@ -77,7 +77,7 @@ exports.walk = (root, cb)=>{
         let common_sidecar = {};  //key: task-shape_bold.json value: content
         async.eachSeries(paths, (path, next_path)=>{
             if(path.endsWith(".json")) { //load things like root level task-XXX_bold.json
-                console.log("loading root level sidecar:"+path);
+                //console.log("loading root level sidecar:"+path);
                 try {
                     let json = fs.readFileSync(root+"/"+path);
                     common_sidecar[path] = JSON.parse(json);
@@ -104,7 +104,6 @@ exports.walk = (root, cb)=>{
                     console.log("couldn't find subject directory.. not bids root? "+path);
                     return next_path();
                 }
-                //console.log("handing subject", fileinfo["sub"]);
                 handle_subject(common_sidecar, root+"/"+path, next_path);
             }, err=>{
                 //all done load bids
@@ -134,7 +133,6 @@ exports.walk = (root, cb)=>{
             //first handle sidecars at subject level
             async.forEach(dirs, (dir, next_dir)=>{
                 if(dir.endsWith(".json")) {
-                    //console.log("loading "+root+"/"+dir);
                     try {
                         let json = fs.readFileSync(_path+"/"+dir);
                         let sidecar = JSON.parse(json);
@@ -249,6 +247,17 @@ exports.walk = (root, cb)=>{
                         "dwi.bvecs": _path+"/"+basename+"dwi.bvec",
                         "dwi.bvals": _path+"/"+basename+"dwi.bval",
                     };
+                        
+                    //TODO - sbref.json could be stored on the parent directory without hierarchy.. 
+                    let sbref_fullname = _path+"/"+basename+"sbref.nii.gz"; 
+                    if(fs.existsSync(sbref_fullname)) {
+                        files["sbref.nii.gz"] = sbref_fullname;
+                    }
+                    let sbrefjson_fullname = _path+"/"+basename+"sbref.json"; 
+                    if(fs.existsSync(sbrefjson_fullname)) {
+                        files["sbref.json"] = sbrefjson_fullname;
+                    }
+
                     bids.datasets.push({dataset, files});
                     next_file(); 
                     break;
@@ -518,18 +527,6 @@ exports.walk = (root, cb)=>{
             }
         });
 
-        /*
-        let sidecar = {};
-        Object.assign(sidecar, parent_sidecar["epi.json"]);
-        //Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
-        Object.assign(sidecar, get_parent_sidecar(parent_sidecar, info._filename));
-        Object.assign(sidecar, get_sidecar(dir+"/"+info._fullname));
-
-        console.dir(sidecar);
-        process.exit(1);
-        */
-
-
         //create epiN.json, etc..
         let files = {};
         let all_tags = [];
@@ -594,7 +591,6 @@ exports.walk = (root, cb)=>{
 
         strip_token("run-"); 
         filename = tokens.join("_");
-        console.log(filename);
         if(parent_sidecars[filename]) {
             console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
@@ -782,12 +778,9 @@ exports.walk = (root, cb)=>{
             async.forEach(files, (file, next_file)=>{
                 let fileinfo = parseBIDSPath(file);
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
-                //console.log(file);
-                //console.dir(fileinfo);
                 switch(fileinfo._filename) {
                 case "bold.nii":
                 case "bold.nii.gz":
-                    //console.dir(fileinfo);
 
                     //let fullname = fileinfo._fullname;
                     //let sidecar_name = fullname.substring(0, fullname.length-fileinfo._filename.length)+"bold.json"; //remove .nii.gz to replace it with .json
@@ -818,6 +811,8 @@ exports.walk = (root, cb)=>{
                     if(fs.existsSync(events_fullname)) {
                         files["events.tsv"] = events_fullname;
                     }
+                        
+                    //TODO - sbref.json could be stored on the parent directory without hierarchy.. 
                     let sbref_fullname = _path+"/"+basename+"sbref.nii.gz"; 
                     if(fs.existsSync(sbref_fullname)) {
                         files["sbref.nii.gz"] = sbref_fullname;
@@ -827,13 +822,19 @@ exports.walk = (root, cb)=>{
                         files["sbref.json"] = sbrefjson_fullname;
                     }
 
-                    //TODO - sbref.json could be stored on the parent directory without hierarchy.. 
+                    let physio_fullname = _path+"/"+basename+"physio.tsv.gz"; 
+                    if(fs.existsSync(physio_fullname)) {
+                        files["physio.tsv.gz"] = physio_fullname;
+                    }
+                    let physiojson_fullname = _path+"/"+basename+"physio.json"; 
+                    if(fs.existsSync(physiojson_fullname)) {
+                        files["physio.json"] = physiojson_fullname;
+                    }
 
                     bids.datasets.push({dataset, files});
                     next_file(); 
                     break;
                 default:
-                    //console.log("ignoring(func)", file, fileinfo._filename);
                     next_file(); 
                 }
             }, cb);
@@ -868,7 +869,6 @@ exports.walk = (root, cb)=>{
         Object.assign(sidecar, parent_sidecar["T1w.json"]);
         Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, "T1w.json"));
 
-        //console.dir(sidecar);
         let dataset = {
             datatype: "neuro/anat/t1w",
             desc: fileinfo._fullname,
