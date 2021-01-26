@@ -100,7 +100,7 @@ util.loadJwt().then(async jwt => {
                     let noop = await submit_noop(instance, datatypes, dataset_and_files.dataset);
                     do_upload(noop, project, dataset_and_files, next_dataset);
                 } else {
-                    //console.log("already uploaded");
+                    console.log("already uploaded.. skipping");
                     next_dataset();
                 }
             });
@@ -138,12 +138,37 @@ util.loadJwt().then(async jwt => {
         });
     }
 
-    function do_upload(noop, project, dataset_and_files, cb) {
+    async function walkDir(dir) {
+        let files = await fs.promises.readdir(dir);
+        files = await Promise.all(files.map(async file => {
+            const filePath = path.join(dir, file);
+            const stats = await fs.promises.stat(filePath);
+            if (stats.isDirectory()) return walkDir(filePath);
+            else if(stats.isFile()) return filePath;
+        }));
+        return files.reduce((all, folderContents) => all.concat(folderContents), []);
+    }
+
+    async function do_upload(noop, project, dataset_and_files, cb) {
         
         //create tar ball with all files
         let archive = archiver('tar', { gzip: true });
         for(var path in dataset_and_files.files) {
-            archive.file(fs.realpathSync(dataset_and_files.files[path]), { name: path });
+            let fullpath = dataset_and_files.files[path];
+
+            const stats = await fs.promises.stat(fullpath);
+            if(stats.isDirectory()) {
+                //archive.file() doesn't handle symlinks, so I need to walk the directory in case it contains symlinks
+                let entries = await walkDir(fullpath);
+                entries.forEach(entry=>{
+                    let subpath = entry.substring(fullpath.length);
+                    console.log(entry, path+subpath);
+                    archive.append(fs.createReadStream(entry), {name: path+subpath});
+                }); 
+            } else {
+                //regular file
+                archive.file(fs.realpathSync(fullpath), { name: path });
+            }
         }
         archive.on('error', err=>{
             throw err;

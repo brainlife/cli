@@ -621,17 +621,28 @@ exports.walk = (root, cb)=>{
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
 
                 let basename = get_basename(fileinfo);
-                let dtag;
+                //let dtag;
                 let files;
+                let datatype;
                 switch(fileinfo._filename) {
+                case "eeg.bdf":
+                    //biosemi data format
+                    datatype = "neuro/eeg/bdf"
+                    //dtag = "bdf";     
+                    files = {
+                        "eeg.bdf": _path+"/"+fileinfo._fullname,
+                    };
+                    break;
                 case "eeg.edf":
-                    dtag = "edf";     
+                    datatype = "neuro/eeg/edf"
+                    //dtag = "edf";     
                     files = {
                         "eeg.edf": _path+"/"+fileinfo._fullname,
                     };
                     break;
                 case "eeg.eeg":
-                    dtag = "brainvision";     
+                    datatype = "neuro/eeg/brainvision"
+                    //dtag = "brainvision";     
                     files = {
                         "eeg.eeg": _path+"/"+fileinfo._fullname,
                         "eeg.vhdr": _path+"/"+basename+"eeg.vhdr",
@@ -639,7 +650,8 @@ exports.walk = (root, cb)=>{
                     };
                     break;
                 case "eeg.fdt":
-                    dtag = "eeglab";
+                    datatype = "neuro/eeg/eeglab"
+                    //dtag = "eeglab";
                     files = {
                         "eeg.fdt": _path+"/"+fileinfo._fullname,
                         "eeg.set": _path+"/"+basename+"eeg.set",
@@ -659,10 +671,9 @@ exports.walk = (root, cb)=>{
                 Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
 
                 let dataset = {
-                    datatype: "neuro/eeg",
+                    datatype,
                     desc: fileinfo._fullname,
-                    
-                    datatype_tags: [ dtag, fileinfo.task.toLowerCase() ], 
+                    datatype_tags: [ fileinfo.task.toLowerCase() ], //should I really do this?
                     tags: get_tags(fileinfo),
 
                     meta: Object.assign(sidecar, get_meta(fileinfo)),
@@ -672,16 +683,26 @@ exports.walk = (root, cb)=>{
                 if(fs.existsSync(channels_fullname)) {
                     files["channels.tsv"] = channels_fullname;
                 }
+
+                /*
                 let events_fullname = _path+"/"+basename+"events.tsv"; 
                 if(fs.existsSync(events_fullname)) {
                     files["events.tsv"] = events_fullname;
                 }
+                */
 
                 //electrodes and coordsystem should come together if they are set
+                /*
                 let electrodes_fullname = _path+"/"+basename+"electrodes.tsv"; 
                 if(fs.existsSync(electrodes_fullname)) {
                     files["electrodes.tsv"] = electrodes_fullname;
                 }
+                */
+                let headshape_fullname = _path+"/"+basename+"headshape.pos"; 
+                if(fs.existsSync(headshape_fullname)) {
+                    files["headshape.pos"] = headshape_fullname;
+                }
+
                 let coordsystem_fullname = _path+"/"+basename+"coordsystem.tsv"; 
                 if(fs.existsSync(coordsystem_fullname)) {
                     files["coordsystem.tsv"] = coordsystem_fullname;
@@ -701,18 +722,21 @@ exports.walk = (root, cb)=>{
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165 (for eeg)
 
                 let basename = get_basename(fileinfo);
-                let dtag;
+                //let dtag;
+                let datatype;
                 let files;
                 switch(fileinfo._filename) {
                 case "meg.ds":
-                    dtag = "ctf";     
+                    datatype = "neuro/meg/ctf";
+                    //dtag = "ctf";     
                     //TODO - I don't think setting it to directory will work.. but maybe it's downstream issue. let'sd see
                     files = {
                         "meg.ds": _path+"/"+fileinfo._fullname,
                     };
                     break;
                 case "meg.fif":
-                    dtag = "fif";     
+                    datatype = "neuro/meg/fif";
+                    //dtag = "fif";     
                     files = {
                         "meg.fif": _path+"/"+fileinfo._fullname,
                     };
@@ -726,17 +750,14 @@ exports.walk = (root, cb)=>{
                 //compose sidecar
                 let sidecar = {};
                 Object.assign(sidecar, parent_sidecar["meg.json"]);
-                //Object.assign(sidecar, parent_sidecar[strip_hierachy(sidecar_name)]);
                 Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
                 Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
 
                 let dataset = {
-                    datatype: "neuro/meg",
+                    datatype,
                     desc: fileinfo._fullname,
-                    
-                    datatype_tags: [ dtag, fileinfo.task.toLowerCase() ], 
+                    datatype_tags: [ fileinfo.task.toLowerCase() ],  //should I really do this?
                     tags: get_tags(fileinfo),
-
                     meta: Object.assign(sidecar, get_meta(fileinfo)),
                 }
 
@@ -744,16 +765,27 @@ exports.walk = (root, cb)=>{
                 if(fs.existsSync(channels_fullname)) {
                     files["channels.tsv"] = channels_fullname;
                 }
+
+                /*
                 let events_fullname = _path+"/"+basename+"events.tsv"; 
                 if(fs.existsSync(events_fullname)) {
                     files["events.tsv"] = events_fullname;
                 }
+                */
 
                 //electrodes and coordsystem should come together if they are set
                 let electrodes_fullname = _path+"/"+basename+"electrodes.tsv"; 
                 if(fs.existsSync(electrodes_fullname)) {
                     files["electrodes.tsv"] = electrodes_fullname;
                 }
+
+                /*
+                let headshape_fullname = _path+"/"+basename+"headshape.pos"; 
+                if(fs.existsSync(headshape_fullname)) {
+                    files["headshape.pos"] = headshape_fullname;
+                }
+                */
+
                 let coordsystem_fullname = _path+"/"+basename+"coordsystem.tsv"; 
                 if(fs.existsSync(coordsystem_fullname)) {
                     files["coordsystem.tsv"] = coordsystem_fullname;
