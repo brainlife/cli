@@ -76,6 +76,8 @@ exports.walk = (root, cb)=>{
         //first load all sidecars at root level
         let common_sidecar = {};  //key: task-shape_bold.json value: content
         async.eachSeries(paths, (path, next_path)=>{
+            if(path.startsWith(".")) return next_path();
+
             if(path.endsWith(".json")) { //load things like root level task-XXX_bold.json
                 //console.log("loading root level sidecar:"+path);
                 try {
@@ -132,6 +134,7 @@ exports.walk = (root, cb)=>{
 
             //first handle sidecars at subject level
             async.forEach(dirs, (dir, next_dir)=>{
+                if(dir.startsWith(".")) return next_dir();
                 if(dir.endsWith(".json")) {
                     try {
                         let json = fs.readFileSync(_path+"/"+dir);
@@ -148,6 +151,7 @@ exports.walk = (root, cb)=>{
                 if(err) return cb(err);  
                 //then handle modality or session
                 async.forEach(dirs, (dir, next_dir)=>{
+                    if(dir.startsWith(".")) return next_dir();
                     if(dir.indexOf("ses-") == 0) return handle_subject(common_sidecar, _path+"/"+dir, next_dir);
                     switch(dir) {
                     case "anat": 
@@ -186,13 +190,12 @@ exports.walk = (root, cb)=>{
             //ignore some keys (like _filename, _fullname..)
             if(key[0] == "_") continue;
 
-            //rename some keys
+            //some structural keys are stored under different names on brainlife
             if(key == "sub") inkey = "subject";
             if(key == "ses") inkey = "session";
 
             //not sure if I should have these yet..
-            if(key == "acq") inkey = "acquisition";
-            if(key == "run") inkey = "run";
+            //if(key == "acq") inkey = "acquisition";
 
             meta[inkey] = fileinfo[key];
         }
@@ -221,6 +224,8 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
+                if(file.startsWith(".")) return next_file();
+
                 let fileinfo = parseBIDSPath(file);
                 switch(fileinfo._filename) {
                 case "dwi.nii":
@@ -272,6 +277,8 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
+                if(file.startsWith(".")) return next_file();
+
                 let fileinfo = parseBIDSPath(file);
                 switch(fileinfo._filename) {
                 case "T1w.nii":
@@ -301,6 +308,8 @@ exports.walk = (root, cb)=>{
             //group files by sub/ses/acq/run
             let groups = {}; 
             files.forEach(file=>{
+                if(file.startsWith(".")) return;
+
                 let fileinfo = parseBIDSPath(file);
                 let key = "";
                 if(fileinfo.sub) key += "sub-"+fileinfo.sub;
@@ -617,6 +626,8 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
+                if(file.startsWith(".")) return next_file();
+
                 let fileinfo = parseBIDSPath(file);
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
 
@@ -718,6 +729,8 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
+                if(file.startsWith(".")) return next_file();
+
                 let fileinfo = parseBIDSPath(file);
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165 (for eeg)
 
@@ -808,6 +821,7 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
             async.forEach(files, (file, next_file)=>{
+                if(file.startsWith(".")) return next_file();
                 let fileinfo = parseBIDSPath(file);
                 if(!fileinfo.task) fileinfo.task = "unknown"; //like ds001165
                 switch(fileinfo._filename) {
