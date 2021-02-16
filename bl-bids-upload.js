@@ -77,24 +77,31 @@ util.loadJwt().then(async jwt => {
             console.dir(dataset_and_files);
             
             //similar code exists in bin/importdatalad.js
-            let key = {
+            let itemkey = {
                 project: project._id,
                 removed: false, 
                 datatype: datatypes[dataset_and_files.dataset.datatype],
                 desc: dataset_and_files.dataset.desc,  //TODO - too brittle.. what if user updates desc?
                 'meta.subject': dataset_and_files.dataset.meta.subject,
-                //datatype_tags: dataset.dataset.datatype_tags //desc should take care of it?
             };
             if(dataset_and_files.dataset.meta.session) {
-                key['meta.session'] = dataset_and_files.dataset.meta.session;
+                itemkey['meta.session'] = dataset_and_files.dataset.meta.session;
             }
-            if(dataset_and_files.dataset.meta.run) {
-                key['meta.run'] = dataset_and_files.dataset.meta.run;
-            }
+
+            //need to append any bids entities that make this object unique
+            //https://github.com/bids-standard/bids-specification/blob/master/src/schema/entities.yaml
+            let entities = [
+                "task", "acq", "ce", "rec", "dir", 
+                "run", "mod", "echo", "flip", "inv", "mt", "part", "recording",
+                "proc", "split", 
+                //"space", "res", "den", "label", "desc" //only for derivatives
+            ];
+            entities.forEach(e=>{
+                if(dataset_and_files.dataset.meta[e]) itemkey["meta."+e] = dataset_and_files.dataset.meta[e];
+            })
             
-            //TODO - what if sub/ses/run collides? should I also key by tag?
             request(config.api.warehouse + '/dataset', { json: true, headers, qs: {
-                find: JSON.stringify(key),
+                find: JSON.stringify(itemkey),
             }}).then(async body=>{
                 if(body.count == 0) {
                     let noop = await submit_noop(instance, datatypes, dataset_and_files.dataset);
