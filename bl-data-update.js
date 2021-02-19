@@ -4,6 +4,7 @@ const axios = require('axios');
 const config = require('./config');
 const commander = require('commander');
 const util = require('./util');
+const fs = require('fs');
 
 commander
     .option('--id <id>', 'dataset ID to update')
@@ -15,6 +16,7 @@ commander
     .option('--remove_tag <tag>', 'remove object tags', util.collect, [])
     .option('--add_dtag <tag>', 'add datatype tags (use with caution)', util.collect, [])
     .option('--remove_dtag <tag>', 'remove datatype tags (use with caution)', util.collect, [])
+    .option('-m, --meta <metadata-filename>', 'file path for (sidecar).json containing metadata that you would like to set')
     .option('-h, --h')
     .parse(process.argv);
 
@@ -32,7 +34,7 @@ util.loadJwt().then(jwt => {
             find: JSON.stringify({_id: commander.id }),
             limit: 1,
         } 
-    }).then(res=>{
+    }).then(async res=>{
         if(res.data.datasets.length != 1) throw new Error("failed to find the dataset");
         let dataset = res.data.datasets[0];
         let req = { 
@@ -47,6 +49,11 @@ util.loadJwt().then(jwt => {
         if(commander.subject == "") delete req.meta.subject;
         if(commander.session == "") delete req.meta.session;
         if(commander.run == "") delete req.meta.run;
+
+        if(commander.meta) {
+            let sidecar = JSON.parse(fs.readFileSync(commander.meta, 'ascii')); //why ascii?
+            Object.assign(req.meta, sidecar);
+        }
 
         //data object tags
         commander.add_tag.forEach(tag=>{

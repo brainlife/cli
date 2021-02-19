@@ -20,7 +20,7 @@ commander
     .option('-e, --session <session>', '(metadata) session of the uploaded dataset')
     .option('-r, --run <run>', '(metadata) run of the uploaded dataset')
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', util.collect, [])
-    .option('-m, --meta <metadata-filename>', 'name of file containing additional metadata (JSON) of uploaded dataset')
+    .option('-m, --meta <metadata-filename>', 'file path for (sidecar).json containing additional metadata')
     .option('-j, --json', 'output uploaded dataset information in json format')
     .option('-h, --h');
 
@@ -53,14 +53,12 @@ if (commander.h) commander.help();
 if (!commander.project) throw new Error("no project given to upload dataset to");
 if (!commander.datatype) throw new Error("no datatype of dataset given");
 if (!commander.subject) throw new Error("no subject name provided");
-//if (commander.args.length > 0) commander.directory = commander.args[0];
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
     let dataset = {
         datatype: commander.datatype,
         project: commander.project,
-        //directory: commander.directory,
         files: fileList,
         desc: commander.desc,
 
@@ -71,10 +69,11 @@ util.loadJwt().then(jwt => {
         run: commander.run,
         json: commander.json,
     }
+
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
             if (err) throw err;
-            dataset.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii'));
+            dataset.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii')); //why ascii?
             uploadDataset(headers, dataset);
         });
     } else {
@@ -84,7 +83,7 @@ util.loadJwt().then(jwt => {
 
 async function uploadDataset(headers, options) {
     options = options || {};
-    //let directory = options.directory || '.';
+
     let files = options.files || {};
     let desc = options.desc || '';
     let datatype_tags = options.datatype_tags || [];
@@ -103,18 +102,30 @@ async function uploadDataset(headers, options) {
         tags.push("run-"+options.run); //let's add run to tag
     }
     
-    let datatype = await getDatatype(headers, options.datatype);
+    let datatype = await util.getDatatype(headers, options.datatype);
 
     let projects = await util.resolveProjects(headers, options.project);
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");
     if (projects.length > 1) throw new Error("multiple projects matching '");
+
+    //check to make sure user didn't set anything weird via command line
+    for(let id in fileList) {
+        let file = datatype.files.find(f=>f.id == id);
+        if(!file) {
+            console.error("Unknown parameter", "--"+id);
+            console.error("Please use the following file IDS for The specified datatype");
+            datatype.files.forEach(f=>{
+                console.log("--"+f.id, f.filename||f.dirname, f.desc||'')
+            });
+            process.exit(1);
+        }
+    }
     
     let archive = archiver('tar', { gzip: true });
     let project = projects[0];
 
     let instanceName = 'warehouse-cli.upload.'+project.group_id;
     let instance = await util.findOrCreateInstance(headers, instanceName, {project});
-    console.debug("using instance", instance._id);
     archive.on('error', err=>{
         throw new Error(err);
     });
@@ -210,15 +221,6 @@ async function uploadDataset(headers, options) {
                             if (!options.json) console.log("validating...");
                             util.waitForFinish(headers, res.data.validator_task, !options.json, async (err, archive_task, datasets) => {
                                 if (err) {
-                                    //show why the validator failed
-                                    /*
-                                    if(!options.json) console.error("validator failed.", err);
-                                    try {
-                                        err = await util.getFileFromTask(headers, 'error.log', task);
-                                    } catch (err) {
-                                        //couldn't load error.log.. 
-                                    }
-                                    */
                                     console.error("validation failed", err);
                                     process.exit(1);
                                 } else {
@@ -232,6 +234,7 @@ async function uploadDataset(headers, options) {
                                         console.log("successfully uploaded");
                                         console.log("https://"+config.host+"/project/"+project._id+"/dataset/"+datasets[0]._id);
                                     } else {
+                                        //finally dump the dataset
                                         console.log(JSON.stringify(datasets[0], null, 4));
                                     }
                                  }
@@ -242,13 +245,14 @@ async function uploadDataset(headers, options) {
                                 if(err) throw err;
                                 if(!options.json) console.log("successfully uploaded. data object id:", datasets[0]._id);
                                 else {
+                                    //finally dump the dataset
                                     console.log(JSON.stringify(datasets[0], null, 4));
                                 }
                             })
                         }
                     }).catch(err=>{
                         if(err.response && err.response.data && err.response.data.message) console.log(err.response.data.message);
-                        else console.dir(err);
+                        else console.error(err);
                     });
                 });
             });
@@ -258,6 +262,7 @@ async function uploadDataset(headers, options) {
     });
 }
 
+/*
 async function getDatatype(headers, query) {
     return new Promise(async (resolve, reject) => {
         axios.get(config.api.warehouse+'/datatype', { 
@@ -273,5 +278,6 @@ async function getDatatype(headers, query) {
         });
     });
 }
+*/
 
 

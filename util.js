@@ -470,15 +470,16 @@ exports.queryApps = async function(headers, query, opt) {
 
 exports.getDatatype = function(headers, query) {
     return new Promise(async (resolve, reject) => {
-        request(config.api.warehouse + '/datatype', { headers, json: true,
-            qs: {
+        axios.get(config.api.warehouse + '/datatype', { 
+            headers, 
+            params: {
                 find: JSON.stringify({
                     $or: [ {id: query}, {name: query}, ]
                 }),
             } 
-        }).then(body=>{;
-            if(body.datatypes.length == 0) return reject("no matching datatype:"+query);
-            return resolve(body.datatypes[0]);
+        }).then(res=>{;
+            if(res.data.datatypes.length == 0) return reject("no matching datatype:"+query);
+            return resolve(res.data.datatypes[0]);
         });
     });
 }
