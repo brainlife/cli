@@ -305,8 +305,9 @@ exports.walk = (root, cb)=>{
         fs.readdir(_path, (err, files)=>{
             if(err) return cb(err);
 
-            //group files by sub/ses/acq/run
             let groups = {}; 
+
+            //group files by sub/ses/acq/run
             files.forEach(file=>{
                 if(file.startsWith(".")) return;
 
@@ -321,8 +322,50 @@ exports.walk = (root, cb)=>{
                 groups[key][fileinfo._filename] = true;
             });
 
+            //Some fmap/pepolar uses different run- but we don't want to split them into different 
+            //groups/objects. Instead of using the nornmal BIDS path, We could rely on IntendedFor 
+            //to tell us which set of files really belongs to each other. 
+            //If 2 groups shares the same IntendedFor, we can assume that they should probably be merged together
+            //To do that, we first need to load the IntendedFor from the .json
+            //then, we use that as the new grouping key and merge .infos array
+            let groups_merged = {};
+            for(let key in groups) {
+                let group = groups[key];
+                //look for pepolar and load intendedFor array
+                if(group["epi.nii.gz"]) { 
+                    let intendedFor = null;
+                    group.infos.forEach(info=>{
+                        if(info._filename == "epi.json") {
+                            let sidecar = get_sidecar(_path+"/"+info._fullname);
+                            if(sidecar) intendedFor = sidecar.IntendedFor;
+                        }
+                    });
+
+                    if(!intendedFor) {
+                        //if intendedFor isn't filled, then don't group!
+                        groups_merged[key] = group;
+                    } else {
+                        //we have intended for! use it to group together instead of original key
+                        let inFor = JSON.stringify(intendedFor);
+                        if(groups_merged[inFor]) {
+                            //merge!
+                            groups_merged[inFor].infos = [...groups_merged[inFor].infos, ...group.infos];
+                            //console.log("merged", inFor, groups_merged[inFor].infos);
+                        } else {
+                            //new!
+                            groups_merged[inFor] = group;
+                            //console.log("new group", inFor)
+                        }
+                    }
+                } else {
+                    //not pepolar .. just keep it separate
+                    //TODO - maybe we wwant to group other field map files to be grouped also?
+                    groups_merged[key] = group;
+                }
+            }
+
             //for each group, load appropriate datatype
-            async.eachOfSeries(groups, (group, key, next_group)=>{
+            async.eachOfSeries(groups_merged, (group, key, next_group)=>{
                 if(group["fieldmap.nii.gz"]) return handle_fmap_single(parent_sidecar, _path, group.infos, next_group);
                 if(group["phasediff.nii.gz"]) return handle_fmap_phasediff(parent_sidecar, _path, group.infos, next_group);
                 if(group["phase1.nii.gz"]) return handle_fmap_2phasemag(parent_sidecar, _path, group.infos, next_group);
@@ -530,7 +573,6 @@ exports.walk = (root, cb)=>{
             if(!dirs.includes(info.dir)) dirs.push(info.dir);
             if(info._filename == "epi.json") {
                 Object.assign(sidecar, parent_sidecar["epi.json"]);
-                //Object.assign(sidecar, parent_sidecar[strip_hierachy(info._filename)]);
                 Object.assign(sidecar, get_parent_sidecar(parent_sidecar, info._filename));
                 Object.assign(sidecar, get_sidecar(dir+"/"+info._fullname));
             }
@@ -565,7 +607,6 @@ exports.walk = (root, cb)=>{
         }
 
         bids.datasets.push({dataset, files});
-
 
         cb();
     }
