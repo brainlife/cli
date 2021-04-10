@@ -142,6 +142,15 @@ exports.walk = (root, cb)=>{
             const derivatives = [];
             const pipelines = await fs.promises.readdir(root+"/derivatives");
             async.eachSeries(pipelines, async pipeline=>{
+
+                try {
+                    const stats = fs.statSync(root+"/derivatives/"+pipeline);
+                    if(!stats.isDirectory()) return;
+                } catch (err) {
+                    //broken link?
+                    return;
+                }
+
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
                 await async.eachSeries(subjects, async subject=>{
                     //TODO - does derivative has ses- between sub-/ and modality?
@@ -151,6 +160,15 @@ exports.walk = (root, cb)=>{
                         return;
                     }
                     const path = root+"/derivatives/"+pipeline+"/"+subject;
+
+                    try {
+                        const stats = fs.statSync(path);
+                        if(!stats.isDirectory()) return;
+                    } catch (err) {
+                        //broken link?
+                        return;
+                    }
+
                     const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4));
                     subDerivatives.forEach(d=>derivatives.push(d));
                 });
@@ -177,7 +195,7 @@ exports.walk = (root, cb)=>{
             }
             key = key.join(".");
             if(!groups[key]) groups[key] = {infos: []};
-            groups[key][fileinfo._filename] = groups[key].infos.length;
+            groups[key][fileinfo._filename] = true;
             groups[key].infos.push(fileinfo);
         });
         return groups;
@@ -188,6 +206,15 @@ exports.walk = (root, cb)=>{
             const derivatives = [];
             const modalities = await fs.readdirSync(path);
             async.eachSeries(modalities, async modality=>{
+
+                try {
+                    const stats = fs.statSync(path+"/"+modality);
+                    if(!stats.isDirectory()) return;
+                } catch (err) {
+                    //broken link?
+                    return;
+                }
+
                 const files = await fs.readdirSync(path+"/"+modality);
                 const groups = groupFiles(path+"/"+modality, files);
                 for(let key in groups) {
@@ -196,7 +223,6 @@ exports.walk = (root, cb)=>{
                         pipeline, 
                     }, groups[key]));
                 }
-                return derivatives;
             }, err=>{
                 if(err) return reject(err);
                 resolve(derivatives);
@@ -371,30 +397,26 @@ exports.walk = (root, cb)=>{
                 key += fileinfo._filename.split(".")[0]; //T1w, T2w, etc.
             }
             if(!groups[key]) groups[key] = {infos: []};
-            groups[key][fileinfo._filename] = groups[key].infos.length;
+            groups[key][fileinfo._filename] = true;
             groups[key].infos.push(fileinfo);
         });
             
         //now handle mp2rage groups
         async.eachOfSeries(groups, (group, key, next_group)=>{
             if(group["T1w.nii.gz"]) {
-                const idx = group["T1w.nii.gz"];
-                const fileinfo = group.infos[idx];
+                const fileinfo = group.infos.find(info=>info._filename == "T1w.nii.gz");
                 return handle_anat_t1(derivatives, parent_sidecar, _path, fileinfo, next_group);
             }
             if(group["T2w.nii.gz"]) {
-                const idx = group["T2w.nii.gz"];
-                const fileinfo = group.infos[idx];
+                const fileinfo = group.infos.find(info=>info._filename == "T2w.nii.gz");
                 return handle_anat_t2(derivatives, parent_sidecar, _path, fileinfo, next_group);
             }
             if(group["FLAIR.nii.gz"]) {
-                const idx = group["FLAIR.nii.gz"];
-                const fileinfo = group.infos[idx];
+                const fileinfo = group.infos.find(info=>info._filename == "FLAIR.nii.gz");
                 return handle_anat_flair(derivatives, parent_sidecar, _path, fileinfo, next_group);
             }
             if(group["MP2RAGE.nii.gz"]) {
-                const idx = group["MP2RAGE.nii.gz"];
-                const fileinfo = group.infos[idx];
+                const fileinfo = group.infos.find(info=>info._filename == "MP2RAGE.nii.gz");
                 return handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
             }
             next_group();
@@ -416,7 +438,7 @@ exports.walk = (root, cb)=>{
             if(fileinfo.run) key += "run-"+fileinfo.run;
             if(fileinfo.acq) key += "acq-"+fileinfo.acq;
             if(!groups[key]) groups[key] = {infos: []};
-            groups[key][fileinfo._filename] = groups[key].infos.length;
+            groups[key][fileinfo._filename] = true;
             groups[key].infos.push(fileinfo);
         });
 
@@ -736,12 +758,6 @@ exports.walk = (root, cb)=>{
         cb();
     }
 
-    //deprecated by get_parent_sidecar()
-    //convert 
-    //  sub-01_ses-01_task-ClipsVal05_acq-ap_bold.json
-    //to 
-    //  task-ClipsVal05_acq-ap_bold.json
-
     //look for parent sidecars that belongs to the sidecar filename
     function get_parent_sidecar(parent_sidecars, filename) {
 
@@ -757,7 +773,7 @@ exports.walk = (root, cb)=>{
         }
         
         //look for json with no run  
-        const sidecar = {};
+        let sidecar = {};
 
         strip_token("run-"); 
         filename = tokens.join("_");
@@ -783,9 +799,42 @@ exports.walk = (root, cb)=>{
         return sidecar;
     }
 
+    function addSiblingSidecar(parent_sidecar, groups, _path, filename) {
+        const common_sidecar = {};
+        for(let path in parent_sidecar) {
+            common_sidecar[path] = Object.assign({}, parent_sidecar[path]);
+        }
+        for(const key in groups) {
+            const group = groups[key];
+            group.infos.forEach(fileinfo=>{
+                if(fileinfo._filename == filename) {
+                    common_sidecar[fileinfo._fullname] = get_sidecar(_path+"/"+fileinfo._fullname);
+                }
+            });
+        }
+        console.log("added sibling");
+        console.dir(common_sidecar);
+        return common_sidecar;
+    }
+
     function handle_eeg(derivatives, parent_sidecar, _path, cb) {
         const files = fs.readdirSync(_path);
         const groups = groupFiles(_path, files);
+        let common_sidecar = addSiblingSidecar(parent_sidecar, groups, _path, "eeg.json");
+        /*
+        for(let path in parent_sidecar) {
+            common_sidecar[path] = Object.assign({}, parent_sidecar[path]);
+        }
+        for(const key in groups) {
+            const group = groups[key];
+            group.infos.forEach(fileinfo=>{
+                if(fileinfo._filename == "eeg.json") {
+                    common_sidecar[fileinfo._fullname] = get_sidecar(_path+"/"+fileinfo._fullname);
+                }
+            });
+        }
+        */
+
         async.eachOfSeries(groups, (group, key, next_group)=>{
             const fileinfo = group.infos[0];
             const basename = get_basename(fileinfo);
@@ -804,24 +853,27 @@ exports.walk = (root, cb)=>{
             } else {
                 return next_group(); 
             }
-            
+
             let sidecar = {};
+            Object.assign(sidecar, parent_sidecar["eeg.json"]);
 
             //set files for the group
             group.infos.forEach(fileinfo=>{
+
+                const basename = get_basename(fileinfo);
+                const sidecar_name = basename+"eeg.json"; 
+                Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
+
                 const fullpath = _path+"/"+fileinfo._fullname;
                 switch(fileinfo._filename) {
                 case "eeg.json":
-                    const basename = get_basename(fileinfo);
-                    const sidecar_name = basename+"meg.json"; 
-                    //compose sidecar
-                    Object.assign(sidecar, parent_sidecar["eeg.json"]);
-                    Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
                     Object.assign(sidecar, get_sidecar(fullpath));
                 default:
                     files[fileinfo._filename] = fullpath;
                 }
             });
+
+            if(!fileinfo.task) fileinfo.task = "unknown"; //for ds003420
 
             let dataset = {
                 datatype,
@@ -859,6 +911,10 @@ exports.walk = (root, cb)=>{
     async function handle_meg(derivatives, parent_sidecar, _path, cb) {
         const files = fs.readdirSync(_path);
         const groups = groupFiles(_path, files);
+
+        let common_sidecar = addSiblingSidecar(parent_sidecar, groups, _path, "meg.json");
+        console.dir(common_sidecar);
+
         async.eachOfSeries(groups, (group, key, next_group)=>{
             const fileinfo = group.infos[0];
             const files = {};
@@ -872,29 +928,17 @@ exports.walk = (root, cb)=>{
                 return next_group(); 
             }
 
+            let sidecar = {};
+            Object.assign(sidecar, common_sidecar["meg.json"]);
+
             group.infos.forEach(fileinfo=>{
+                let basename = get_basename(fileinfo);
+                let sidecar_name = basename+"meg.json"; 
+                Object.assign(sidecar, get_parent_sidecar(common_sidecar, sidecar_name));
+
                 const fullpath = _path+"/"+fileinfo._fullname;
-                /*
-                if(fileinfo._filename == "meg.ds") files["meg.ds"] = fullpath;
-                if(fileinfo._filename == "meg.fif") files["meg.fif"] = fullpath;
-                if(fileinfo._filename == "channels.tsv") files["channels.tsv"] = fullpath;
-                if(fileinfo._filename == "events.tsv") files["events.tsv"] = fullpath;
-                if(fileinfo._filename == "events.json") files["events.json"] = fullpath;
-                */
                 switch(fileinfo._filename) {
-                case "meg.dat":
-                    if(ginfo._acq == "calibration") files["calibration_meg.dat"] = fullpath;
-                    break;
-                case "meg.fif":
-                    if(ginfo._acq == "crosstalk") files["crosstalk_meg.fif"] = fullpath;
-                    break;
                 case "meg.json":
-                    //compose sidecar
-                    let basename = get_basename(fileinfo);
-                    let sidecar_name = basename+"meg.json"; 
-                    let sidecar = {};
-                    Object.assign(sidecar, parent_sidecar["meg.json"]);
-                    Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
                     Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
                     break;
                 default:
@@ -915,7 +959,6 @@ exports.walk = (root, cb)=>{
             for(const key in groups) {
                 const group = groups[key];
                 group.infos.forEach(fileinfo=>{
-                    console.dir(fileinfo);
                     const path = _path+"/"+fileinfo._fullname;
                     if(!files["coordsystem.json"] && fileinfo._filename == "coordsystem.json") {
                         files["coordsystem.json"] = path;
@@ -933,14 +976,6 @@ exports.walk = (root, cb)=>{
                         files["crosstalk_meg.fif"] = path;
                     }
                 });
-
-                /*
-                //not tested..
-                if(group["destination.fif"]) {
-                    let ginfo = group.infos[0];
-                    if(ginfo._acq = "destination") files["destination.dif"] = _path+"/"+ginfo._fullname;
-                }
-                */
             }
 
             bids.datasets.push({dataset, files});
