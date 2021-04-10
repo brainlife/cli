@@ -11,7 +11,16 @@ const util = require('./util');
 
 //sub-CC510395_ses-001_T1w.nii.gz
 function parseBIDSPath(_path) {
-    let obj = {_fullname: _path};
+
+    /*
+    //some bids path are invalid and results in _filename not set
+    //from ds002013
+    { _fullname: 'sub-AAA02_roi-V1-left.nii',
+      sub: 'AAA02',
+      roi: 'V1-left.nii' }
+    */
+    let obj = {_fullname: _path, _filename: "invalid"}; 
+
     let base = path.basename(_path);
     let parts = base.split("_");
     parts.forEach(part=>{
