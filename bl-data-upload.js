@@ -124,7 +124,7 @@ async function uploadDataset(headers, options) {
     let archive = archiver('tar', { gzip: true });
     let project = projects[0];
 
-    let instanceName = 'warehouse-cli.upload.'+project.group_id;
+    let instanceName = 'upload.'+project.group_id; //same for web ui upload
     let instance = await util.findOrCreateInstance(headers, instanceName, {project});
     archive.on('error', err=>{
         throw new Error(err);
@@ -207,10 +207,10 @@ async function uploadDataset(headers, options) {
                     if (!options.json) console.log("data successfully uploaded. finalizing upload..");
                     axios.post(config.api.warehouse+'/dataset/finalize-upload', {
                         task: task._id,
+                        datatype: datatype._id,
                         subdir: "upload",
 
                         //data object info
-                        datatype: datatype._id,
                         datatype_tags,
                         meta: metadata,
                         tags,

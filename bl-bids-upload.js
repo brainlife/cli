@@ -63,7 +63,7 @@ util.loadJwt().then(async jwt => {
             await updateParticipant(bids, project);
         }
 
-        let instanceName = 'warehouse-cli.bidsupload.'+project.group_id;
+        let instanceName = 'upload.'+project.group_id; //same for bl data upload and web upload
         let instance = await util.findOrCreateInstance(headers, instanceName, {project});
 
         let datatypes = {};
@@ -242,6 +242,7 @@ util.loadJwt().then(async jwt => {
             subjects: bids.participants,
             columns: bids.participants_json,
         }
+        console.info("updating participants/column data");
         return axios.put(config.api.warehouse+'/participant/'+project._id, body, {headers});
     }
 });
