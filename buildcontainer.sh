@@ -4,9 +4,9 @@ set -x
 
 version=$(jq -r .version package.json)
 
-docker build -t brainlife/cli .
+docker build --build-arg version=$version -t brainlife/cli .
 docker tag brainlife/cli brainlife/cli:$version
-docker push brainlife/cli
+docker push brainlife/cli:$version
 
 #test 
 docker run -it brainlife/cli --version

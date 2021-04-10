@@ -412,23 +412,24 @@ exports.walk = (root, cb)=>{
             
         //now handle mp2rage groups
         async.eachOfSeries(groups, (group, key, next_group)=>{
-            if(group["T1w.nii.gz"]) {
-                const fileinfo = group.infos.find(info=>info._filename == "T1w.nii.gz");
-                return handle_anat_t1(derivatives, parent_sidecar, _path, fileinfo, next_group);
+            for(let ginfo of group.infos) {
+                if(ginfo._filename.startsWith("T1w.nii")) {
+                    handle_anat_t1(derivatives, parent_sidecar, _path, ginfo, next_group);
+                    break;
+                }
+                if(ginfo._filename.startsWith("T2w.nii")) {
+                    handle_anat_t2(derivatives, parent_sidecar, _path, ginfo, next_group);
+                    break;
+                }
+                if(ginfo._filename.startsWith("FLAIR.nii")) {
+                    handle_anat_flair(derivatives, parent_sidecar, _path, ginfo, next_group);
+                    break;
+                }
+                if(ginfo._filename.startsWith("MP2RAGE.nii")) {
+                    handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
+                    break;
+                }
             }
-            if(group["T2w.nii.gz"]) {
-                const fileinfo = group.infos.find(info=>info._filename == "T2w.nii.gz");
-                return handle_anat_t2(derivatives, parent_sidecar, _path, fileinfo, next_group);
-            }
-            if(group["FLAIR.nii.gz"]) {
-                const fileinfo = group.infos.find(info=>info._filename == "FLAIR.nii.gz");
-                return handle_anat_flair(derivatives, parent_sidecar, _path, fileinfo, next_group);
-            }
-            if(group["MP2RAGE.nii.gz"]) {
-                const fileinfo = group.infos.find(info=>info._filename == "MP2RAGE.nii.gz");
-                return handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
-            }
-            next_group();
         }, cb);
     }
 
@@ -495,7 +496,8 @@ exports.walk = (root, cb)=>{
 
         //for each group, load appropriate datatype
         async.eachOfSeries(groups_merged, (group, key, next_group)=>{
-            //a single group might contain multiple fmap objects.. 
+            //a single group might contain multiple fmap objects.. so we have to try different groups
+            //TODO - this doesn't handle if there are 2 objects of the same kind.. but maybe it never happens?
             async.series([
                 next=>{
                     if(group["fieldmap.nii.gz"]) handle_fmap_single(derivatives, parent_sidecar, _path, group.infos, next);
