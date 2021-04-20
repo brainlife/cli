@@ -162,14 +162,12 @@ exports.walk = (root, cb)=>{
 
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
                 await async.eachSeries(subjects, async subject=>{
-                    //TODO - does derivative has ses- between sub-/ and modality?
-                    //if so, we need to iterate over it
                     if(!subject.startsWith("sub-")) {
                         console.error("derivative directory under pipeline doesn't look like properly formatted subject directory (ignoring):"+subject);
                         return;
                     }
-                    const path = root+"/derivatives/"+pipeline+"/"+subject;
 
+                    const path = root+"/derivatives/"+pipeline+"/"+subject;
                     try {
                         const stats = fs.statSync(path);
                         if(!stats.isDirectory()) return;
@@ -178,8 +176,30 @@ exports.walk = (root, cb)=>{
                         return;
                     }
 
-                    const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4));
-                    subDerivatives.forEach(d=>derivatives.push(d));
+                    const sessions = fs.readdirSync(path);
+                    await async.eachSeries(sessions, async session=>{
+                        if(!session.startsWith("ses-")) {
+                            //try loading it as modality directly under sub-
+                            const modality = session;
+                            const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4), null, modality);
+                            subDerivatives.forEach(d=>derivatives.push(d));
+                            return;
+                        }
+
+                        try {
+                            const stats = fs.statSync(path+"/"+session);
+                            if(!stats.isDirectory()) return;
+                        } catch (err) {
+                            //broken link?
+                            return;
+                        }
+
+                        const modalities = fs.readdirSync(path+"/"+session);
+                        await async.eachSeries(modalities, async modality=>{
+                            const subDerivatives = await loadDerivativesModality(path+"/"+session, pipeline, subject.substring(4), session.substring(4), modality);
+                            subDerivatives.forEach(d=>derivatives.push(d));
+                        });
+                    }); 
                 });
             }, err=>{
                 if(err) return reject(err);
@@ -210,32 +230,28 @@ exports.walk = (root, cb)=>{
         return groups;
     }
 
-    function loadDerivativesModality(path, pipeline, subject, session = null) {
+    function loadDerivativesModality(path, pipeline, subject, session, modality) {
         return new Promise(async (resolve, reject) => {
             const derivatives = [];
-            const modalities = await fs.readdirSync(path);
-            async.eachSeries(modalities, async modality=>{
 
-                try {
-                    const stats = fs.statSync(path+"/"+modality);
-                    if(!stats.isDirectory()) return;
-                } catch (err) {
-                    //broken link?
-                    return;
-                }
+            try {
+                const stats = fs.statSync(path+"/"+modality);
+                if(!stats.isDirectory()) return;
+            } catch (err) {
+                //broken link?
+                return;
+            }
 
-                const files = await fs.readdirSync(path+"/"+modality);
-                const groups = groupFiles(path+"/"+modality, files);
-                for(let key in groups) {
-                    derivatives.push(Object.assign({
-                        key: [subject, session, modality].join("."),
-                        pipeline, 
-                    }, groups[key]));
-                }
-            }, err=>{
-                if(err) return reject(err);
-                resolve(derivatives);
-            });
+            const files = fs.readdirSync(path+"/"+modality);
+            const groups = groupFiles(path+"/"+modality, files);
+            for(let key in groups) {
+                console.log("loading modality", [subject, session, modality].join("."));
+                derivatives.push(Object.assign({
+                    key: [subject, session, modality].join("."),
+                    pipeline, 
+                }, groups[key]));
+            }
+            resolve(derivatives);
         });
     }
 
@@ -246,7 +262,7 @@ exports.walk = (root, cb)=>{
             common_sidecar[path] = Object.assign({}, parent_sidecar[path]);
         }
         
-        const dirs = await fs.readdirSync(_path);
+        const dirs = fs.readdirSync(_path);
 
         //first handle sidecars at subject level
         async.forEach(dirs, (dir, next_dir)=>{
@@ -414,22 +430,20 @@ exports.walk = (root, cb)=>{
         async.eachOfSeries(groups, (group, key, next_group)=>{
             for(let ginfo of group.infos) {
                 if(ginfo._filename.startsWith("T1w.nii")) {
-                    handle_anat_t1(derivatives, parent_sidecar, _path, ginfo, next_group);
-                    break;
+                    return handle_anat_t1(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
                 if(ginfo._filename.startsWith("T2w.nii")) {
-                    handle_anat_t2(derivatives, parent_sidecar, _path, ginfo, next_group);
-                    break;
+                    return handle_anat_t2(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
                 if(ginfo._filename.startsWith("FLAIR.nii")) {
-                    handle_anat_flair(derivatives, parent_sidecar, _path, ginfo, next_group);
-                    break;
+                    return handle_anat_flair(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
                 if(ginfo._filename.startsWith("MP2RAGE.nii")) {
-                    handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
-                    break;
+                    return handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
                 }
             }
+            console.log("unknown anatomy file", key);
+            next_group();
         }, cb);
     }
 
