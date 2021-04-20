@@ -1187,7 +1187,12 @@ exports.walk = (root, cb)=>{
         });
         delete sidecar.inv;
         delete sidecar.part;
- 
+        all_tags = all_tags.filter(tag=>{
+            if(tag.startsWith("inv-")) return false;
+            if(tag.startsWith("part-")) return false;
+            return true;
+        })
+
         let dataset = {
             datatype: "neuro/anat/mp2rage",
             desc: dir,
