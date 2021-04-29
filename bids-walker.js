@@ -831,9 +831,9 @@ exports.walk = (root, cb)=>{
         }
         for(const key in groups) {
             const group = groups[key];
-            group.infos.forEach(fileinfo=>{
-                if(fileinfo._filename == filename) {
-                    common_sidecar[fileinfo._fullname] = get_sidecar(_path+"/"+fileinfo._fullname);
+            group.infos.forEach(info=>{
+                if(info._filename == filename) {
+                    common_sidecar[info._fullname] = get_sidecar(_path+"/"+info._fullname);
                 }
             });
         }
@@ -846,20 +846,6 @@ exports.walk = (root, cb)=>{
         const files = fs.readdirSync(_path);
         const groups = groupFiles(_path, files);
         let common_sidecar = addSiblingSidecar(parent_sidecar, groups, _path, "eeg.json");
-        /*
-        for(let path in parent_sidecar) {
-            common_sidecar[path] = Object.assign({}, parent_sidecar[path]);
-        }
-        for(const key in groups) {
-            const group = groups[key];
-            group.infos.forEach(fileinfo=>{
-                if(fileinfo._filename == "eeg.json") {
-                    common_sidecar[fileinfo._fullname] = get_sidecar(_path+"/"+fileinfo._fullname);
-                }
-            });
-        }
-        */
-
         async.eachOfSeries(groups, (group, key, next_group)=>{
             const fileinfo = group.infos[0];
             const basename = get_basename(fileinfo);
@@ -883,18 +869,18 @@ exports.walk = (root, cb)=>{
             Object.assign(sidecar, parent_sidecar["eeg.json"]);
 
             //set files for the group
-            group.infos.forEach(fileinfo=>{
+            group.infos.forEach(info=>{
 
-                const basename = get_basename(fileinfo);
+                const basename = get_basename(info);
                 const sidecar_name = basename+"eeg.json"; 
                 Object.assign(sidecar, get_parent_sidecar(parent_sidecar, sidecar_name));
 
-                const fullpath = _path+"/"+fileinfo._fullname;
-                switch(fileinfo._filename) {
+                const fullpath = _path+"/"+info._fullname;
+                switch(info._filename) {
                 case "eeg.json":
                     Object.assign(sidecar, get_sidecar(fullpath));
                 default:
-                    files[fileinfo._filename] = fullpath;
+                    files[info._filename] = fullpath;
                 }
             });
 
@@ -912,22 +898,19 @@ exports.walk = (root, cb)=>{
             //TODO - I think I should skip sibling group with full bids entities?
             for(const key in groups) {
                 const group = groups[key];
-                group.infos.forEach(fileinfo=>{
-                    const path = _path+"/"+fileinfo._fullname;
-                    if(!files["coordsystem.json"] && fileinfo._filename == "coordsystem.json") {
+                group.infos.forEach(info=>{
+                    const path = _path+"/"+info._fullname;
+                    if(!files["coordsystem.json"] && info._filename == "coordsystem.json") {
                         files["coordsystem.json"] = path;
                     }
-                    if(!files["electrodes.tsv"] && fileinfo._filename == "electrodes.tsv") {
+                    if(!files["electrodes.tsv"] && info._filename == "electrodes.tsv") {
                         files["electrodes.tsv"] = path;
                     }
-                    if(!files["headshape.pos"] && fileinfo._filename == "headshape.pos") {
+                    if(!files["headshape.pos"] && info._filename == "headshape.pos") {
                         files["headshape.pos"] = path;
                     }
                 });
             }
-
-            console.log("adding files go eeg dataset");
-            console.dir(files);
             bids.datasets.push({dataset, files});
             next_group();
         }, cb);
@@ -946,7 +929,6 @@ exports.walk = (root, cb)=>{
             let datatype;
             if(group["meg.ds"] && fileinfo.task) {
                 datatype = "neuro/meg/ctf";
-                //TODO - I don't think setting it to directory will work.. but maybe it's downstream issue. let'sd see
             } else if(group["meg.fif"] && fileinfo.task) {
                 datatype = "neuro/meg/fif";
             } else {
@@ -956,18 +938,19 @@ exports.walk = (root, cb)=>{
             let sidecar = {};
             Object.assign(sidecar, common_sidecar["meg.json"]);
 
-            group.infos.forEach(fileinfo=>{
-                let basename = get_basename(fileinfo);
+            group.infos.forEach(info=>{
+                let basename = get_basename(info);
                 let sidecar_name = basename+"meg.json"; 
                 Object.assign(sidecar, get_parent_sidecar(common_sidecar, sidecar_name));
 
-                const fullpath = _path+"/"+fileinfo._fullname;
-                switch(fileinfo._filename) {
+                const fullpath = _path+"/"+info._fullname;
+                switch(info._filename) {
                 case "meg.json":
                     Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
                     break;
                 default:
-                    files[fileinfo._filename] = fullpath;
+                    console.log("using", info._filename, fullpath);
+                    files[info._filename] = fullpath;
                 }
             });
 
@@ -983,21 +966,21 @@ exports.walk = (root, cb)=>{
             //TODO - I think I should skip sibling group with full bids entities?
             for(const key in groups) {
                 const group = groups[key];
-                group.infos.forEach(fileinfo=>{
-                    const path = _path+"/"+fileinfo._fullname;
-                    if(!files["coordsystem.json"] && fileinfo._filename == "coordsystem.json") {
+                group.infos.forEach(info=>{
+                    const path = _path+"/"+info._fullname;
+                    if(!files["coordsystem.json"] && info._filename == "coordsystem.json") {
                         files["coordsystem.json"] = path;
                     }
-                    if(!files["electrodes.tsv"] && fileinfo._filename == "electrodes.tsv") {
+                    if(!files["electrodes.tsv"] && info._filename == "electrodes.tsv") {
                         files["electrodes.tsv"] = path;
                     }
-                    if(!files["headshape.pos"] && fileinfo._filename == "headshape.pos") {
+                    if(!files["headshape.pos"] && info._filename == "headshape.pos") {
                         files["headshape.pos"] = path;
                     }
-                    if(!files["calibration_meg.dat"] && fileinfo._filename == "meg.dat" && fileinfo.acq == "calibration") {
+                    if(!files["calibration_meg.dat"] && info._filename == "meg.dat" && info.acq == "calibration") {
                         files["calibration_meg.dat"] = path;
                     }
-                    if(!files["crosstalk_meg.fif"] && fileinfo._filename == "meg.fif" && fileinfo.acq == "crosstalk") {
+                    if(!files["crosstalk_meg.fif"] && info._filename == "meg.fif" && info.acq == "crosstalk") {
                         files["crosstalk_meg.fif"] = path;
                     }
                 });
@@ -1204,10 +1187,11 @@ exports.walk = (root, cb)=>{
         let files = {};
         infos.forEach(info=>{
             if(info._filename == "MP2RAGE.nii.gz") {
-                files[info.part+".inv"+info.inv+".nii.gz"] = dir+"/"+fileinfo._fullname;
+                files[info.part+".inv"+info.inv+".nii.gz"] = dir+"/"+info._fullname;
             }
             if(info._filename == "MP2RAGE.json") {
-                files[info.part+".inv"+info.inv+".json"] = dir+"/"+fileinfo._fullname;
+                console.log("adding json", fileinfo._fullname, info._fullname);
+                files[info.part+".inv"+info.inv+".json"] = dir+"/"+info._fullname;
             }
         });
 
@@ -1221,14 +1205,14 @@ exports.walk = (root, cb)=>{
 
         const unit1s = derivatives.find(d=>{
             if(d.key != key) return;
-            d.infos.forEach(fileinfo=>{
-                const metaStr = JSON.stringify(get_meta(fileinfo));
+            d.infos.forEach(info=>{
+                const metaStr = JSON.stringify(get_meta(info));
                 if(baseMetaStr == metaStr) {
-                    if(fileinfo._filename == "UNIT1.nii.gz") {
-                        files["unit1.nii.gz"] = fileinfo._path+"/"+fileinfo._fullname;
+                    if(info._filename == "UNIT1.nii.gz") {
+                        files["unit1.nii.gz"] = info._path+"/"+info._fullname;
                     }
-                    if(fileinfo._filename == "UNIT1.json") {
-                        files["unit1.json"] = fileinfo._path+"/"+fileinfo._fullname;
+                    if(info._filename == "UNIT1.json") {
+                        files["unit1.json"] = info._path+"/"+info._fullname;
                     }
                 }
             });
