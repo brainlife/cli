@@ -58,6 +58,12 @@ exports.walk = (root, cb)=>{
         if(fs.existsSync(root+"/participants.json")) {
             let json = fs.readFileSync(root+"/participants.json", "utf8");
             bids.participants_json = util.escape_dot(JSON.parse(json));
+
+            //remove participant_id definition
+            if(bids.participants_json.participant_id) {
+                //bids.participants_json.subject = bids.participants_json.participant_id
+                delete bids.participants_json.participant_id;
+            }
         }
     } catch(err) {
         console.error(err);
@@ -245,7 +251,7 @@ exports.walk = (root, cb)=>{
             const files = fs.readdirSync(path+"/"+modality);
             const groups = groupFiles(path+"/"+modality, files);
             for(let key in groups) {
-                console.log("loading modality", [subject, session, modality].join("."));
+                //console.log("loading modality", [subject, session, modality].join("."));
                 derivatives.push(Object.assign({
                     key: [subject, session, modality].join("."),
                     pipeline, 
@@ -837,8 +843,8 @@ exports.walk = (root, cb)=>{
                 }
             });
         }
-        console.log("added sibling");
-        console.dir(common_sidecar);
+        //console.log("added sibling");
+        //console.dir(common_sidecar);
         return common_sidecar;
     }
 
@@ -949,7 +955,7 @@ exports.walk = (root, cb)=>{
                     Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
                     break;
                 default:
-                    console.log("using", info._filename, fullpath);
+                    //console.log("using", info._filename, fullpath);
                     files[info._filename] = fullpath;
                 }
             });
@@ -1190,7 +1196,7 @@ exports.walk = (root, cb)=>{
                 files[info.part+".inv"+info.inv+".nii.gz"] = dir+"/"+info._fullname;
             }
             if(info._filename == "MP2RAGE.json") {
-                console.log("adding json", fileinfo._fullname, info._fullname);
+                //console.log("adding json", fileinfo._fullname, info._fullname);
                 files[info.part+".inv"+info.inv+".json"] = dir+"/"+info._fullname;
             }
         });
