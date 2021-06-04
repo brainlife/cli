@@ -206,9 +206,9 @@ util.loadJwt().then(async jwt => {
             if(res.statusCode != "200") throw res;
             let dataset = dataset_and_files.dataset;
             console.log("Dataset successfully uploaded.. now registering dataset");
-            if(commander.tags) {
+            if(commander.tag) {
                 //append user specified tags to all dataset tags
-                let all = new Set([...commander.tags, ...dataset.tags]); //dedup
+                let all = new Set([...commander.tag, ...dataset.tags]); //dedup
                 dataset.tags = [...all]; //convert back to array
             }
             request.post({url: config.api.warehouse+'/dataset', json: true, headers: headers, body: {

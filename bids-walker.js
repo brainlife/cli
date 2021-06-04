@@ -809,21 +809,21 @@ exports.walk = (root, cb)=>{
         strip_token("run-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            console.debug("using", filename);
+            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
         strip_token("ses-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            console.debug("using", filename);
+            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
         strip_token("sub-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            console.debug("using", filename);
+            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
