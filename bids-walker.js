@@ -169,7 +169,6 @@ exports.walk = (root, cb)=>{
             const derivatives = [];
             const pipelines = await fs.promises.readdir(root+"/derivatives");
             async.eachSeries(pipelines, async pipeline=>{
-
                 try {
                     const stats = fs.statSync(root+"/derivatives/"+pipeline);
                     if(!stats.isDirectory()) return;
@@ -181,7 +180,7 @@ exports.walk = (root, cb)=>{
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
                 await async.eachSeries(subjects, async subject=>{
                     if(!subject.startsWith("sub-")) {
-                        console.error("derivative directory under pipeline doesn't look like properly formatted subject directory (ignoring):"+subject);
+                        console.error("unexpected file/dir under derivatives (ignoring):"+subject);
                         return;
                     }
 
@@ -218,6 +217,8 @@ exports.walk = (root, cb)=>{
                             subDerivatives.forEach(d=>derivatives.push(d));
                         });
                     }); 
+                }, err=>{
+                    if(err) return reject(err);
                 });
             }, err=>{
                 if(err) return reject(err);
