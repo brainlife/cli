@@ -35,6 +35,18 @@ function parseBIDSPath(_path) {
     return obj;
 }
 
+//fs.fileExistsSync() fails if the file is a symlink (for datalad) and file 
+//hasn't been gotten yet. let's include file if symlink exists (even if it's 
+//broke)
+function exists(path) {
+    try {
+        const stat = fs.lstatSync(path);
+        return true;
+    } catch(err) {
+        return false;
+    }
+}
+
 exports.walk = (root, cb)=>{
     let bids = {
         README: null,
@@ -46,16 +58,16 @@ exports.walk = (root, cb)=>{
     }
 
     let tsv = null;
-    if(fs.existsSync(root+"/participants.tsv")) {
+    if(exists(root+"/participants.tsv")) {
         tsv = fs.readFileSync(root+"/participants.tsv", "utf8").trim().split("\n");
     }
-    if(fs.existsSync(root+"/participant_data.tsv")) {
+    if(exists(root+"/participant_data.tsv")) {
         tsv = fs.readFileSync(root+"/participant_data.tsv", "utf8").trim().split("\n");
     }
     if(tsv) bids.participants = util.parseParticipantTSV(tsv);
 
     try {
-        if(fs.existsSync(root+"/participants.json")) {
+        if(exists(root+"/participants.json")) {
             let json = fs.readFileSync(root+"/participants.json", "utf8");
             bids.participants_json = util.escape_dot(JSON.parse(json));
 
@@ -73,13 +85,13 @@ exports.walk = (root, cb)=>{
 
     //TODO - should I create a default participants.json if it's missing so that brainlife UI will at least show each columns?
 
-    if(fs.existsSync(root+"/README")) {
+    if(exists(root+"/README")) {
         bids.README = fs.readFileSync(root+"/README", "utf8");
     }
-    if(fs.existsSync(root+"/CHANGES")) {
+    if(exists(root+"/CHANGES")) {
         bids.CHANGES = fs.readFileSync(root+"/CHANGES", "utf8");
     }
-    if(fs.existsSync(root+"/dataset_description.json")) {
+    if(exists(root+"/dataset_description.json")) {
         let json = fs.readFileSync(root+"/dataset_description.json");
         bids.dataset_description = JSON.parse(json);
         if(Array.isArray(bids.dataset_description.HowToAcknowledge)) {
@@ -149,7 +161,7 @@ exports.walk = (root, cb)=>{
 
     function loadDerivatives(root) {
         return new Promise(async (resolve, reject) => {
-            if(!fs.existsSync(root+"/derivatives")) {
+            if(!exists(root+"/derivatives")) {
                 console.log("no derivatives, or not accessible");
                 return resolve(null);
             }
@@ -392,11 +404,11 @@ exports.walk = (root, cb)=>{
                         
                     //TODO - sbref.json could be stored on the parent directory without hierarchy.. 
                     let sbref_fullname = _path+"/"+basename+"sbref.nii.gz"; 
-                    if(fs.existsSync(sbref_fullname)) {
+                    if(exists(sbref_fullname)) {
                         files["sbref.nii.gz"] = sbref_fullname;
                     }
                     let sbrefjson_fullname = _path+"/"+basename+"sbref.json"; 
-                    if(fs.existsSync(sbrefjson_fullname)) {
+                    if(exists(sbrefjson_fullname)) {
                         files["sbref.json"] = sbrefjson_fullname;
                     }
 
@@ -927,7 +939,7 @@ exports.walk = (root, cb)=>{
         const groups = groupFiles(_path, files);
 
         let common_sidecar = addSiblingSidecar(parent_sidecar, groups, _path, "meg.json");
-        console.dir(common_sidecar);
+        //console.dir(common_sidecar);
 
         async.eachOfSeries(groups, (group, key, next_group)=>{
             const fileinfo = group.infos[0];
@@ -1039,26 +1051,26 @@ exports.walk = (root, cb)=>{
                 };
 
                 let events_fullname = _path+"/"+basename+"events.tsv"; 
-                if(fs.existsSync(events_fullname)) {
+                if(exists(events_fullname)) {
                     files["events.tsv"] = events_fullname;
                 }
                     
                 //TODO - sbref.json could be stored on the parent directory without hierarchy.. 
                 let sbref_fullname = _path+"/"+basename+"sbref.nii.gz"; 
-                if(fs.existsSync(sbref_fullname)) {
+                if(exists(sbref_fullname)) {
                     files["sbref.nii.gz"] = sbref_fullname;
                 }
                 let sbrefjson_fullname = _path+"/"+basename+"sbref.json"; 
-                if(fs.existsSync(sbrefjson_fullname)) {
+                if(exists(sbrefjson_fullname)) {
                     files["sbref.json"] = sbrefjson_fullname;
                 }
 
                 let physio_fullname = _path+"/"+basename+"physio.tsv.gz"; 
-                if(fs.existsSync(physio_fullname)) {
+                if(exists(physio_fullname)) {
                     files["physio.tsv.gz"] = physio_fullname;
                 }
                 let physiojson_fullname = _path+"/"+basename+"physio.json"; 
-                if(fs.existsSync(physiojson_fullname)) {
+                if(exists(physiojson_fullname)) {
                     files["physio.json"] = physiojson_fullname;
                 }
 

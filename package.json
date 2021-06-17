@@ -1,6 +1,6 @@
 {
   "name": "brainlife",
-  "version": "1.5.23",
+  "version": "1.5.24",
   "description": "",
   "scripts": {
     "test": "mocha --reporter spec"
@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@openneuro/cli": "^3.33.7",
     "archiver": "^5.2.0",
     "async": "^3.2.0",
     "axios": "^0.21.1",

@@ -124,6 +124,7 @@ util.loadJwt().then(async jwt => {
             instance_id: instance._id,
             name: instance.name,
             service: 'brainlife/app-noop',
+            max_runtime: 600*1000, //10 minutes should be enough..
             config: {
                 _outputs: [{
                     id: "output",
