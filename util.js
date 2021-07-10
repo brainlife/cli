@@ -782,7 +782,7 @@ exports.runApp = function(headers, opt) {
         //enumerate all datasets
         let dataset_ids = [];
         app.inputs.forEach(input => {
-            inputs[input.id].forEach(user_input=>{
+            if(inputs[input.id]) inputs[input.id].forEach(user_input=>{
                 dataset_ids.push(user_input._id);
             });
         });
@@ -811,7 +811,7 @@ exports.runApp = function(headers, opt) {
                 }
 
                 //for each input, find dataset info from staged job
-                inputs[input.id].forEach(user_input=>{
+                if(inputs[input.id]) inputs[input.id].forEach(user_input=>{
                     let dataset = task.config._outputs.find(output=>output.dataset_id == user_input._id);
                     app_inputs.push(Object.assign({}, dataset, {
                         id: input.id,
@@ -860,8 +860,6 @@ exports.runApp = function(headers, opt) {
                 _outputs: app_outputs,
             });
 
-            //console.log(JSON.stringify(preparedConfig, null, 4));
-            
             // prepare and run the app task
             let submissionParams = {
                 instance_id: instance._id,
@@ -892,8 +890,10 @@ exports.runApp = function(headers, opt) {
 
             Object.keys(app.config).forEach(key => {
                 if (app.config[key].type == 'input') {
-                    let userInputs = inputs[app.config[key].input_id];
-                    let appInput = idToAppInputTable[app.config[key].input_id];
+                    const input_id = app.config[key].input_id;
+                    let userInputs = inputs[input_id];
+                    if(!userInputs) return;
+                    let appInput = idToAppInputTable[input_id];
                     
                     if (appInput.multi) {
                         result[key] = result[key] || [];
