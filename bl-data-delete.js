@@ -10,16 +10,15 @@ const size = require('window-size');
 commander
     .option('-i, --id <id>', 'data object id to remove')
     .option('-j, --json', 'output info in json format')
-    .option('-h, --h')
     .parse(process.argv);
 
+if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
+    commander.id = commander.id || commander.args[0];
+    commander.args = commander.args.slice(1);
+}
+
 util.loadJwt().then(jwt => {
-    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
-    if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
-        commander.id = commander.id || commander.args[0];
-        commander.args = commander.args.slice(1);
-    }
 
     axios.delete(config.api.warehouse+"/dataset/"+commander.id, {headers}).then(res=>{
         if(commander.json) console.dir(res.data);

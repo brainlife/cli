@@ -24,10 +24,7 @@ commander
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-j, --json', 'output data in json format')
-    .option('-h, --h')
     .parse(process.argv);
-
-if (commander.h) commander.help();
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
@@ -53,7 +50,7 @@ util.loadJwt().then(jwt => {
     }).catch(err=>{
         console.error(err);
     });
-});
+}).catch(console.error);
 
 async function outputDatasets(headers, data, skip) {
     //TODO - don't this this

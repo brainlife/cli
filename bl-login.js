@@ -18,32 +18,31 @@ commander
     .parse(process.argv);
 
 async function login() {
+    let username = commander.username;
+    if(!username) username = readlineSync.question("username: ");
+
+    let password = commander.password;
+    if(!password) password = readlineSync.question("password: ", {hideEchoBack: true});
+
     try {
-        let username = commander.username;
-        if(!username) username = readlineSync.question("enter username: ");
-
-        let password = commander.password;
-        if(!password) password = readlineSync.question("enter password: ", {hideEchoBack: true});
-
-        let rawJwt = await util.login({
+        const _jwt = await util.login({
             ldap: commander.ldap,
             ttl: commander.ttl,
             username,
             password,
         });
-        
-        let token = jwt.decode(rawJwt);
+        let token = jwt.decode(_jwt);
         let ttl = timediff(new Date(token.exp*1000), new Date());
         let formattedTime = Object.keys(ttl).map(units => {
             let time = ttl[units];
             if (time == 0 || units == 'milliseconds') return '';
             return time + " " + units;
         }).filter(t => t.trim().length > 0).join(", ");
-        
         console.log("Successfully logged in for " + formattedTime);
     } catch (err) {
-        console.error(err);
+        console.error(err.toString());
     }
+
 }
 
 login();

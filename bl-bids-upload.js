@@ -19,16 +19,19 @@ commander
     .option('-d, --directory <directory>', 'path to the root of bids directory')
     .option('-p, --project <projectid>', "project id to upload the dataset to. if you don't specify, it will create a new project (authentication token will be refreshed)")
     .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
-    .option('-h, --h')
     .parse(process.argv);
 
-if (commander.h) commander.help();
 if (commander.args.length > 0) commander.directory = commander.args[0];
-if (!commander.directory) throw new Error("please specify BIDS root directory. -d");
+
+try {
+    if (!commander.directory) throw new Error("please specify BIDS root directory (-d)");
+} catch(err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 
 util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-
     bids_walker.walk(commander.directory, async (err, bids)=>{
         if(err) throw err;
 
@@ -246,5 +249,5 @@ util.loadJwt().then(async jwt => {
         console.info("updating participants/column data");
         return axios.put(config.api.warehouse+'/participant/'+project._id, body, {headers});
     }
-});
+}).catch(console.error);
 

@@ -7,7 +7,7 @@ const util = require('./util');
 const fs = require('fs');
 
 commander
-    .option('--id <id>', 'dataset ID to update')
+    .option('--id <id>', 'data ID to update')
     .option('--desc <desc>', 'description to set')
     .option('--subject <subject>', 'set subject name')
     .option('--session <session>', 'set session name')
@@ -17,15 +17,18 @@ commander
     .option('--add_dtag <tag>', 'add datatype tags (use with caution)', util.collect, [])
     .option('--remove_dtag <tag>', 'remove datatype tags (use with caution)', util.collect, [])
     .option('-m, --meta <metadata-filename>', 'file path for (sidecar).json containing metadata that you would like to set')
-    .option('-h, --h')
     .parse(process.argv);
 
-if(commander.h) return commander.help();
-if(!commander.id) throw new Error("please specify dataset id to update");
+try {
+    if(!commander.id) throw new Error("please specify data id (--id) to update");
+} catch (err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 
 util.loadJwt().then(jwt => {
 
-    //find the dataset to update
+    //find the data to update
     axios.get(config.api.warehouse + '/dataset', { 
         headers: { 
             Authorization: "Bearer " + jwt,

@@ -44,24 +44,30 @@ const gearFrames = [
 ];
 */
 
-exports.login = function(opt) {
-    return new Promise((resolve, reject) => {
-        let url = config.api.auth;
+exports.login = async function(opt) {
+    let url = config.api.auth;
 
-        if(opt.ldap) url += "/ldap/auth";
-        else url += "/local/auth";
+    if(opt.ldap) url += "/ldap/auth";
+    else url += "/local/auth";
 
-        axios.post(url, {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)}).then(res=>{
-            if(res.status != 200) throw new Error("Error: " + res.data.message);
-            let dirname = path.dirname(config.path.jwt);
-            mkdirp(dirname).then(err=>{
-                fs.chmodSync(dirname, '700');
-                fs.writeFileSync(config.path.jwt, res.data.jwt);
-                fs.chmodSync(config.path.jwt, '600');
-                return resolve(res.data.jwt);
-            });
-        });
-    });
+    let jwt = null;
+
+    try {
+        const res = await axios.post(url, {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)});
+        if(res.status != 200) throw new Error(res.data.message);
+        jwt = res.data.jwt;
+    } catch (err) {
+        throw new Error(err.response.data.message);
+    }
+
+    let dirname = path.dirname(config.path.jwt);
+    await mkdirp(dirname);
+
+    fs.chmodSync(dirname, '700');
+    fs.writeFileSync(config.path.jwt, jwt);
+    fs.chmodSync(config.path.jwt, '600');
+
+    return jwt;
 }
 
 exports.refresh = async function(opt, headers) {
@@ -982,9 +988,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
             }
             
             if(datasetCount == 0) return cb(null, null, []); //no output for this task.
-
             if(verbose) console.log("waiting for output to be archived...")
-            
             if(task.name == "__dtv") {
                 //check for validation result
                 if(verbose) console.debug("loading product for __dtv", task._id);
@@ -1136,9 +1140,10 @@ exports.parseParticipantTSV = function(tsv) {
 
 exports.handleAxiosError = function(err) {
     if (err.response) {
-        console.error(err.response.data);
-        console.error(err.response.status);
-        console.error(err.response.headers);
+        if(err.response.data) {
+            if(err.response.data.message) console.error(err.response.data.message);
+            else console.error(err.response.data);
+        } else console.error(err.response);
     } else if (err.request) {
         // The request was made but no response was received
         // `err.request` is an instance of XMLHttpRequest in the browser and an instance of
@@ -1146,7 +1151,7 @@ exports.handleAxiosError = function(err) {
         console.error(err.request);
     } else {
         // Something happened in setting up the request that triggered an Error
-        console.error('Error', err.message);
+        console.error(err);
     }
-    console.error(err.config);
+    //console.error(err.config);
 }

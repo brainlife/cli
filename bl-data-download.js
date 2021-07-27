@@ -14,11 +14,9 @@ commander
     .option('-i, --id <id>', 'download a dataset with the given id')
     .option('-d, --directory <directory>', 'directory to stream the downloaded dataset to')
     .option('-j, --json', 'output info about downloaded dataset in json format')
-    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
-    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
         commander.id = commander.id || commander.args[0];

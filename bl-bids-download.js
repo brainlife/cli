@@ -13,21 +13,24 @@ const tmp = require('tmp');
 const child_process = require('child_process');
 
 commander
-    .option('--output <directory>', 'path where you want to output the datasets')
-    .option('--id <dataset_id>', 'filter datasets by datatypes', util.collect, [])
-    .option('--datatype <datatype>', 'filter datasets by datatypes', util.collect, [])
-    .option('--datatype_tag <datatype tag>', 'filter datasets by datatype tag', util.collect, [])
-    .option('--tag <dataset tag>', 'filter datasets by dataset tag', util.collect, [])
-    .option('--project <project_id>', 'filter datasets by project id')
-    .option('--pub <publication_id>', 'filter datasets by publication id')
-    .option('--subject <subject>', 'filter datasets by subjects', util.collect, [])
+    .option('--output <directory>', 'path where you want to output the data')
+    .option('--id <data_id>', 'specify data object id', util.collect, [])
+    .option('--datatype <datatype>', 'filter data objects by datatypes', util.collect, [])
+    .option('--datatype_tag <datatype tag>', 'filter data objects by datatype tag', util.collect, [])
+    .option('--tag <data object tag>', 'filter data objects by data tag', util.collect, [])
+    .option('--project <project_id>', 'filter data objects by project id')
+    .option('--pub <publication_id>', 'filter data object by publication id')
+    .option('--subject <subject>', 'filter data objects by subject', util.collect, [])
     .option('--skip <skip>', 'number of results to skip')
     .option('--limit <limit>', 'maximum number of results to show (default 100)')
-    .option('-h, --h')
     .parse(process.argv);
 
-if (commander.h) commander.help();
-if (!commander.project && !commander.pub && commander.id.length == 0) throw new Error("please specify either project or pub id, or dataset id");
+try {
+    if (!commander.project && !commander.pub && commander.id.length == 0) throw new Error("please specify either project or pub id, or data object id");
+} catch(err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 
 util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };

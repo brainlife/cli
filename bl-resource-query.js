@@ -4,7 +4,6 @@ const request = require('request');
 const config = require('./config');
 const fs = require('fs');
 const async = require('async');
-//const WebSocketClient = require('websocket').client;
 const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');
@@ -17,11 +16,9 @@ commander
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-j, --json', 'output data in json format')
-    .option('-h, --h')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
-    if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     
     util.queryResources(headers, {

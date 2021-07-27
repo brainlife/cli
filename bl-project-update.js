@@ -13,11 +13,14 @@ commander
     .option('--participants <participants.tsv>', 'load participants.tsv containing list of subjects and phenotype')
     .option('--participant_columns <participants.json>', 'load participants.json containing bids column definition')
     .option('-j, --json', 'output in json format')
-    .option('-h, --h')
     .parse(process.argv);
 
-if(commander.h) return commander.help();
-if(!commander.id) throw new Error("please specify project id to update");
+try {
+    if(!commander.id) throw new Error("please specify project id to update");
+} catch (err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 
 util.loadJwt().then(jwt => {
     let headers = { Authorization: "Bearer " + jwt, };

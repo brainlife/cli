@@ -21,4 +21,5 @@ util.loadJwt().then(async jwt => {
     if (commander.h) commander.help();
     let headers = { "Authorization": "Bearer " + jwt };
     await util.refresh({ttl: commander.ttl}, headers);
+    console.log("token refreshed");
 });

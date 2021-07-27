@@ -11,7 +11,6 @@ const commander = require('commander');
 const util = require('./util');
 
 commander
-    .usage('[options]')
     .option('-p, --project <projectid>', 'project id to upload dataset to')
     .option('-d, --datatype <datatype>', 'datatype of uploaded dataset')
     .option('--datatype_tag <datatype_tag>', 'add a datatype tag to the uploaded dataset', util.collect, [])
@@ -21,8 +20,7 @@ commander
     .option('-r, --run <run>', '(metadata) run of the uploaded dataset')
     .option('-t, --tag <tag>', 'add a tag to the uploaded dataset', util.collect, [])
     .option('-m, --meta <metadata-filename>', 'file path for (sidecar).json containing additional metadata')
-    .option('-j, --json', 'output uploaded dataset information in json format')
-    .option('-h, --h');
+    .option('-j, --json', 'output uploaded dataset information in json format');
 
 //TODO..
 //.option('--force', 'force the dataset to be uploaded, even if no validator is present')
@@ -40,7 +38,7 @@ let fileList = {};
 let new_argv = [];
 for(let i = 0;i < process.argv.length; ++i) {
     let arg = process.argv[i];
-    if(arg.indexOf("--") === 0 && !getcliopt(arg)) {
+    if(arg.indexOf("--") === 0 && arg != "--help" && !getcliopt(arg)) {
         fileList[arg.substring(2)] = process.argv[i+1];
         i++; //skip
     } else {
@@ -49,10 +47,14 @@ for(let i = 0;i < process.argv.length; ++i) {
 }
 commander.parse(new_argv);
 
-if (commander.h) commander.help();
-if (!commander.project) throw new Error("no project given to upload dataset to");
-if (!commander.datatype) throw new Error("no datatype of dataset given");
-if (!commander.subject) throw new Error("no subject name provided");
+try {
+    if(!commander.project) throw new Error("Please specify project (-p) to upload data to");
+    if(!commander.datatype) throw new Error("Please specify datatype (-d) of the object");
+    if(!commander.subject) throw new Error("Please specify subject name (-s)");
+} catch(err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };

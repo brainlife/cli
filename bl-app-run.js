@@ -13,15 +13,18 @@ commander
     .option('--config <json string>', 'config to use for running the app')
     .option('--tag <tag>', 'add a tag to the archived dataset', util.collect, [])
     .option('-j, --json', 'output resulting app task in json format')
-    .option('-h, --h')
     .parse(process.argv);
 
+try {
+    if(!commander.project) throw new Error("Please specify project id (-p) used to run the app.");
+    if(!commander.id) throw new Error("Please specify app id (--id)");
+} catch(err) {
+    console.error(err.toString());
+    process.exit(1);
+}
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
 
-    if (commander.h) commander.help();
-    if (!commander.project) throw new Error("No project given to store output dataset");
-    if (!commander.id) throw new Error("No app id given");
 
     util.runApp(headers, {
         app: commander.id,
