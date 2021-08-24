@@ -682,50 +682,55 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
     var find = {_id: task._id};
     axios.get(config.api.amaretti + "/task?find=" + JSON.stringify({_id: task._id}), {headers}).then(res=>{
         if(res.status != 200) return cb(err);
-        if(res.data.tasks.length != 1) return cb("Couldn't find exactly one task id. len:", res.data.tasks.length);
-        let task = res.data.tasks[0];
-        if(verbose) console.debug(new Date, "task:", task._id, task.name, task.service, task.status, task.status_msg);
-        if (task.status == "finished") {
-            let datasetCount = 0;
-            if(task.config && task.config._outputs) {
-                task.config._outputs.forEach(output=>{
-                    if(output.archive) datasetCount++;
-                });
-            }
-            
-            if(datasetCount == 0) return cb(null, null, []); //no output for this task.
-            if(verbose) console.log("waiting for output to be archived...")
-            if(task.name == "__dtv") {
-                //check for validation result
-                if(verbose) console.debug("loading product for __dtv", task._id);
-                let params = {ids: [task._id]};
-                axios.get(config.api.amaretti+"/task/product", {headers, params}).then(res=>{
-                    if(res.data.length == 0) return cb("couldn't find validation result");
-                    let product = res.data[0].product;
-                    if(verbose && product.warnings && product.warnings.length > 0) console.error("warnings", product.warnings);
-                    if(product.errors && product.errors.length > 0) return cb(product.errors);
 
-                    //now wait for the output to be archived
+        //task might not yet be comitted to the db.. and length could be 0?
+        if(res.data.tasks.length == 1) {
+            let task = res.data.tasks[0];
+            if(verbose) console.debug(new Date, "task:", task._id, task.name, task.service, task.status, task.status_msg);
+            if (task.status == "finished") {
+                let datasetCount = 0;
+                if(task.config && task.config._outputs) {
+                    task.config._outputs.forEach(output=>{
+                        if(output.archive) datasetCount++;
+                    });
+                }
+                
+                if(datasetCount == 0) return cb(null, null, []); //no output for this task.
+                if(verbose) console.log("waiting for output to be archived...")
+                if(task.name == "__dtv") {
+                    //check for validation result
+                    if(verbose) console.debug("loading product for __dtv", task._id);
+                    let params = {ids: [task._id]};
+                    axios.get(config.api.amaretti+"/task/product", {headers, params}).then(res=>{
+                        if(res.data.length == 0) return cb("couldn't find validation result");
+                        let product = res.data[0].product;
+                        if(verbose && product.warnings && product.warnings.length > 0) console.error("warnings", product.warnings);
+                        if(product.errors && product.errors.length > 0) return cb(product.errors);
+
+                        //now wait for the output to be archived
+                        exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
+                            return cb(err, task, datasets);
+                        });
+
+                    }).catch(err=>{
+                        return cb(err);
+                    });
+                } else {
+                    //datatype without validator should immediately archive
                     exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
                         return cb(err, task, datasets);
                     });
+                }
 
-                }).catch(err=>{
-                    return cb(err);
-                });
-            } else {
-                //datatype without validator should immediately archive
-                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
-                    return cb(err, task, datasets);
-                });
+                return;
+            } else if (task.status == "failed") {
+                return cb(task.status_msg, null);
             }
-        } else if (task.status == "failed") {
-            return cb(task.status_msg, null);
-        } else {
-            setTimeout(function() {
-                exports.waitForFinish(headers, task, verbose, cb);
-            }, 3000);
         }
+
+        setTimeout(function() {
+            exports.waitForFinish(headers, task, verbose, cb);
+        }, 3000);
     }).catch(err=>{
         return cb(err, null);
     });

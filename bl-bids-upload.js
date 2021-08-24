@@ -200,7 +200,7 @@ util.loadJwt().then(async jwt => {
         });
         let progress = setInterval(()=>{
             terminalOverwrite.clear();
-            terminalOverwrite("transferred: "+(total/(1024*1024)).toFixed(1)+"MB");
+            terminalOverwrite("Uploading .. "+(total/(1024*1024)).toFixed(1)+"MB");
         }, 5000);
 
         req.on('response', async res=>{
@@ -225,7 +225,7 @@ util.loadJwt().then(async jwt => {
                 tags: dataset.tags,
 
             }}).then(_dataset=>{
-                console.log("registered dataset:", _dataset._id);
+                console.log("Registered dataset:", _dataset._id);
                 cb();
             });  
         });
