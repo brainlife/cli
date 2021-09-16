@@ -91,8 +91,8 @@ async function uploadDataset(headers, options) {
     let datatype_tags = options.datatype_tags || [];
     let tags = options.tags || [];
     let metadata = options.meta || {};
-    let filenames = Object.keys(files);
-    
+    let fileids = Object.keys(files);
+
     if (options.subject) {
         metadata.subject = options.subject;
     }
@@ -133,17 +133,20 @@ async function uploadDataset(headers, options) {
     });
     
     async.forEach(datatype.files, (file, next_file) => {
-        if (filenames.length > 0) {
+        if (fileids.length > 0) {
             let path = files[file.id] || files[file.filename||file.dirname]; //TODO - explain.
             if (path) {
                 fs.stat(path, (err, stats) => {
                     if (err) {
+                        /*
                         if (file.required) {
                             throw new Error("unable to stat " + path + " ... Does the file/directory exist?");
                         } else {
                             if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
                             next_file();
                         }
+                        */
+                        throw err;
                     } else {
                         if (file.filename) {
                             archive.file(path, { name: file.filename });
@@ -170,9 +173,12 @@ async function uploadDataset(headers, options) {
                             next_file();
                         });
                     } else {
+                        /*
                         if(file.required) throw new Error(err);
                         if (!options.json) console.log("Couldn't find " + file.filename + " but it's not required for this datatype");
                         next_file();
+                        */
+                        throw err;
                     }
                 } else {
                     archive.file(file.filename, { name: (file.filename||file.dirname) });
@@ -211,6 +217,8 @@ async function uploadDataset(headers, options) {
                         task: task._id,
                         datatype: datatype._id,
                         subdir: "upload",
+
+                        fileids,
 
                         //data object info
                         datatype_tags,
