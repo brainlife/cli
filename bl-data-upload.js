@@ -58,7 +58,7 @@ try {
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    let dataset = {
+    let opts = {
         datatype: commander.datatype,
         project: commander.project,
         files: fileList,
@@ -75,16 +75,15 @@ util.loadJwt().then(jwt => {
     if (commander.meta) {
         fs.stat(commander.meta, (err, stats) => {
             if (err) throw err;
-            dataset.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii')); //why ascii?
-            uploadDataset(headers, dataset);
+            opts.meta = JSON.parse(fs.readFileSync(commander.meta, 'ascii')); //why ascii?
+            uploadDataset(headers, opts);
         });
     } else {
-        uploadDataset(headers, dataset);
+        uploadDataset(headers, opts);
     }
 });
 
 async function uploadDataset(headers, options) {
-    options = options || {};
 
     let files = options.files || {};
     let desc = options.desc || '';
@@ -108,7 +107,7 @@ async function uploadDataset(headers, options) {
 
     let projects = await util.resolveProjects(headers, options.project);
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");
-    if (projects.length > 1) throw new Error("multiple projects matching '");
+    if (projects.length > 1) throw new Error("multiple projects matching '"+projects.length);
 
     //check to make sure user didn't set anything weird via command line
     for(let id in fileList) {

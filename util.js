@@ -15,34 +15,6 @@ const mkdirp = require('mkdirp');
 const colors = require('colors');
 
 const delimiter = ',';
-/*
-const gearFrames = [
-    '               ',
-    ' e             ',
-    ' fe            ',
-    ' ife           ',
-    ' Life          ',
-    '  Life         ',
-    ' n Life        ',
-    ' in Life       ',
-    ' ain Life      ',
-    ' rain Life     ',
-    ' Brain Life    ',
-    '  Brain Life   ',
-    '   Brain Life  ',
-    '    Brain Life ',
-    '     Brain Life',
-    '      Brain Lif',
-    '       Brain Li',
-    '        Brain L',
-    '         Brain ',
-    '          Brain',
-    '           Brai',
-    '            Bra',
-    '             Br',
-    '              B',
-];
-*/
 
 exports.login = async function(opt) {
     let url = config.api.auth;
@@ -476,12 +448,13 @@ exports.queryApps = async function(headers, query, opt) {
 
 exports.getDatatype = function(headers, query) {
     return new Promise(async (resolve, reject) => {
-        axios.get(config.api.warehouse + '/datatype', { 
-            headers, 
+        const find = {};
+        if(exports.isValidObjectId(query)) find._id = query;
+        else find.name = query;
+
+        axios.get(config.api.warehouse + '/datatype', { headers, 
             params: {
-                find: JSON.stringify({
-                    $or: [ {id: query}, {name: query}, ]
-                }),
+                find: JSON.stringify(find),
             } 
         }).then(res=>{;
             if(res.data.datatypes.length == 0) return reject("no matching datatype:"+query);
@@ -543,14 +516,6 @@ exports.queryAllDatatypes = function(headers) {
         return body.datatypes;
     });
 }
-
-/*
-exports.resolveDatatypes = function(headers, datatype, opt) {
-    if (!datatype) return new Promise(r => r([])); //TODO what is this?
-    if (exports.isValidObjectId(datatype)) return exports.queryDatatypes(headers, { id: datatype }, opt);
-    else return exports.queryDatatypes(headers, { name: datatype }, opt);
-}
-*/
 
 /**
  * Query the list of resources
@@ -786,8 +751,8 @@ function escapeRegExp(str) {
  * @param {string} str
  * @returns {boolean}
  */
-exports.isValidObjectId = function(str) {
-    return /^[a-f\d]{24}$/i.test(str);
+exports.isValidObjectId = function(id) {
+    return id.match(/^[0-9a-fA-F]{24}$/);
 }
 
 /**
