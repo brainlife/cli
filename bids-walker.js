@@ -162,8 +162,8 @@ exports.walk = (root, cb)=>{
     function loadDerivatives(root) {
         return new Promise(async (resolve, reject) => {
             if(!exists(root+"/derivatives")) {
-                console.log("no derivatives, or not accessible");
-                return resolve(null);
+                console.log("no derivatives directory found, or not accessible");
+                return resolve([]);
             }
 
             const derivatives = [];
