@@ -125,7 +125,7 @@ exports.walk = (root, cb)=>{
 
             //then load derivatives
             const derivatives = await loadDerivatives(root);
-            
+
             //then handle subjects
             async.eachSeries(paths, (path, next_path)=>{
                 try {
@@ -856,8 +856,6 @@ exports.walk = (root, cb)=>{
                 }
             });
         }
-        //console.log("added sibling");
-        //console.dir(common_sidecar);
         return common_sidecar;
     }
 
@@ -940,7 +938,6 @@ exports.walk = (root, cb)=>{
         const groups = groupFiles(_path, files);
 
         let common_sidecar = addSiblingSidecar(parent_sidecar, groups, _path, "meg.json");
-        //console.dir(common_sidecar);
 
         async.eachOfSeries(groups, (group, key, next_group)=>{
             const fileinfo = group.infos[0];
@@ -1211,6 +1208,12 @@ exports.walk = (root, cb)=>{
             if(info._filename == "MP2RAGE.json") {
                 //console.log("adding json", fileinfo._fullname, info._fullname);
                 files[info.part+".inv"+info.inv+".json"] = dir+"/"+info._fullname;
+            }
+            if(info._filename == "UNIT1.nii.gz") {
+                files["unit1.nii.gz"] = dir+"/"+info._fullname;
+            }
+            if(info._filename == "UNIT1.json") {
+                files["unit1.json"] = dir+"/"+info._fullname;
             }
         });
 

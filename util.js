@@ -470,39 +470,6 @@ exports.resolveApps = function(headers, query, opt) {
     else return exports.queryApps(headers, { search: query }, opt);
 }
 
-/*
-exports.queryDatatypes = function(headers, query, opt) {
-    if(!query) query = {};
-    if(!opt) opt = {};
-    let orQueries = [], find = {};
-    if (query.id) {
-        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
-        orQueries.push({ _id: query.id });
-    }
-    if (query.name) {
-        orQueries.push({ name: query.name });
-    }
-    if (query.search) {
-        orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-        orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
-    }
-
-    if (orQueries.length > 0) find.$or = orQueries;
-    return request(config.api.warehouse + '/datatype', {
-        headers,
-        json: true,
-        qs: {
-            find: JSON.stringify(find),
-            sort: "name",
-            skip: opt.skip || 0,
-            limit: opt.limit || 100
-        } 
-    }).then(body=>{;
-        return body.datatypes;
-    });
-}
-*/
-
 //TODO get rid of this
 exports.queryAllDatatypes = function(headers) {
     return request(config.api.warehouse + '/datatype', {

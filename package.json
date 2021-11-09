@@ -1,6 +1,6 @@
 {
   "name": "brainlife",
-  "version": "1.5.31",
+  "version": "1.5.33",
   "description": "",
   "scripts": {
     "test": "mocha --reporter spec"
