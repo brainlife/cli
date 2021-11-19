@@ -122,8 +122,6 @@ exports.walk = (root, cb)=>{
             return next_path();
         }, async err=>{
             if(err) return cb(err);  
-
-            //then load derivatives
             const derivatives = await loadDerivatives(root);
 
             //then handle subjects
@@ -168,7 +166,8 @@ exports.walk = (root, cb)=>{
 
             const derivatives = [];
             const pipelines = await fs.promises.readdir(root+"/derivatives");
-            async.eachSeries(pipelines, async pipeline=>{
+            //async.eachSeries(pipelines, async pipeline=>{
+            for await (const pipeline of pipelines) {
                 try {
                     const stats = fs.statSync(root+"/derivatives/"+pipeline);
                     if(!stats.isDirectory()) return;
@@ -178,7 +177,8 @@ exports.walk = (root, cb)=>{
                 }
 
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
-                await async.eachSeries(subjects, async subject=>{
+                //await async.eachSeries(subjects, async subject=>{
+                for await (const subject of subjects) {
                     if(!subject.startsWith("sub-")) {
                         console.error("unexpected file/dir under derivatives (ignoring):"+subject);
                         return;
@@ -194,7 +194,8 @@ exports.walk = (root, cb)=>{
                     }
 
                     const sessions = fs.readdirSync(path);
-                    await async.eachSeries(sessions, async session=>{
+                    //await async.eachSeries(sessions, async session=>{
+                    for await (const session of sessions) {
                         if(!session.startsWith("ses-")) {
                             //try loading it as modality directly under sub-
                             const modality = session;
@@ -204,26 +205,25 @@ exports.walk = (root, cb)=>{
                         }
 
                         try {
-                            const stats = fs.statSync(path+"/"+session);
-                            if(!stats.isDirectory()) return;
+                            //const stats = fs.statSync(path+"/"+session);
+                            //if(!stats.isDirectory()) return;
                         } catch (err) {
                             //broken link?
+                            console.log("found broken link?");
                             return;
                         }
 
                         const modalities = fs.readdirSync(path+"/"+session);
-                        await async.eachSeries(modalities, async modality=>{
+                        //await async.eachSeries(modalities, async modality=>{
+                        for await (const modality of modalities) {
                             const subDerivatives = await loadDerivativesModality(path+"/"+session, pipeline, subject.substring(4), session.substring(4), modality);
                             subDerivatives.forEach(d=>derivatives.push(d));
-                        });
-                    }); 
-                }, err=>{
-                    if(err) return reject(err);
-                });
-            }, err=>{
-                if(err) return reject(err);
-                resolve(derivatives);
-            }); 
+                        }
+                    }
+                }
+            }
+
+            resolve(derivatives);
         });
     }
 
