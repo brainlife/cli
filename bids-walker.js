@@ -1202,11 +1202,15 @@ exports.walk = (root, cb)=>{
 
         let files = {};
         infos.forEach(info=>{
+
+            //if part is not set, assume it to be "mag"
+            //https://github.com/nipreps/fmriprep/issues/2548#issuecomment-926003862
+            if(!info.part) info.part = "mag";
+
             if(info._filename == "MP2RAGE.nii.gz") {
                 files[info.part+".inv"+info.inv+".nii.gz"] = dir+"/"+info._fullname;
             }
             if(info._filename == "MP2RAGE.json") {
-                //console.log("adding json", fileinfo._fullname, info._fullname);
                 files[info.part+".inv"+info.inv+".json"] = dir+"/"+info._fullname;
             }
             if(info._filename == "UNIT1.nii.gz") {
