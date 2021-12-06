@@ -122,6 +122,7 @@ exports.walk = (root, cb)=>{
             return next_path();
         }, async err=>{
             if(err) return cb(err);  
+
             const derivatives = await loadDerivatives(root);
 
             //then handle subjects
@@ -166,7 +167,6 @@ exports.walk = (root, cb)=>{
 
             const derivatives = [];
             const pipelines = await fs.promises.readdir(root+"/derivatives");
-            //async.eachSeries(pipelines, async pipeline=>{
             for await (const pipeline of pipelines) {
                 try {
                     const stats = fs.statSync(root+"/derivatives/"+pipeline);
@@ -177,7 +177,6 @@ exports.walk = (root, cb)=>{
                 }
 
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
-                //await async.eachSeries(subjects, async subject=>{
                 for await (const subject of subjects) {
                     if(!subject.startsWith("sub-")) {
                         console.error("unexpected file/dir under derivatives (ignoring):"+subject);
@@ -194,14 +193,13 @@ exports.walk = (root, cb)=>{
                     }
 
                     const sessions = fs.readdirSync(path);
-                    //await async.eachSeries(sessions, async session=>{
                     for await (const session of sessions) {
                         if(!session.startsWith("ses-")) {
                             //try loading it as modality directly under sub-
                             const modality = session;
                             const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4), null, modality);
                             subDerivatives.forEach(d=>derivatives.push(d));
-                            return;
+                            continue;
                         }
 
                         try {
@@ -220,6 +218,7 @@ exports.walk = (root, cb)=>{
                             subDerivatives.forEach(d=>derivatives.push(d));
                         }
                     }
+
                 }
             }
 
@@ -588,7 +587,6 @@ exports.walk = (root, cb)=>{
 
         if(!fileinfo1 || !fileinfo2) {
             console.error("2phasemag given with only phase1?");
-            console.dir(infos);
             return cb();
         }
 
@@ -822,21 +820,18 @@ exports.walk = (root, cb)=>{
         strip_token("run-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
         strip_token("ses-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
         strip_token("sub-"); 
         filename = tokens.join("_");
         if(parent_sidecars[filename]) {
-            //console.debug("using", filename);
             sidecar = Object.assign({}, parent_sidecars[filename], sidecar);
         }
 
@@ -965,7 +960,6 @@ exports.walk = (root, cb)=>{
                     Object.assign(sidecar, get_sidecar(_path+"/"+sidecar_name));
                     break;
                 default:
-                    //console.log("using", info._filename, fullpath);
                     files[info._filename] = fullpath;
                 }
             });
