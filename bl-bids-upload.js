@@ -17,8 +17,8 @@ const bids_walker = require('./bids-walker');
 commander
     .usage('[options] (path to the root of bids directory - where you have dataset_description.json)')
     .option('-d, --directory <directory>', 'path to the root of bids directory')
-    .option('-p, --project <projectid>', "project id to upload the dataset to. if you don't specify, it will create a new project (authentication token will be refreshed)")
-    .option('-t, --tag <tag>', 'add a tag to all uploaded dataset', util.collect, [])
+    .option('-p, --project <projectid>', "project id to upload the data object to. if you don't specify, it will create a new project (authentication token will be refreshed)")
+    .option('-t, --tag <tag>', 'add a tag to all uploaded data object', util.collect, [])
     .parse(process.argv);
 
 if (commander.args.length > 0) commander.directory = commander.args[0];
@@ -209,7 +209,7 @@ util.loadJwt().then(async jwt => {
 
             if(res.statusCode != "200") throw res;
             let dataset = dataset_and_files.dataset;
-            console.log("Dataset successfully uploaded.. now registering dataset");
+            console.log("Data object successfully uploaded.. now registering");
             if(commander.tag) {
                 //append user specified tags to all dataset tags
                 let all = new Set([...commander.tag, ...dataset.tags]); //dedup
@@ -225,7 +225,7 @@ util.loadJwt().then(async jwt => {
                 tags: dataset.tags,
 
             }}).then(_dataset=>{
-                console.log("Registered dataset:", _dataset._id);
+                console.log("Registered data object:", _dataset._id);
                 cb();
             });  
         });
@@ -237,7 +237,6 @@ util.loadJwt().then(async jwt => {
         body.desc = "created by bl bids upload";
         if(bids.README) body.readme = bids.README;
         let res = await axios.post(config.api.warehouse+'/project/', body, {headers});
-        //console.log("created new project: ", res.data._id);
         return res.data;
     }
 

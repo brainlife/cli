@@ -109,6 +109,7 @@ async function uploadDataset(headers, options) {
     if (projects.length == 0) throw new Error("project '" + options.project + "' not found");
     if (projects.length > 1) throw new Error("multiple projects matching '"+projects.length);
 
+
     //check to make sure user didn't set anything weird via command line
     for(let id in fileList) {
         let file = datatype.files.find(f=>f.id == id);
@@ -121,7 +122,7 @@ async function uploadDataset(headers, options) {
             process.exit(1);
         }
     }
-    
+
     let archive = archiver('tar', { gzip: true });
     let project = projects[0];
 
@@ -130,31 +131,19 @@ async function uploadDataset(headers, options) {
     archive.on('error', err=>{
         throw new Error(err);
     });
-    
+
     async.forEach(datatype.files, (file, next_file) => {
         if (fileids.length > 0) {
             let path = files[file.id] || files[file.filename||file.dirname]; //TODO - explain.
             if (path) {
                 fs.stat(path, (err, stats) => {
-                    if (err) {
-                        /*
-                        if (file.required) {
-                            throw new Error("unable to stat " + path + " ... Does the file/directory exist?");
-                        } else {
-                            if (!options.json) console.log("Couldn't find " + (file.filename||file.dirname) + " but it's not required for this datatype");
-                            next_file();
-                        }
-                        */
-                        throw err;
+                    if (err) throw err;
+                    if (file.filename) {
+                        archive.file(path, { name: file.filename });
                     } else {
-                        if (file.filename) {
-                            archive.file(path, { name: file.filename });
-                        } else {
-                            archive.directory(path, file.dirname);
-                        }
-                        next_file();
+                        archive.directory(path, file.dirname);
                     }
-                    
+                    next_file();
                 });
             } else {
                 if (file.required) throw new Error("File '" + (file.filename||file.dirname) + "' is required for this datatype but was not provided");
@@ -241,7 +230,7 @@ async function uploadDataset(headers, options) {
                                     }
                                     if(!options.json) {
                                         console.log("successfully uploaded");
-                                        console.log("https://"+config.host+"/project/"+project._id+"/dataset/"+datasets[0]._id);
+                                        console.log("https://"+config.host+"/project/"+project._id+"#object:"+datasets[0]._id);
                                     } else {
                                         //finally dump the dataset
                                         console.log(JSON.stringify(datasets[0], null, 4));
@@ -270,23 +259,4 @@ async function uploadDataset(headers, options) {
         });
     });
 }
-
-/*
-async function getDatatype(headers, query) {
-    return new Promise(async (resolve, reject) => {
-        axios.get(config.api.warehouse+'/datatype', { 
-            headers,
-            params: {
-                find: JSON.stringify({
-                    $or: [ {id: query}, {name: query}, ]
-                }),
-            } 
-        }).then(res=>{
-            if(res.data.datatypes.length == 0) return reject("no matching datatype:"+query);
-            return resolve(res.data.datatypes[0]);
-        });
-    });
-}
-*/
-
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+o#!/usr/bin/env node
 
 const config = require('./config');
 const commander = require('commander');
@@ -126,16 +126,16 @@ function runApp(headers, opt) {
             let datasetQuery = input.substring(input.indexOf(":") + 1);
             let datasets = await util.resolveDatasets(headers, datasetQuery);
             
-            if (datasets.length == 0) return reject("No datasets matching '" + datasetQuery + "'");
-            if (datasets.length > 1) return reject("Multiple datasets matching '" + datasetQuery + "'");
+            if (datasets.length == 0) return reject("No data object matching '" + datasetQuery + "'");
+            if (datasets.length > 1) return reject("Multiple data objects matching '" + datasetQuery + "'");
             if (all_dataset_ids.indexOf(datasets[0]._id) == -1) all_dataset_ids.push(datasets[0]._id);
             
             let dataset = datasets[0];
             let app_input = idToAppInputTable[file_id];
             
             // validate dataset
-            if (dataset.status != "stored") return reject("Input dataset " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
-            if (dataset.removed == true) return reject("Input dataset " + input + " has been removed and cannot be used.");
+            if (dataset.status != "stored") return reject("Input data object " + input + " has storage status '" + dataset.status + "' and cannot be used until it has been successfully stored.");
+            if (dataset.removed == true) return reject("Input data object " + input + " has been removed and cannot be used.");
             if (!app_input) return reject("This app's config does not include key '" + file_id + "'");
             if (app_input.datatype != dataset.datatype) return reject("Given input of datatype " + datatypeTable[dataset.datatype].name + " but expected " + datatypeTable[app_input.datatype].name + " when checking " + input);
             
@@ -144,9 +144,9 @@ function runApp(headers, opt) {
             dataset.datatype_tags.forEach(tag => userInputTags[tag] = 1);
             app_input.datatype_tags.forEach(tag => {
                 if (tag.startsWith("!")) {
-                    if (userInputTags[tag.substring(1)]) return reject("This app requires that the input dataset for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + input);
+                    if (userInputTags[tag.substring(1)]) return reject("This app requires that the input data object for " + file_id + " should NOT have datatype tag '" + tag.substring(1) + "' but found it in " + input);
                 } else {
-                    if (!userInputTags[tag]) return reject("This app requires that the input dataset for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + input);
+                    if (!userInputTags[tag]) return reject("This app requires that the input data object for " + file_id + " have datatype tag '" + tag + "', but it is not set on " + input);
                 }
             });
             
