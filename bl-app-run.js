@@ -1,4 +1,4 @@
-o#!/usr/bin/env node
+#!/usr/bin/env node
 
 const config = require('./config');
 const commander = require('commander');
@@ -266,9 +266,17 @@ function runApp(headers, opt) {
                 _outputs: app_outputs,
             });
 
-            // prepare and run the app task
+            const gids = [project.group_id];
+            if(!project.noPublicResource) gids.push(1);
+            console.log("using gids", gids);
+
+            ////////////////////////////////////////////////////////////////////////////////////////
+            //
+            // run tasks!
+            //
             let submissionParams = {
                 instance_id: instance._id,
+                gids,
                 name: app.name.trim(),
                 service: app.github,
                 service_branch: branch,

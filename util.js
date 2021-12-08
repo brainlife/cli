@@ -270,7 +270,7 @@ exports.queryProjects = async function(headers, query, opt) {
     if (query.member) projectMember = await exports.resolveProfiles(headers, query.member);
     if (query.guest) projectGuest = await exports.resolvePRofiles(headers, query.guest);
     let find = { removed: false }, andQueries = [], orQueries = [];
-    
+
     if (query.id) {
         if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
         orQueries.push({ _id: query.id });
@@ -279,7 +279,7 @@ exports.queryProjects = async function(headers, query, opt) {
         orQueries.push({ name: { $regex: escapeRegExp(query.search), $options: 'ig' } });
         orQueries.push({ desc: { $regex: escapeRegExp(query.search), $options: 'ig' } });
     }
-    
+
     if (projectAdmin) {
         andQueries.push({ admins: { $in: projectAdmin.map(p=>{return p.sub})} });
     }
