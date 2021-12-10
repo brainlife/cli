@@ -90,9 +90,19 @@ function runApp(headers, opt) {
                 return reject(err);
             }
         }
-        
+
+        const gids = [project.group_id];
+        if(!project.noPublicResource) gids.push(1);
+ 
         // setting user-preferred resource
-        let bestResource = await getResource(headers, app.github);
+        const bestResource = await request(config.api.amaretti + '/resource/best', {
+            headers,
+            qs: { 
+                service: app.github,
+                gids,
+             },
+            json: true
+        });
         if (bestResource.resource) resource = bestResource.resource._id;
         if (bestResource.considered && opt.resource) {
             let resources = await util.resolveResources(headers, opt.resource);
@@ -266,10 +276,6 @@ function runApp(headers, opt) {
                 _outputs: app_outputs,
             });
 
-            const gids = [project.group_id];
-            if(!project.noPublicResource) gids.push(1);
-            console.log("using gids", gids);
-
             ////////////////////////////////////////////////////////////////////////////////////////
             //
             // run tasks!
@@ -337,16 +343,3 @@ function prepareConfig(values, download_task, inputs, datatypeTable, app) {
     return result;
 }
 
-/**
- * Get resources that the given service can run on
- * @param {any} headers
- * @param {string} service 
- * @returns {Promise<{ resource: string, considered: resource[] }>}
- */
-function getResource(headers, service) {
-    return request(config.api.amaretti + '/resource/best', {
-        headers,
-        qs: { service: service },
-        json: true
-    });
-}
