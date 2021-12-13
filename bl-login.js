@@ -14,7 +14,7 @@ commander
     .option('ldap', 'login using ldap')
     .option('--username <username>', 'your brainlife username (optional)')
     .option('--password <username>', 'your brainlife password (optional)')
-    .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 1)', 1)
+    .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 7)', 7)
     .parse(process.argv);
 
 async function login() {

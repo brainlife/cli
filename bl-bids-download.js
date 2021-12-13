@@ -89,7 +89,7 @@ util.loadJwt().then(async jwt => {
             skip: +(commander.skip||0),
         }
     }, (err, res, body)=>{
-        if(err) throw new Error(err);
+        if(err) throw err;
         let tmpname = tmp.tmpNameSync();
         fs.writeFileSync(tmpname, body);
         fs.chmodSync(tmpname, 0o700);
@@ -100,8 +100,10 @@ util.loadJwt().then(async jwt => {
         down.stdout.pipe(process.stdout);
         down.stderr.pipe(process.stderr);
         down.on('exit', code=>{
-            fs.unlink(tmpname);
-            process.exit(code);
+            fs.unlink(tmpname, err=>{
+                if(err) throw err;
+                process.exit(code);
+            });
         });
     });
 });
