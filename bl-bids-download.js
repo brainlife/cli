@@ -3,12 +3,8 @@
 const request = require('request-promise-native');
 const config = require('./config');
 const fs = require('fs');
-//const async = require('async');
-//const archiver = require('archiver');
-//const jsonwebtoken = require('jsonwebtoken');
 const commander = require('commander');
 const util = require('./util');
-//const path = require('path');
 const tmp = require('tmp');
 const child_process = require('child_process');
 
@@ -34,9 +30,9 @@ try {
 
 util.loadJwt().then(async jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    
+
     //construct find query to pass to downscript api
-    let find = { 
+    let find = {
         project: commander.project,
         publications: commander.pub,
     };
@@ -81,7 +77,7 @@ util.loadJwt().then(async jwt => {
         if(all) find.datatype_tags["$all"] = all;
         if(nin) find.datatype_tags["$nin"] = nin;
     }
-    
+
     request.post({url: config.api.warehouse + '/dataset/downscript', json: true, headers, 
         body: {
             find,
@@ -107,5 +103,4 @@ util.loadJwt().then(async jwt => {
         });
     });
 });
-
 

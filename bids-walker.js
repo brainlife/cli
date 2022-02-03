@@ -98,8 +98,19 @@ exports.walk = (root, cb)=>{
             //ds000222 is storing this as array..
             bids.dataset_description.HowToAcknowledge = bids.dataset_description.HowToAcknowledge.toString();
         }
+        if(Array.isArray(bids.dataset_description.ReferencesAndLinks)) {
+            //ds0001299 stores this as object
+            /*
+              "ReferencesAndLinks": [
+                {
+                  "reference": "http://www.mitpressjournals.org/doi/full/10.1162/jocn_a_01199"
+                }
+              ],
+            */
+            bids.dataset_description.ReferencesAndLinks = bids.dataset_description.ReferencesAndLinks.toString();
+        }
     }
-    
+
     //start iterating subject directory
     fs.readdir(root, (err, paths)=>{
         if(err) throw err;
@@ -124,6 +135,7 @@ exports.walk = (root, cb)=>{
             if(err) return cb(err);  
 
             const derivatives = await loadDerivatives(root);
+            console.debug("done loading derivatives", derivatives.length);
 
             //then handle subjects
             async.eachSeries(paths, (path, next_path)=>{
@@ -136,7 +148,7 @@ exports.walk = (root, cb)=>{
                 }
 
                 if(path == "derivatives") return next_path();
-                
+
                 //mnust be a real subject directory
                 let fileinfo = parseBIDSPath(path);
                 if(!fileinfo['sub']) {
@@ -170,57 +182,81 @@ exports.walk = (root, cb)=>{
             for await (const pipeline of pipelines) {
                 try {
                     const stats = fs.statSync(root+"/derivatives/"+pipeline);
-                    if(!stats.isDirectory()) return;
+                    if(!stats.isDirectory()) continue;
                 } catch (err) {
                     //broken link?
-                    return;
+                    console.error(err);
+                    continue;
                 }
 
                 const subjects = await fs.promises.readdir(root+"/derivatives/"+pipeline);
                 for await (const subject of subjects) {
+
+                    //make sure it's sub- directory
                     if(!subject.startsWith("sub-")) {
                         console.error("unexpected file/dir under derivatives (ignoring):"+subject);
-                        return;
+                        continue;
                     }
 
                     const path = root+"/derivatives/"+pipeline+"/"+subject;
+
+                    //make sure it's a directory
                     try {
                         const stats = fs.statSync(path);
-                        if(!stats.isDirectory()) return;
+                        if(!stats.isDirectory()) continue;
                     } catch (err) {
                         //broken link?
-                        return;
+                        console.error(err);
+                        continue;
                     }
 
+                    //iterate the sessions
                     const sessions = fs.readdirSync(path);
                     for await (const session of sessions) {
+
+                        //is it ses-?
                         if(!session.startsWith("ses-")) {
                             //try loading it as modality directly under sub-
                             const modality = session;
-                            const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4), null, modality);
-                            subDerivatives.forEach(d=>derivatives.push(d));
+                            try {
+                                const subDerivatives = await loadDerivativesModality(path, pipeline, subject.substring(4), null, modality);
+                                subDerivatives.forEach(d=>derivatives.push(d));
+                            } catch (err) {
+                                console.error(err);
+                                //console.log("handlded");
+                            }
                             continue;
                         }
 
+                        /*
                         try {
                             //const stats = fs.statSync(path+"/"+session);
                             //if(!stats.isDirectory()) return;
                         } catch (err) {
                             //broken link?
-                            console.log("found broken link?");
-                            return;
+                            console.error("found broken link?", err);
+                            continue;
                         }
+                        */
 
+                        //iterate modalities
+                        //console.log("reading directory", path+"/"+session);
                         const modalities = fs.readdirSync(path+"/"+session);
-                        //await async.eachSeries(modalities, async modality=>{
                         for await (const modality of modalities) {
-                            const subDerivatives = await loadDerivativesModality(path+"/"+session, pipeline, subject.substring(4), session.substring(4), modality);
-                            subDerivatives.forEach(d=>derivatives.push(d));
+                            try {
+                                const subDerivatives = await loadDerivativesModality(path+"/"+session, pipeline, 
+                                    subject.substring(4), session.substring(4), modality);
+                                //console.log(modality);
+                                subDerivatives.forEach(d=>derivatives.push(d));
+                            } catch (err) {
+                                console.error(err);
+                            }
                         }
                     }
-
                 }
+                //console.log("subjects");
             }
+            //console.log("resolving");
 
             resolve(derivatives);
         });
@@ -254,10 +290,10 @@ exports.walk = (root, cb)=>{
 
             try {
                 const stats = fs.statSync(path+"/"+modality);
-                if(!stats.isDirectory()) return;
+                if(!stats.isDirectory()) return reject("not directory "+path+"/"+modality);
             } catch (err) {
                 //broken link?
-                return;
+                return reject(err);
             }
 
             const files = fs.readdirSync(path+"/"+modality);
