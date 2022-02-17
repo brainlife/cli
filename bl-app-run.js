@@ -237,13 +237,18 @@ function runApp(headers, opt) {
                 });
             });
 
-            //aggregate meta
-            //TODO - this just concatenate *all* meta from all input datasets.. I should probaby do something smarter..
-            let meta = app_inputs.reduce((meta, dataset)=>{
-                for(var k in dataset.meta) if(!meta[k]) meta[k] = dataset.meta[k]; //use first one
-                return meta;
-            }, {});
-
+            //similar code alert
+            //  ui/modal/newtask
+            //  ui/modal/appsubmit
+            //  bin/rule_handler
+            //  cli
+            const meta = {};
+            app_inputs.forEach(dataset=>{
+                //for(var k in dataset.meta) if(!meta[k]) meta[k] = dataset.meta[k]; //use first one
+                ["subject", "session", "run"].forEach(k=>{
+                    if(!meta[k]) meta[k] = dataset.meta[k]; //use first one
+                });
+            });
             let app_outputs = [];
             app.outputs.forEach(output=>{
                 let output_req = {
@@ -263,10 +268,24 @@ function runApp(headers, opt) {
                 } else {
                     output_req.subdir = output.id;
                 }
-                
+
+                //handle tag pass through
+                let tags = [];
+                if(output.datatype_tags_pass) {
+                    console.log("input for", output.datatype_tags_pass);
+                    inputs[output.datatype_tags_pass].forEach(dataset=>{
+                        if(!dataset) return; //could this really happen?
+                        if(dataset.datatype_tags) tags = tags.concat(dataset.datatype_tags);
+                        Object.assign(output_req.meta, dataset.meta);
+                    });
+                }
+                tags = tags.concat(output.datatype_tags); //add specified output tags at the end
+                output_req.datatype_tags = tags 
+                console.dir(output_req);
+
                 app_outputs.push(output_req);
             });
-            
+
             // finalize app config object
             let preparedConfig = prepareConfig(values, task, inputs, datatypeTable, app);
             Object.assign(preparedConfig, {
