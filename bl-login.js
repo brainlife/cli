@@ -13,7 +13,7 @@ const readlineSync = require('readline-sync');
 commander
     .option('ldap', 'login using ldap')
     .option('--username <username>', 'your brainlife username (optional)')
-    .option('--password <username>', 'your brainlife password (optional)')
+    .option('--password <password>', 'your brainlife password (optional)')
     .option('--ttl <time to live>', 'set the amount of days before your token expires (default: 7)', 7)
     .parse(process.argv);
 
