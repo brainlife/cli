@@ -115,7 +115,7 @@ async function uploadDataset(headers, options) {
         let file = datatype.files.find(f=>f.id == id);
         if(!file) {
             console.error("Unknown parameter", "--"+id);
-            console.error("Please use the following file IDS for The specified datatype");
+            console.error("Please use the following file IDs for the specified datatype");
             datatype.files.forEach(f=>{
                 console.log("--"+f.id, f.filename||f.dirname, f.desc||'')
             });

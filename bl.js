@@ -5,6 +5,7 @@ const pkg = require('./package');
 
 commander
     .version(pkg.version)
+    .command('version', 'print bl cli version number')
     .command('login', 'login to brainlife and generate a temporary access token')
     .command('refresh', 'refresh authentication token')
     .command('profile', 'query the available list of profiles')
