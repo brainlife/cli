@@ -3,7 +3,7 @@
 const config = require('./config');
 const commander = require('commander');
 const util = require('./util');
-const request = require('request-promise-native'); //deprecated..
+const request = require('request-promise-native'); //replace this with axios
 
 commander
     .option('--id <app id>', 'id of app to run')

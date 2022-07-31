@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const request = require('request-promise-native'); //deprecated..
+const request = require('request-promise-native'); //deprecated.. use axios
 const axios = require('axios');
 const config = require('./config');
 const fs = require('fs');
@@ -9,7 +9,6 @@ const jsonwebtoken = require('jsonwebtoken');
 const timeago = require('time-ago');
 const async = require('async');
 const tar = require('tar');
-//const terminalOverwrite = require('terminal-overwrite');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const colors = require('colors');
@@ -238,7 +237,7 @@ exports.queryDatasets = async function(headers, query, opt) {
     });
 }
 
-//TOD GET rid of this
+//TODO GET rid of this
 exports.queryAllDatasets = function(headers) {
     return request(config.api.warehouse + '/dataset', {
         headers,

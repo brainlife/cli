@@ -153,21 +153,12 @@ async function uploadDataset(headers, options) {
             if (!options.json) console.log("Looking for " + (file.filename||file.dirname));
             fs.stat(file.filename||file.dirname, (err,stats)=>{
                 if(err) {
-                    if (file.dirname) {
-                        fs.stat(file.dirname, (err, stats) => {
-                            if (err) throw new Error("unable to stat " + file.dirname + " ... Does the specified directory exist?");
-                            
-                            archive.directory(file.dirname, file.dirname);
-                            next_file();
-                        });
-                    } else {
-                        /*
-                        if(file.required) throw new Error(err);
-                        if (!options.json) console.log("Couldn't find " + file.filename + " but it's not required for this datatype");
+                    if (!file.dirname) throw err;
+                    fs.stat(file.dirname, (err, stats) => {
+                        if (err) throw new Error("unable to stat " + file.dirname + " ... Does the specified directory exist?");
+                        archive.directory(file.dirname, file.dirname);
                         next_file();
-                        */
-                        throw err;
-                    }
+                    });
                 } else {
                     archive.file(file.filename, { name: (file.filename||file.dirname) });
                     next_file();
