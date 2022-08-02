@@ -204,14 +204,6 @@ exports.queryDatasets = async function(headers, query, opt) {
         });
         if(pos_tags.length > 0) andQueries.push({datatype_tags: {$all:pos_tags}});
         if(neg_tags.length > 0) andQueries.push({datatype_tags: {$nin:neg_tags}});
-        /*
-        query.datatypeTags.forEach(tag => {
-            if (tag.startsWith("!")) andQueries.push({ datatype_tags: { $not: { $elemMatch: { $eq: tag.substring(1) } } } });
-            else {
-                andQueries.push({ datatype_tags: { $elemMatch: { $eq: tag } } });
-            }
-        });
-        */
     }
     
     if (project) andQueries.push({ project });
