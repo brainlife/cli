@@ -5,28 +5,25 @@ const commander = require('commander');
 const util = require('./util');
 const request = require('request-promise-native');
 
-commander
-    .usage('[options] <task_id>')
-    .option('-i, --id <task_id>', 'id of task to wait for')
-    .parse(process.argv);
 
-try {
-    if(commander.args.length > 0) commander.id = commander.id || commander.args[0];
-    if(!commander.id) throw new Error("please specify task id");
-} catch(err) {
-    console.error(err.toString());
-    process.exit(1);
-}
+let program = new commander.Command();
+program
+    .storeOptionsAsProperties(true)
+    .argument('task-id', 'Id of the task to wait for')
+    .parse();
+
+program.parse();
+
+let taskId = program.args[0];
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
-    request.get({ url: config.api.amaretti+"/task?find=" + JSON.stringify({_id: commander.id}), headers, json: true}).then(body=>{
-        if (body.tasks.length == 0) throw new Error("no tasks found with id " + commander.id);
-        util.waitForFinish(headers, body.tasks[0], process.stdout.isTTY, async err => {
-            if (err) throw err;
-            console.log("(done waiting)");
+    request.get({ url: config.api.amaretti+"/task?find=" + JSON.stringify({_id: taskId}), headers, json: true})
+        .then(async (body) => {
+            if (body.tasks.length == 0) throw new Error("No tasks found with Id " + taskId);
+            await util.waitForFinish(headers, body.tasks[0], process.stdout.isTTY);
+            console.error("(done waiting)");
+        }).catch(err => {
+            console.error(err.message);
         });
-    }).catch(err=>{
-        console.error(err.message);
-    });
 });
