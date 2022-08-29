@@ -686,9 +686,6 @@ exports.waitForFinish = async (headers, task, verbose) => {
 
         if (res.data.tasks.length == 1) {
             const task = res.data.tasks[0];
-            if (verbose)
-                console.error(`Task: ${task._id} ${task.name} ${task.service} ${task.status} ${task.status_msg}`);
-
             if (task.status === 'finished') {
                 if (verbose)
                     console.error();
