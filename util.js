@@ -675,6 +675,8 @@ exports.waitForArchivedDatasets = async (headers, datasetCount, task, verbose) =
 
 exports.waitForFinish = async (headers, task, verbose) => {
     console.error();
+
+    let status;
     while (true) {
         const res = await http.get(
             `${config.api.amaretti}/task`,
@@ -686,6 +688,11 @@ exports.waitForFinish = async (headers, task, verbose) => {
 
         if (res.data.tasks.length == 1) {
             const task = res.data.tasks[0];
+            if (verbose && status != task.status) {
+                console.error(`Task: ${task._id} ${task.name} ${task.service} ${task.status} ${task.status_msg}`);
+                status = task.status;
+            }
+
             if (task.status === 'finished') {
                 if (verbose)
                     console.error();
