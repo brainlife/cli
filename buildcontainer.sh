@@ -2,14 +2,12 @@
 set -e
 set -x
 
-version=$(jq -r .version package.json)
+VERSION=$(jq -r .version package.json)
 
-docker build --build-arg version=$version -t brainlife/cli .
-docker tag brainlife/cli brainlife/cli:$version
-docker push brainlife/cli:$version
+docker build --build-arg VERSION=$VERSION -t brainlife/cli .
+docker tag brainlife/cli brainlife/cli:$VERSION
+docker push brainlife/cli:$VERSION
 docker tag brainlife/cli brainlife/cli:latest
 docker push brainlife/cli:latest
 
-#test 
 docker run -it brainlife/cli --version
-#singularity run docker://brainlife/cli login
