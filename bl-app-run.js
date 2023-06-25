@@ -94,34 +94,17 @@ function runApp(headers, opt) {
         const gids = [project.group_id];
         if(!project.noPublicResource) gids.push(1);
  
-        // setting user-preferred resource
-        const bestResource = await request(config.api.amaretti + '/resource/best', {
-            headers,
-            qs: { 
-                service: app.github,
-                gids,
-             },
-            json: true
-        });
-        if (bestResource.resource) resource = bestResource.resource._id;
-        if (bestResource.considered && opt.resource) {
+        if (opt.resource) {
             let resources = await util.resolveResources(headers, opt.resource);
             if (resources.length == 0) {
-                return reject("No resources found matching '" + resourceSearch + "'");
+                return reject("No resources found matching '" + opt.resource + "'");
             }
             if (resources.length > 1) {
-                return reject("Multiple resources matching '" + resourceSearch + "'");
+                return reject("Multiple resources matching '" + opt.resource + "'");
             }
             let userResource = resources[0];
-            let userResourceIsValid = false;
-            bestResource.considered.forEach(resource => {
-                if (resource.id == userResource._id) userResourceIsValid = true;
-            });
-            
-            if (userResourceIsValid) {
-                if (!opt.json) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
-                resource = userResource._id;
-            } else return reject("The given preferred resource (" + userResource.name + ") is unable to run this application");
+            if (!opt.json) console.log("Resource " + userResource.name + " (" + userResource._id + ") is valid and will be preferred.");
+            resource = userResource._id;
         }
         
         // create tables to get from id -> appInput and id -> datatype
