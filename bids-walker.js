@@ -55,6 +55,7 @@ exports.walk = (root, cb)=>{
         participants: [], //from participants.tsv
         participants_json: null, //from participants.json
         datasets: [], //{dataset, files} ... you have to do dataset.dataset.meta... maybe I should rename it to items"
+        phenotypes_json: {},
     }
 
     let tsv = null;
@@ -82,6 +83,29 @@ exports.walk = (root, cb)=>{
         console.error("failed to parse participants.json.. ignoring");
         ///mnt/datalad/datasets.datalad.org/openfmri/ds000201 contains participants.json that's basically the participants.tsv
     }
+
+    if(exists(root+"/phenotype")) {
+        console.log("phenotype directory found.. loading");
+        let files = fs.readdirSync(root+"/phenotype");
+        
+        // If there are files in the directory, set the phenotype_folder
+        if (files.length > 0) {
+            bids.phenotype_files = files;
+        }    
+        
+        //just load and combine json files 
+        bids.phenotypes_json = {};
+        files.forEach(file=>{
+            if(file.startsWith(".")) return;
+            if(!file.endsWith(".json")) return;
+            let json = fs.readFileSync(root+"/phenotype/"+file, "utf8");
+            let obj = JSON.parse(json);
+            for(let key in obj) {
+                bids.phenotypes_json[key] = obj[key];
+            }
+        });
+    }
+    
 
     //TODO - should I create a default participants.json if it's missing so that brainlife UI will at least show each columns?
 
