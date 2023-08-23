@@ -88,22 +88,53 @@ exports.walk = (root, cb)=>{
         console.log("phenotype directory found.. loading");
         let files = fs.readdirSync(root+"/phenotype");
         
-        // If there are files in the directory, set the phenotype_folder
-        if (files.length > 0) {
-            bids.phenotype_files = files;
-        }    
-        
-        //just load and combine json files 
-        bids.phenotypes_json = {};
+        bids.phenotypes = [];
+        // needs fix to group them to just one entry for file with same name but different extension
+
+        //group files with same name but different extensios
+        let groups = {};
         files.forEach(file=>{
             if(file.startsWith(".")) return;
-            if(!file.endsWith(".json")) return;
-            let json = fs.readFileSync(root+"/phenotype/"+file, "utf8");
-            let obj = JSON.parse(json);
-            for(let key in obj) {
-                bids.phenotypes_json[key] = obj[key];
-            }
+            let key = file.split(".")[0];
+            if(!groups[key]) groups[key] = [];
+            groups[key].push(file);
         });
+        for(let key in groups) {
+            let entry = {
+                //set the name to the file name without the extension
+                name: key,
+                //tsv file name
+                file: "phenotype/"+key+".tsv",
+                sidecar: null,
+                columns: {},
+                data: [],
+            }
+            if(groups[key].includes(key+".json")) {
+                //sidecar
+                entry.sidecar = "phenotype/"+key+".json";
+                let json = fs.readFileSync(root+"/phenotype/"+key+".json", "utf8");
+                let obj = JSON.parse(json);
+                entry.columns = obj
+            }
+
+            //load tsv
+            let tsv = fs.readFileSync(root+"/phenotype/"+key+".tsv", "utf8").trim().split("\n");
+            let header = tsv.shift().split("\t");
+            tsv.forEach((line, lineNumber) => {
+                try {
+                    let obj = {};
+                    let tokens = line.split("\t");
+                    header.forEach((key, idx) => {
+                        obj[key] = tokens[idx];
+                    });
+                    entry.data.push(obj);
+                } catch (error) {
+                    console.error(`Error parsing line ${lineNumber} of ${file}: ${error.message}`);
+                    console.error(`Line content: ${line}`);
+                }
+            });
+            bids.phenotypes.push(entry);
+        }
     }
     
 
