@@ -87,9 +87,7 @@ exports.walk = (root, cb)=>{
     if(exists(root+"/phenotype")) {
         console.log("phenotype directory found.. loading");
         let files = fs.readdirSync(root+"/phenotype");
-        
         bids.phenotypes = [];
-        // needs fix to group them to just one entry for file with same name but different extension
 
         //group files with same name but different extensios
         let groups = {};
