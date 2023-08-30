@@ -55,6 +55,7 @@ exports.walk = (root, cb)=>{
         participants: [], //from participants.tsv
         participants_json: null, //from participants.json
         datasets: [], //{dataset, files} ... you have to do dataset.dataset.meta... maybe I should rename it to items"
+        phenotypes_json: {},
     }
 
     let tsv = null;
@@ -82,6 +83,58 @@ exports.walk = (root, cb)=>{
         console.error("failed to parse participants.json.. ignoring");
         ///mnt/datalad/datasets.datalad.org/openfmri/ds000201 contains participants.json that's basically the participants.tsv
     }
+
+    if(exists(root+"/phenotype")) {
+        console.log("phenotype directory found.. loading");
+        let files = fs.readdirSync(root+"/phenotype");
+        bids.phenotypes = [];
+
+        //group files with same name but different extensios
+        let groups = {};
+        files.forEach(file=>{
+            if(file.startsWith(".")) return;
+            let key = file.split(".")[0];
+            if(!groups[key]) groups[key] = [];
+            groups[key].push(file);
+        });
+        for(let key in groups) {
+            let entry = {
+                //set the name to the file name without the extension
+                name: key,
+                //tsv file name
+                file: "phenotype/"+key+".tsv",
+                sidecar: null,
+                columns: {},
+                data: [],
+            }
+            if(groups[key].includes(key+".json")) {
+                //sidecar
+                entry.sidecar = "phenotype/"+key+".json";
+                let json = fs.readFileSync(root+"/phenotype/"+key+".json", "utf8");
+                let obj = JSON.parse(json);
+                entry.columns = obj
+            }
+
+            //load tsv
+            let tsv = fs.readFileSync(root+"/phenotype/"+key+".tsv", "utf8").trim().split("\n");
+            let header = tsv.shift().split("\t");
+            tsv.forEach((line, lineNumber) => {
+                try {
+                    let obj = {};
+                    let tokens = line.split("\t");
+                    header.forEach((key, idx) => {
+                        obj[key] = tokens[idx];
+                    });
+                    entry.data.push(obj);
+                } catch (error) {
+                    console.error(`Error parsing line ${lineNumber} of ${file}: ${error.message}`);
+                    console.error(`Line content: ${line}`);
+                }
+            });
+            bids.phenotypes.push(entry);
+        }
+    }
+    
 
     //TODO - should I create a default participants.json if it's missing so that brainlife UI will at least show each columns?
 
