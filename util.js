@@ -6,26 +6,95 @@ const axios = require('axios');
 const config = require('./config');
 const fs = require('fs');
 const jsonwebtoken = require('jsonwebtoken');
-const timeago = require('time-ago');
-const async = require('async');
-const tar = require('tar');
 const path = require('path');
 const mkdirp = require('mkdirp');
-const colors = require('colors');
 
-const delimiter = ',';
+class UserError extends Error {}
 
-exports.login = async function(opt) {
+class ArgError extends UserError {
+    constructor(arg) {
+        super();
+        this.arg = arg;
+    }
+}
+
+class ArgFileReadError extends ArgError {
+    constructor(arg, path) {
+        super(arg);
+        this.path = path;
+    }
+}
+
+exports.UserError = UserError;
+exports.ArgError = ArgError;
+exports.ArgFileReadError = ArgFileReadError;
+
+/**
+ * Validate a path exists and is readable
+ * @param {string} path 
+ * @returns {string} path
+ */
+exports.ensureArgFileRead = (path) => {
+    try {
+        fs.accessSync(path, fs.constants.R_OK);
+        return path;
+    } catch (error) {
+        throw new ArgFileReadError(this.name(), path);
+    }
+}
+
+/**
+ * Validator for JSON file path
+ * @param {string} path 
+ * @returns {object} JSON content
+ */
+exports.ensureArgFileJSONRead = (path) => {
+    try {
+        fs.accessSync(path, fs.constants.R_OK);
+        return JSON.parse(fs.readFileSync(path, 'utf-8'));
+    } catch (error) {
+        throw new ArgFileReadError(this.name(), path);
+    }
+}
+
+/**
+ * Handles general errors like arguments and Axios communitation
+ * @param {Error} error 
+ * @returns exit code
+ */
+exports.handleAppError = (program, error) => {
+    if (error instanceof ArgFileReadError) {
+        console.error(`Error: argument '${error.arg}' path not readable: '${error.path}'`);
+    } else if (error instanceof ArgError) {
+        console.error(`Error: required argument '${error.arg}' not specified`);
+        console.error();
+        program.outputHelp();
+    } else if (error instanceof UserError) {
+        console.error(`Error: ${error.message}`);
+    } else if (error instanceof axios.AxiosError) {
+        ;;; // handled in interceptor
+    } else {
+        console.error(`Error: ${error.message ?? error}`);
+        console.trace(error);
+    }
+    return 1;
+}
+
+exports.login = async function (opt) {
     let url = config.api.auth;
 
-    if(opt.ldap) url += "/ldap/auth";
+    if (opt.ldap) url += "/ldap/auth";
     else url += "/local/auth";
 
     let jwt = null;
 
     try {
-        const res = await axios.post(url, {username: opt.username, password: opt.password, ttl: 1000*60*60*24*(opt.ttl || 1)});
-        if(res.status != 200) throw new Error(res.data.message);
+        const res = await axios.post(url, {
+            username: opt.username,
+            password: opt.password,
+            ttl: 1000 * 60 * 60 * 24 * (opt.ttl || 1)
+        });
+        if (res.status != 200) throw new Error(res.data.message);
         jwt = res.data.jwt;
     } catch (err) {
         throw new Error(err.response.data.message);
@@ -41,10 +110,12 @@ exports.login = async function(opt) {
     return jwt;
 }
 
-exports.refresh = async function(opt, headers) {
-    let url = config.api.auth+"/refresh";
-    let res = await axios.post(url, {ttl: 1000*60*60*24*(opt.ttl || 1)}, {headers});
-    if(res.status != 200) throw new Error("Error: " + res.data.message);
+exports.refresh = async function (opt, headers) {
+    let url = config.api.auth + "/refresh";
+    let res = await axios.post(url, {
+        ttl: 1000 * 60 * 60 * 24 * (opt.ttl || 1)
+    }, { headers });
+    if (res.status != 200) throw new Error("Error: " + res.data.message);
     let dirname = path.dirname(config.path.jwt);
     await mkdirp(dirname);
     fs.chmodSync(dirname, '700');
@@ -55,24 +126,26 @@ exports.refresh = async function(opt, headers) {
 
 /**
  * Load the user's jwt token
- * @returns {Promise<string>}
+ * @returns {string}
  */
-exports.loadJwt = function() {
-    return new Promise((resolve, reject) => {
-        fs.stat(config.path.jwt, (err, stat) => {
-            if (err) {
-                return reject("Couldn't find your access token. Please try logging in by running 'bl login'");
-                process.exit(1);
-            }
-            let jwt = fs.readFileSync(config.path.jwt, "ascii").trim();
-            let dec = jsonwebtoken.decode(jwt);
-            if(!dec) return reject("Failed to decode you access token. Please try logging in by running 'bl login'");
-            if(dec.exp < Date.now()/1000) return reject("You access token is expired. Please try logging in by running 'bl login'.");
-            
-            resolve(jwt); 
-        });
-    });
+exports.loadJwtSync = () => {
+    try {
+        const jwtFile = config.path.jwt;
+        if (!fs.existsSync(jwtFile))
+            throw Error("Please log-in first using 'bl login'.");
+        const jwt = fs.readFileSync(jwtFile, "ascii").trim();
+        const payload = jsonwebtoken.decode(jwt);
+        if (!payload)
+            throw Error("Failed to read your credentials. Please log-in using 'bl login'.");
+        if (payload.exp < Date.now() / 1000)
+            throw Error("Your credentials have expired. Please log-in using 'bl login'.");
+        return jwt;
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+    }
 }
+exports.loadJwt = async () => exports.loadJwtSync();
 
 exports.queryProfiles = function(headers, query, opt) {
     if(!query) query = {};
@@ -250,20 +323,21 @@ exports.resolveDatasets = function(headers, query, opt) {
     }
 }
 
-exports.queryProjects = async function(headers, query, opt) {
+exports.queryProjects = async (headers, query, opt) => {
     if(!query) query = {};
     if(!opt) opt = {};
-    
+
     let projectAdmin = null;
     let projectMember = null;
     let projectGuest = null;
     if (query.admin) projectAdmin = await exports.resolveProfiles(headers, query.admin);
     if (query.member) projectMember = await exports.resolveProfiles(headers, query.member);
-    if (query.guest) projectGuest = await exports.resolvePRofiles(headers, query.guest);
+    if (query.guest) projectGuest = await exports.resolveProfiles(headers, query.guest);
     let find = { removed: false }, andQueries = [], orQueries = [];
 
     if (query.id) {
-        if (!exports.isValidObjectId(query.id)) throw new Error('Not a valid object id: ' + query.id);
+        if (!exports.isValidObjectId(query.id))
+            throw new Error('Not a valid object id: ' + query.id);
         orQueries.push({ _id: query.id });
     }
     if (query.search) {
@@ -283,17 +357,21 @@ exports.queryProjects = async function(headers, query, opt) {
 
     if (orQueries.length > 0) andQueries.push({ $or: orQueries });
     if (andQueries.length > 0) find.$and = andQueries;
-    return request(config.api.warehouse + '/project', { headers, json: true, 
-        qs: {
-            find: JSON.stringify(find),
-            sort: JSON.stringify({ name: 1 }),
-            skip: opt.skip || 0,
-            limit: opt.limit || 100
+
+    const res = await http.get(
+        `${config.api.warehouse}/project`,
+        {
+            ...(headers || {}),
+            params: {
+                find: JSON.stringify(find),
+                sort: JSON.stringify({ name: 1 }),
+                skip: opt.skip || 0,
+                limit: opt.limit || 100
+            }
         }
-    }).then(body=>{
-        //else if (res.statusCode != 200) return throw new Error(res.body.message);
-        return body.projects;
-    });
+    );
+
+    return res.data.projects;
 }
 
 exports.queryPubs = async function(headers, query, opt) {
@@ -437,21 +515,21 @@ exports.queryApps = async function(headers, query, opt) {
     });
 }
 
-exports.getDatatype = function(headers, query) {
-    return new Promise(async (resolve, reject) => {
-        const find = {};
-        if(exports.isValidObjectId(query)) find._id = query;
-        else find.name = query;
+exports.getDatatype = async function (headers, query) {
+    const find = {};
+    if (exports.isValidObjectId(query)) find._id = query;
+    else find.name = query;
 
-        axios.get(config.api.warehouse + '/datatype', { headers, 
-            params: {
-                find: JSON.stringify(find),
-            } 
-        }).then(res=>{;
-            if(res.data.datatypes.length == 0) return reject("no matching datatype:"+query);
-            return resolve(res.data.datatypes[0]);
-        });
+    const res = await http.get(config.api.warehouse + '/datatype', {
+        ...(headers || {}),
+        params: {
+            find: JSON.stringify(find),
+        }
     });
+
+    if (res.data.datatypes.length == 0)
+        throw Error(`The datatype ${query} was not found.`);
+    return res.data.datatypes[0];
 }
 
 //TODO get rid off this
@@ -538,125 +616,139 @@ exports.resolveResources = function(headers, query, opt) {
  * @param {string} options.desc
  * @returns {Promise<instance>}
  */
-exports.findOrCreateInstance = function(headers, instanceName, options) {
-    return new Promise((resolve, reject)=>{
-        // get instance that might already exist
-        var find = { name: instanceName };
-        options = options || {};
+exports.findOrCreateInstance = async (headers, instanceName, options) => {
+    const find = { name: instanceName };
+    const res = await http.get(
+        `${config.api.amaretti}/instance`,
+        {
+            params: { find: JSON.stringify(find) },
+            ...(headers || {})
+        }
+    )
 
-        request({url: config.api.amaretti + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
-            if(err) return reject(err);
-            if(res.statusCode != 200) return reject(res.statusCode);
-            if(body.instances[0]) resolve(body.instances[0]);
-            else {
-                // need to create new instance
-                let body = { name: instanceName, desc: options.desc };
-                if (options.project) {
-                    body.config = { brainlife: true };
-                    body.group_id = options.project.group_id;
-                }
-                request.post({url: config.api.amaretti + "/instance", headers: headers, json: true, body,
-                }, function(err, res, body) {
-                    if (err) return reject(err);
-                    else if (res.statusCode != 200) {
-                        if (res.statusMessage == 'not member of the group you have specified') {
-                            return reject("There was an error during instance creation. Please log in again.");
-                        }
-                        else return reject(res.body.message);
-                    } else {
-                        resolve(body);
-                    }
-                });
+    if (res.data?.instances[0])
+        return res.data.instances[0];
+
+    else {
+        // need to create new instance
+        const body = { name: instanceName, desc: options.desc };
+        if (options.project) {
+            body.config = { brainlife: true };
+            body.group_id = options.project.group_id;
+        }
+        const res = await http.get(
+            `${config.api.amaretti}/instance`,
+            {
+                params: { find: JSON.stringify(find) },
+                ...(headers || {})
             }
-        });
-    });
+        );
+        return res.data?.instances[0];
+    }
 }
 
 //Wait for datasets from task to be archived
-exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose, cb) {
-    request(config.api.warehouse+'/dataset', { json: true, headers, qs: {
-        find: JSON.stringify({'prov.task_id': task._id}),
-    } }, (err, res, body) => {
-        if (err) return cb(err);
-        if (res.statusCode != 200) return cb(res.body.message);
-        let failed = false;
-        let stored_datasets = body.datasets.filter(dataset=>{
-            if(verbose) console.debug(new Date(), "object:", dataset._id, dataset.status, dataset.status_msg);
-            if(dataset.status == "failed") failed = true;
-            return (dataset.status == "stored");
+exports.waitForArchivedDatasets = async (headers, datasetCount, task, verbose) => {
+    while (true) {
+        const res = await http.get(`${config.api.warehouse}/dataset`, {
+            headers,
+            params: {
+                find: JSON.stringify({ 'prov.task_id': task._id })
+            }
         });
-        if(failed) return cb("failed to archive", null);
-        if(stored_datasets.length == datasetCount) {
-            //finished!
-            return cb(null, stored_datasets);
-        } else {
-            //if(verbose) console.log(stored_datasets.length+" of "+datasetCount+" datasets archived");
-            //not all datasets archived yet.. wait
-            return setTimeout(()=>{
-                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, cb); 
-            }, 1000*5);
+
+        let failed = false;
+        const storedDatasets = res.data.datasets.filter((dataset) => {
+            if (verbose) console.error(`Object: ${dataset._id} ${dataset.status} ${dataset.status_msg}`);
+            if (dataset.status === 'failed') failed = true;
+            return dataset.status === 'stored';
+        });
+
+        if (failed) throw Error('Failed to archive the dataset.');
+        if (storedDatasets.length == datasetCount) {
+            return { task, datasets: storedDatasets };
         }
-    });
+
+        await exports.sleep(5);
+    }
 }
 
-//wait for the task to finish
-//2nd parameter for cb will be set to archive_task for output
-exports.waitForFinish = function(headers, task, verbose, cb) {
-    var find = {_id: task._id};
-    axios.get(config.api.amaretti + "/task?find=" + JSON.stringify({_id: task._id}), {headers}).then(res=>{
-        if(res.status != 200) return cb(err);
+exports.waitForFinish = async (headers, task, verbose) => {
+    console.error();
 
-        //task might not yet be comitted to the db.. and length could be 0?
-        if(res.data.tasks.length == 1) {
-            let task = res.data.tasks[0];
-            if(verbose) console.debug(new Date, "task:", task._id, task.name, task.service, task.status, task.status_msg);
-            if (task.status == "finished") {
-                let datasetCount = 0;
-                if(task.config && task.config._outputs) {
-                    task.config._outputs.forEach(output=>{
-                        if(output.archive) datasetCount++;
-                    });
+    let status;
+    while (true) {
+        const res = await http.get(
+            `${config.api.amaretti}/task`,
+            {
+                headers,
+                params: { find: JSON.stringify({ _id: task._id }) }
+            }
+        );
+
+        if (res.data.tasks.length == 1) {
+            const task = res.data.tasks[0];
+            if (verbose && status != task.status) {
+                console.error(`Task: ${task._id} ${task.name} ${task.service} ${task.status} ${task.status_msg}`);
+                status = task.status;
+            }
+
+            if (task.status === 'finished') {
+                if (verbose)
+                    console.error();
+
+                const datasetCount = task.config?._outputs?.reduce(
+                    (acc, output) => output.archive ? acc + 1 : acc, 0
+                ) ?? 0;
+
+                if (datasetCount == 0)
+                    return { task, datasets: [] };
+                if (verbose)
+                    console.error('Waiting for output to be archived...');
+
+                // If there is a validator, check for validation result
+                if (task.name == "__dtv") {
+                    if (verbose)
+                        console.error(`Loading product for __dtv: ${task._id}...`);
+
+                    const productRes = await http.get(
+                        `${config.api.amaretti}/task/product`,
+                        {
+                            headers,
+                            params: { ids: [task._id] }
+                        }
+                    );
+
+                    if (productRes.data.length == 0)
+                        throw Error('No validation result was found.');
+
+                    const product = productRes.data[0].product;
+                    if (verbose && product.warnings?.length > 0) {
+                        console.error(`Warnings:`);
+                        product.warnings.forEach(
+                            warning => console.error(`- ${warning}`)
+                        );
+                        console.error();
+                    }
+                    if (product.errors?.length > 0)
+                        throw Error(product.errors);
                 }
-                
-                if(datasetCount == 0) return cb(null, null, []); //no output for this task.
-                if(verbose) console.log("waiting for output to be archived...")
-                if(task.name == "__dtv") {
-                    //check for validation result
-                    if(verbose) console.debug("loading product for __dtv", task._id);
-                    let params = {ids: [task._id]};
-                    axios.get(config.api.amaretti+"/task/product", {headers, params}).then(res=>{
-                        if(res.data.length == 0) return cb("couldn't find validation result");
-                        let product = res.data[0].product;
-                        if(verbose && product.warnings && product.warnings.length > 0) console.error("warnings", product.warnings);
-                        if(product.errors && product.errors.length > 0) return cb(product.errors);
 
-                        //now wait for the output to be archived
-                        exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
-                            return cb(err, task, datasets);
-                        });
+                // Wait for datasets to be archived
+                const { datasets } = await exports.waitForArchivedDatasets(
+                    headers, datasetCount, task, verbose
+                );
 
-                    }).catch(err=>{
-                        return cb(err);
-                    });
-                } else {
-                    //datatype without validator should immediately archive
-                    exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
-                        return cb(err, task, datasets);
-                    });
-                }
+                console.error();
+                return { task, datasets };
 
-                return;
             } else if (task.status == "failed") {
-                return cb(task.status_msg, null);
+                throw Error(task.status_msg);
             }
         }
 
-        setTimeout(function() {
-            exports.waitForFinish(headers, task, verbose, cb);
-        }, 3000);
-    }).catch(err=>{
-        return cb(err, null);
-    });
+        await exports.sleep(5);
+    }
 }
 
 /**
@@ -789,3 +881,33 @@ exports.handleAxiosError = function(err) {
     }
     //console.error(err.config);
 }
+
+/**
+ * 😴
+ * @param {Number} seconds sleeping
+ */
+exports.sleep = async (secs) =>
+    new Promise(resolve => setTimeout(resolve, secs * 1000));
+
+
+/**
+ * Spawn http client, handling common errors and authenticating when requested
+ */
+const http = axios.create();
+http.authenticate = () => {
+    http.defaults.headers.common.Authorization = `Bearer ${exports.loadJwtSync()}`;
+}
+http.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response) {
+            if (error.response.status == 401) {
+                console.error(`You do not have permission to this project. Please check your credentials.`);
+            }
+        } else {
+            console.error(`There was an error communicating with Brainlife. Please try again later.`);
+        }
+        throw error;
+    }
+);
+exports.http = http;

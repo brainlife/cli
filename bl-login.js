@@ -25,14 +25,14 @@ async function login() {
     if(!password) password = readlineSync.question("password: ", {hideEchoBack: true});
 
     try {
-        const _jwt = await util.login({
+        const token = await util.login({
             ldap: commander.ldap,
             ttl: commander.ttl,
             username,
             password,
         });
-        let token = jwt.decode(_jwt);
-        let ttl = timediff(new Date(token.exp*1000), new Date());
+        let payload = jwt.decode(token);
+        let ttl = timediff(new Date(payload.exp*1000), new Date());
         let formattedTime = Object.keys(ttl).map(units => {
             let time = ttl[units];
             if (time == 0 || units == 'milliseconds') return '';
@@ -42,7 +42,6 @@ async function login() {
     } catch (err) {
         console.error(err.toString());
     }
-
 }
 
 login();

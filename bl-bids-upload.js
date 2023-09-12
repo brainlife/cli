@@ -140,12 +140,7 @@ util.loadJwt().then(async jwt => {
         }}).then(body=>{
             let task = body.task;
             console.log("Waiting for upload task to be ready...");
-            return new Promise((resolve, reject)=>{
-                util.waitForFinish(headers, task, true, err=>{
-                    if(err) return reject(err);
-                    resolve(task);
-                });
-            });
+            return util.waitForFinish(headers, task, true);
         });
     }
 
