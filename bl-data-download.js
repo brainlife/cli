@@ -26,7 +26,11 @@ util.loadJwt().then(jwt => {
 
     // S3 mode: --project + --path
     if (commander.project && commander.path !== undefined) {
-        downloadS3(headers, commander.project, commander.path, commander.directory, commander.json);
+        downloadS3(headers, commander.project, commander.path, commander.directory, commander.json)
+            .catch(err => {
+                console.error("Download failed: " + (err.message || err));
+                process.exit(1);
+            });
         return;
     }
 
@@ -121,22 +125,27 @@ function downloadDataset(headers, id, dir, json) {
 // ─── S3 download (via warehouse API) ────────────────────────────────────────
 
 async function downloadS3(headers, projectInput, s3Path, dir, json) {
-    let projects;
-    try {
-        projects = await util.resolveProjects(headers, projectInput);
-    } catch (err) {
-        console.error("Failed to resolve project: " + (err.message || err));
-        process.exit(1);
+    let projectId;
+    if (util.isValidObjectId(projectInput)) {
+        projectId = projectInput;
+    } else {
+        let projects;
+        try {
+            projects = await util.resolveProjects(headers, projectInput) || [];
+        } catch (err) {
+            console.error("Failed to resolve project: " + (err.message || err));
+            process.exit(1);
+        }
+        if (!projects || projects.length === 0) {
+            console.error("No project found matching '" + projectInput + "' (or you don't have access)");
+            process.exit(1);
+        }
+        if (projects.length > 1) {
+            console.error("Multiple projects found matching '" + projectInput + "'. Please use a project ID.");
+            process.exit(1);
+        }
+        projectId = projects[0]._id;
     }
-    if (projects.length === 0) {
-        console.error("No project found matching '" + projectInput + "' (or you don't have access)");
-        process.exit(1);
-    }
-    if (projects.length > 1) {
-        console.error("Multiple projects found matching '" + projectInput + "'. Please use a project ID.");
-        process.exit(1);
-    }
-    const projectId = projects[0]._id;
     const cleanPath = s3Path.replace(/^\//, '');
     const isDirectory = cleanPath.endsWith('/') || cleanPath === '';
 
@@ -174,9 +183,20 @@ async function downloadS3(headers, projectInput, s3Path, dir, json) {
             await mkdirp(localDir);
 
             const url = config.api.warehouse + '/files/' + projectId + '/download/' + cleanPath;
+            if (!json) console.log("Requesting: " + url);
             const res = await axios({ method: 'get', url, headers, responseType: 'stream' });
+            if (res.status !== 200) {
+                let errText = '';
+                await new Promise(resolve => {
+                    res.data.on('data', chunk => errText += chunk);
+                    res.data.on('end', resolve);
+                    res.data.on('error', resolve);
+                });
+                throw new Error("Server returned " + res.status + ": " + errText.slice(0, 300));
+            }
             await new Promise((resolve, reject) => {
                 const writer = fs.createWriteStream(localFilePath);
+                res.data.on('error', reject);
                 res.data.pipe(writer);
                 writer.on('finish', resolve);
                 writer.on('error', reject);
