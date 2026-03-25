@@ -789,3 +789,26 @@ exports.handleAxiosError = function(err) {
     }
     //console.error(err.config);
 }
+
+// ─── Warehouse file-browser helpers ─────────────────────────────────────────
+
+exports.formatBytes = function(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// List one page of files/folders via the warehouse files API.
+// Returns { objects, folders, isTruncated, nextContinuationToken, prefix }
+exports.listWarehouseFiles = async function(headers, projectId, prefix, opts) {
+    if (!opts) opts = {};
+    const cleanPrefix = (prefix || '').replace(/^\//, '').replace(/\/$/, '');
+    const url = config.api.warehouse + '/files/' + projectId + (cleanPrefix ? '/' + cleanPrefix : '');
+    const params = { limit: opts.limit || 1000 };
+    if (opts.continuationToken) params.continuationToken = opts.continuationToken;
+    if (opts.search) params.search = opts.search;
+    const res = await axios.get(url, { headers, params });
+    return res.data;
+}

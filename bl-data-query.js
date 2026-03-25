@@ -24,10 +24,22 @@ commander
     .option('-s, --skip <skip>', 'number of results to skip')
     .option('-l, --limit <limit>', 'maximum number of results to show')
     .option('-j, --json', 'output data in json format')
+    .option('--s3', 'list raw S3 files/folders for the project (use with --project)')
+    .option('--path <path>', 'S3 subfolder path to list within the project (use with --s3)')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
+
+    if (commander.s3) {
+        if (!commander.project) {
+            console.error("--project is required when using --s3");
+            process.exit(1);
+        }
+        listS3Files(headers, commander.project, commander.path, commander.json);
+        return;
+    }
+
     let datatypeTable = {};
     util.queryDatasets(headers, {
         id: commander.id,
@@ -97,7 +109,7 @@ async function outputDatasets(headers, data, skip) {
         console.log("");
     });
     
-    if (data.count) {
+    if (data.count) {    
         skip = +(skip || '');
         if (skip == 0 && data.length == data.count) console.log("Showing all " + data.length + " of " + data.length + " datasets");
         else if (skip + data.length >= data.count) console.log("Showing last " + data.length + " of " + data.count + " datasets");
@@ -111,4 +123,56 @@ async function outputDatasets(headers, data, skip) {
     }
 }
 
+async function listS3Files(headers, projectInput, subPath, json) {
+    const projects = await util.resolveProjects(headers, projectInput);
+    if (projects.length === 0) {
+        console.error("No project found matching '" + projectInput + "' (or you don't have access)");
+        process.exit(1);
+    }
+    if (projects.length > 1) {
+        console.error("Multiple projects found matching '" + projectInput + "'. Please use a project ID.");
+        process.exit(1);
+    }
+    const project = projects[0];
+    const projectId = project._id;
 
+    try {
+        const data = await util.listWarehouseFiles(headers, projectId, subPath);
+
+        if (json) {
+            console.log(JSON.stringify({ project: projectId, path: subPath || '', folders: data.folders, objects: data.objects }));
+            return;
+        }
+
+        console.log("Project: " + project.name + " (" + projectId + ")");
+        if (subPath) console.log("Path:    " + subPath);
+        console.log("");
+
+        if ((!data.folders || data.folders.length === 0) && (!data.objects || data.objects.length === 0)) {
+            console.log("(empty — no files found at this path)");
+            return;
+        }
+
+        (data.folders || []).forEach(f => {
+            console.log("  [DIR]  " + f.Name + "/");
+        });
+        (data.objects || []).forEach(f => {
+            const sizeStr = util.formatBytes(f.Size);
+            const date = f.LastModified ? new Date(f.LastModified).toLocaleDateString() : '';
+            console.log("  [FILE] " + f.Name + " (" + sizeStr + (date ? ", " + date : "") + ")");
+        });
+        console.log("\n" + (data.folders || []).length + " folder(s), " + (data.objects || []).length + " file(s)" +
+            (data.isTruncated ? " (truncated — use --limit or paginate with nextContinuationToken)" : ""));
+    } catch (err) {
+        if (err.response && err.response.status === 400) {
+            console.error("This project's files are not stored on S3.");
+        } else if (err.response && err.response.status === 403) {
+            console.error("Access denied. You may not have permission to access this project's files.");
+        } else if (err.response && err.response.status === 404) {
+            console.error("Path not found: " + (subPath || '(project root)'));
+        } else {
+            console.error("Failed to list files: " + (err.message || err));
+        }
+        process.exit(1);
+    }
+}

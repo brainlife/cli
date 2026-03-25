@@ -5,7 +5,9 @@ const request = require('request'); //deprecated by axios..
 const axios = require('axios'); //deprecated by axios..
 const config = require('./config');
 const fs = require('fs');
+const path = require('path');
 const tar = require('tar');
+const mkdirp = require('mkdirp');
 const commander = require('commander');
 const util = require('./util');
 const terminalOverwrite = require('terminal-overwrite');
@@ -13,12 +15,21 @@ const size = require('window-size');
 
 commander
     .option('-i, --id <id>', 'download a data object with the given id')
-    .option('-d, --directory <directory>', 'directory to stream the downloaded data object to')
+    .option('-p, --project <projectid>', 'project id for S3 file download')
+    .option('--path <s3path>', 'path within the project S3 prefix to download (file or folder/, use with --project)')
+    .option('-d, --directory <directory>', 'local directory to download into')
     .option('-j, --json', 'output info about downloaded data object in json format')
     .parse(process.argv);
 
 util.loadJwt().then(jwt => {
     let headers = { "Authorization": "Bearer " + jwt };
+
+    // S3 mode: --project + --path
+    if (commander.project && commander.path !== undefined) {
+        downloadS3(headers, commander.project, commander.path, commander.directory, commander.json);
+        return;
+    }
+
     if (commander.args.length > 0 && util.isValidObjectId(commander.args[0])) {
         commander.id = commander.id || commander.args[0];
         commander.args = commander.args.slice(1);
@@ -105,4 +116,83 @@ function downloadDataset(headers, id, dir, json) {
         console.error("response:", res.response.data.message);
         process.exit(1);
     });
+}
+
+// ─── S3 download (via warehouse API) ────────────────────────────────────────
+
+async function downloadS3(headers, projectInput, s3Path, dir, json) {
+    let projects;
+    try {
+        projects = await util.resolveProjects(headers, projectInput);
+    } catch (err) {
+        console.error("Failed to resolve project: " + (err.message || err));
+        process.exit(1);
+    }
+    if (projects.length === 0) {
+        console.error("No project found matching '" + projectInput + "' (or you don't have access)");
+        process.exit(1);
+    }
+    if (projects.length > 1) {
+        console.error("Multiple projects found matching '" + projectInput + "'. Please use a project ID.");
+        process.exit(1);
+    }
+    const projectId = projects[0]._id;
+    const cleanPath = s3Path.replace(/^\//, '');
+    const isDirectory = cleanPath.endsWith('/') || cleanPath === '';
+
+    try {
+        if (isDirectory) {
+            // Folder download — warehouse returns a tar stream
+            const pathParts = cleanPath.replace(/\/$/, '').split('/').filter(Boolean);
+            const defaultDir = pathParts.length > 0 ? pathParts[pathParts.length - 1] : projectId;
+            const localRoot = dir || defaultDir;
+
+            if (!json) console.log("Downloading folder to " + localRoot + "/ (as tar archive)");
+            await mkdirp(localRoot);
+
+            // Build query string — Express reads `paths[]` as an array
+            const qs = new URLSearchParams();
+            qs.append('paths[]', cleanPath || '');
+            const url = config.api.warehouse + '/files/' + projectId + '/download-multiple?' + qs.toString();
+
+            const res = await axios({ method: 'get', url, headers, responseType: 'stream' });
+            await new Promise((resolve, reject) => {
+                res.data
+                    .on('error', reject)
+                    .pipe(tar.x({ C: localRoot }))
+                    .on('finish', resolve)
+                    .on('error', reject);
+            });
+            if (!json) console.log("Download complete.");
+        } else {
+            // Single file download — warehouse streams it directly
+            const filename = cleanPath.split('/').pop();
+            const localDir = dir || '.';
+            const localFilePath = path.join(localDir, filename);
+
+            if (!json) console.log("Downloading " + filename + " to " + localFilePath);
+            await mkdirp(localDir);
+
+            const url = config.api.warehouse + '/files/' + projectId + '/download/' + cleanPath;
+            const res = await axios({ method: 'get', url, headers, responseType: 'stream' });
+            await new Promise((resolve, reject) => {
+                const writer = fs.createWriteStream(localFilePath);
+                res.data.pipe(writer);
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+            if (!json) console.log("Download complete.");
+        }
+    } catch (err) {
+        if (err.response && err.response.status === 400) {
+            console.error("This project's files are not stored on S3.");
+        } else if (err.response && err.response.status === 403) {
+            console.error("Access denied. You may not have permission to access this project's files.");
+        } else if (err.response && err.response.status === 404) {
+            console.error("File not found: " + s3Path);
+        } else {
+            console.error("Download failed: " + (err.message || err));
+        }
+        process.exit(1);
+    }
 }

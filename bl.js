@@ -13,7 +13,7 @@ commander
     .command('datatype', 'query the available list of datatypes')
     .command('project', 'create and view brainlife projects')
     .command('pub', 'query brainlife publications')
-    .command('data', 'view and utilize stored data objects').alias('dataset')
+    .command('data', 'view, query, and download stored data objects (datasets and S3 project files)').alias('dataset')
     .command('bids', 'bids upload / download')
     .command('app', 'query and run brainlife apps');
 
