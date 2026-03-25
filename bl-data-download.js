@@ -43,6 +43,11 @@ util.loadJwt().then(jwt => {
 });
 
 function downloadDataset(headers, id, dir, json) {
+    if (!id) {
+        console.error("No data object id specified. Use --id <id> or provide the id as a positional argument.");
+        console.error("To download S3 project files, use --project and --path together.");
+        process.exit(1);
+    }
     dir = dir || id;
     if (!json) console.log("downloading data object to " + dir);
 
@@ -154,25 +159,46 @@ async function downloadS3(headers, projectInput, s3Path, dir, json) {
             // Folder download — warehouse returns a tar stream
             const pathParts = cleanPath.replace(/\/$/, '').split('/').filter(Boolean);
             const defaultDir = pathParts.length > 0 ? pathParts[pathParts.length - 1] : projectId;
-            const localRoot = dir || defaultDir;
+            const localRoot = (dir || defaultDir).replace(/\/+$/, '');
 
             if (!json) console.log("Downloading folder to " + localRoot + "/ (as tar archive)");
             await mkdirp(localRoot);
 
             // Build query string — Express reads `paths[]` as an array
+            // Strip trailing slash from path before sending to the server
+            const serverPath = cleanPath.replace(/\/$/, '');
             const qs = new URLSearchParams();
-            qs.append('paths[]', cleanPath || '');
+            qs.append('paths[]', serverPath);
             const url = config.api.warehouse + '/files/' + projectId + '/download-multiple?' + qs.toString();
+            if (!json) console.log("Requesting: " + url);
+            const res = await axios({ method: 'get', url, headers, responseType: 'stream', timeout: 300000 });
 
-            const res = await axios({ method: 'get', url, headers, responseType: 'stream' });
+            if (res.status !== 200) {
+                let errText = '';
+                await new Promise(resolve => {
+                    res.data.on('data', chunk => errText += chunk);
+                    res.data.on('end', resolve);
+                    res.data.on('error', resolve);
+                });
+                throw new Error("Server returned " + res.status + ": " + errText.slice(0, 300));
+            }
+
+            if (!json) console.log("Extracting to " + localRoot + "/");
+            let fileCount = 0;
             await new Promise((resolve, reject) => {
                 res.data
                     .on('error', reject)
-                    .pipe(tar.x({ C: localRoot }))
+                    .pipe(tar.x({ C: localRoot, onentry: () => { fileCount++; } }))
                     .on('finish', resolve)
                     .on('error', reject);
             });
-            if (!json) console.log("Download complete.");
+            if (!json) {
+                if (fileCount === 0) {
+                    console.log("Warning: archive was empty — no files extracted.");
+                } else {
+                    console.log("Download complete. (" + fileCount + " file" + (fileCount === 1 ? "" : "s") + " extracted)");
+                }
+            }
         } else {
             // Single file download — warehouse streams it directly
             const filename = cleanPath.split('/').pop();
@@ -183,8 +209,7 @@ async function downloadS3(headers, projectInput, s3Path, dir, json) {
             await mkdirp(localDir);
 
             const url = config.api.warehouse + '/files/' + projectId + '/download/' + cleanPath;
-            if (!json) console.log("Requesting: " + url);
-            const res = await axios({ method: 'get', url, headers, responseType: 'stream' });
+            const res = await axios({ method: 'get', url, headers, responseType: 'stream', timeout: 300000 });
             if (res.status !== 200) {
                 let errText = '';
                 await new Promise(resolve => {
