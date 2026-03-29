@@ -460,7 +460,7 @@ exports.walk = (root, cb)=>{
 
     async function handle_anat(derivatives, parent_sidecar, _path, cb) {
         const files = fs.readdirSync(_path);
-
+    
         //group mp2rage files (ignore inv-)
         //almost the same with groupFile() but we need to ignore inv-
         let groups = {}; 
@@ -479,28 +479,35 @@ exports.walk = (root, cb)=>{
             groups[key][fileinfo._filename] = true;
             groups[key].infos.push(fileinfo);
         });
-            
-        //now handle mp2rage groups
-        async.eachOfSeries(groups, (group, key, next_group)=>{
-            for(let ginfo of group.infos) {
-                if(ginfo._filename.startsWith("T1w.nii")) {
+    
+        // Now handle grouped files (T1, T2, FLAIR, MP2RAGE, MEGRE, T2starw)
+        async.eachOfSeries(groups, (group, key, next_group) => {
+            for (let ginfo of group.infos) {
+                if (ginfo._filename.endsWith(".json")) {
+                    continue;
+                }
+                else if (ginfo._filename.startsWith("T1w.nii")) {
                     return handle_anat_t1(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
-                if(ginfo._filename.startsWith("T2w.nii")) {
+                else if (ginfo._filename.startsWith("T2w.nii")) {
                     return handle_anat_t2(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
-                if(ginfo._filename.startsWith("FLAIR.nii")) {
+                else if (ginfo._filename.startsWith("MEGRE.nii") || ginfo._filename.startsWith("T2starw.nii")) {
+                    return handle_anat_t2starw(derivatives, parent_sidecar, _path, ginfo, next_group);
+                }
+                else if (ginfo._filename.startsWith("FLAIR.nii")) {
                     return handle_anat_flair(derivatives, parent_sidecar, _path, ginfo, next_group);
                 }
-                if(ginfo._filename.startsWith("MP2RAGE.nii")) {
+                else if (ginfo._filename.startsWith("MP2RAGE.nii")) {
                     return handle_anat_mp2rage(derivatives, parent_sidecar, _path, group.infos, next_group);
+                } else {
+                    console.log("unknown anatomy file", ginfo._filename);
                 }
             }
-            console.log("unknown anatomy file", key);
             next_group();
         }, cb);
     }
-
+    
     function handle_fmap(derivatives, parent_sidecar, _path, cb) {
         const files = fs.readdirSync(_path);
 
@@ -1276,5 +1283,41 @@ exports.walk = (root, cb)=>{
 
         bids.datasets.push({dataset, files});
         cb();
-     }
+    }
+
+function handle_anat_t2starw(derivatives, parent_sidecar, dir, fileinfo, cb) {
+    // Load sidecar
+    let json_filename = fileinfo._filename.replace(/\.nii(\.gz)?$/, ".json");
+    let sidecar = {};
+    Object.assign(sidecar, parent_sidecar[json_filename]);
+    Object.assign(sidecar, get_sidecar_from_fileinfo(dir, fileinfo, json_filename));
+
+    // Get all tags
+    let all_tags = get_tags(fileinfo);
+
+    // Filter tags for datatype_tags (only "part-mag", "part-phase", "part-imag", and "part-real")
+    let datatype_tags = all_tags.filter(tag => 
+        tag === "part-mag" || tag === "part-phase" || tag === "part-imag" || tag === "part-real"
+    );
+
+    // Filter tags for tags (exclude "part-mag", "part-phase", "part-imag", and "part-real")
+    let tags = all_tags.filter(tag => 
+        tag !== "part-mag" && tag !== "part-phase" && tag !== "part-imag" && tag !== "part-real"
+    );
+
+    // Define brainlife dataset
+    let dataset = {
+        datatype: "neuro/anat/t2starw",
+        desc: fileinfo._fullname,
+        datatype_tags: datatype_tags,
+        tags: tags,
+        meta: Object.assign(sidecar, get_meta(fileinfo)),
+    };
+
+    // Assign files
+    let files = { 't2starw.nii': dir + "/" + fileinfo._fullname };
+    bids.datasets.push({ dataset, files });
+    cb();
+}
+    
 }
