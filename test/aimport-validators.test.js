@@ -90,6 +90,10 @@ describe('validateDataset', () => {
             assert.ok(dock.includes('linux/amd64'));
             assert.deepStrictEqual(dock.slice(-2), ['brainlife/dipy:1.1.1', './run.py']);
             assert.ok(dock.some(a => a.endsWith(':/input:ro')));
+            assert.strictEqual(dock[dock.indexOf('--network') + 1], 'none');
+            // staged under the cache (Colima mounts only $HOME), not os.tmpdir()
+            assert.ok(dock[dock.indexOf('-v') + 1].startsWith(path.join(cacheDir, 'tmp-')));
+            assert.deepStrictEqual(fs.readdirSync(cacheDir).filter(n => n.startsWith('tmp-')), []);
         } finally { fs.rmSync(root, {recursive: true, force: true}); }
     });
 
@@ -152,6 +156,27 @@ describe('validateDataset', () => {
                 assert.ok(r.skipped);
                 assert.strictEqual(f.calls.length, 0);
             }
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('is skipped when docker cannot pull the validator image', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            const stderr = "Unable to find image 'brainlife/dipy:1.1.1' locally\n" +
+                'docker: Error response from daemon: pull access denied for brainlife/dipy, repository does not exist.\n';
+            const r = await validateDataset(dataset, datatype, {spawn: fake({dockerCode: 125, stderr}).spawn, cacheDir});
+            assert.strictEqual(r.ok, true);
+            assert.match(r.skipped, /^validator image could not be pulled: .*pull access denied/s);
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('a validator that crashes after a pull is still not ok', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            const stderr = "Unable to find image 'brainlife/dipy:1.1.1' locally\nTraceback: boom\n";
+            const r = await validateDataset(dataset, datatype, {spawn: fake({dockerCode: 1, stderr}).spawn, cacheDir});
+            assert.strictEqual(r.ok, false);
+            assert.match(r.errors[0], /validator crashed/);
         } finally { fs.rmSync(root, {recursive: true, force: true}); }
     });
 

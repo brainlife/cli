@@ -11,6 +11,8 @@ const child_process = require('child_process');
 
 const DEFAULT_CACHE = path.join(os.homedir(), '.cache', 'brainlife', 'aimport', 'validators');
 const SKIP_MAIN = 'validator main is not a single singularity exec';
+// docker's messages when it cannot get the image (offline, private or missing); docker run exits 125
+const PULL_FAILED = /Unable to find image|pull access denied|manifest unknown/;
 
 // run a process through the (injectable) spawn; resolves {code, stdout, stderr}
 function run(spawn, cmd, args, opts = {}) {
@@ -102,7 +104,9 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
     const parsed = parseMain(main);
     if (!parsed) return skip(SKIP_MAIN);
 
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aimport-validate-'));
+    // under the cache (in $HOME), not os.tmpdir(): Colima mounts only $HOME into its VM
+    fs.mkdirSync(cacheDir, {recursive: true});
+    const tmp = fs.mkdtempSync(path.join(cacheDir, 'tmp-'));
     try {
         const work = path.join(tmp, 'validator');
         const inputDir = path.join(tmp, 'input');
@@ -117,7 +121,7 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
         fs.writeFileSync(path.join(work, 'config.json'), JSON.stringify(config, null, 4));
         stageInput(dataset.files, inputDir);
 
-        const args = ['run', '--rm', '--platform', 'linux/amd64',
+        const args = ['run', '--rm', '--platform', 'linux/amd64', '--network', 'none',
             '-v', work + ':/validator', '-v', inputDir + ':/input:ro', '-w', '/validator',
             parsed.image].concat(parsed.command.split(/\s+/));
         let r;
@@ -135,6 +139,9 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
             } catch (err) {
                 return {ok: false, errors: ['validator wrote an unreadable product.json'], warnings: []};
             }
+        }
+        if (!product && r.code === 125 && PULL_FAILED.test(r.stderr)) {
+            return skip('validator image could not be pulled: ' + await tail(r.stderr, 2));
         }
         if (!product) {
             const why = r.code === 0 ? 'validator wrote no product.json' : 'validator crashed: ' + await tail(r.stderr, 5);
