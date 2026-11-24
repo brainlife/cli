@@ -462,8 +462,8 @@ exports.resolveApps = function(headers, query, opt) {
 }
 
 //TODO get rid of this
-exports.queryAllDatatypes = function(headers) {
-    return request(config.api.warehouse + '/datatype', {
+exports.queryAllDatatypes = function(headers, api = config.api) {
+    return request(api.warehouse + '/datatype', {
         headers,
         json: true,
         qs: {
@@ -543,8 +543,9 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
         // get instance that might already exist
         var find = { name: instanceName };
         options = options || {};
+        const api = options.api || config.api;
 
-        request({url: config.api.amaretti + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
+        request({url: api.amaretti + "/instance?find=" + JSON.stringify(find), headers: headers, json: true}, (err, res, body) => {
             if(err) return reject(err);
             if(res.statusCode != 200) return reject(res.statusCode);
             if(body.instances[0]) resolve(body.instances[0]);
@@ -555,7 +556,7 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
                     body.config = { brainlife: true };
                     body.group_id = options.project.group_id;
                 }
-                request.post({url: config.api.amaretti + "/instance", headers: headers, json: true, body,
+                request.post({url: api.amaretti + "/instance", headers: headers, json: true, body,
                 }, function(err, res, body) {
                     if (err) return reject(err);
                     else if (res.statusCode != 200) {
@@ -573,8 +574,8 @@ exports.findOrCreateInstance = function(headers, instanceName, options) {
 }
 
 //Wait for datasets from task to be archived
-exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose, cb) {
-    request(config.api.warehouse+'/dataset', { json: true, headers, qs: {
+exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose, cb, api = config.api) {
+    request(api.warehouse+'/dataset', { json: true, headers, qs: {
         find: JSON.stringify({'prov.task_id': task._id}),
     } }, (err, res, body) => {
         if (err) return cb(err);
@@ -593,7 +594,7 @@ exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose,
             //if(verbose) console.log(stored_datasets.length+" of "+datasetCount+" datasets archived");
             //not all datasets archived yet.. wait
             return setTimeout(()=>{
-                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, cb); 
+                exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, cb, api); 
             }, 1000*5);
         }
     });
@@ -601,9 +602,9 @@ exports.waitForArchivedDatasets = function(headers, datasetCount, task, verbose,
 
 //wait for the task to finish
 //2nd parameter for cb will be set to archive_task for output
-exports.waitForFinish = function(headers, task, verbose, cb) {
+exports.waitForFinish = function(headers, task, verbose, cb, api = config.api) {
     var find = {_id: task._id};
-    axios.get(config.api.amaretti + "/task?find=" + JSON.stringify({_id: task._id}), {headers}).then(res=>{
+    axios.get(api.amaretti + "/task?find=" + JSON.stringify({_id: task._id}), {headers}).then(res=>{
         if(res.status != 200) return cb(err);
 
         //task might not yet be comitted to the db.. and length could be 0?
@@ -624,7 +625,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                     //check for validation result
                     if(verbose) console.debug("loading product for __dtv", task._id);
                     let params = {ids: [task._id]};
-                    axios.get(config.api.amaretti+"/task/product", {headers, params}).then(res=>{
+                    axios.get(api.amaretti+"/task/product", {headers, params}).then(res=>{
                         if(res.data.length == 0) return cb("couldn't find validation result");
                         let product = res.data[0].product;
                         if(verbose && product.warnings && product.warnings.length > 0) console.error("warnings", product.warnings);
@@ -633,7 +634,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                         //now wait for the output to be archived
                         exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
                             return cb(err, task, datasets);
-                        });
+                        }, api);
 
                     }).catch(err=>{
                         return cb(err);
@@ -642,7 +643,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
                     //datatype without validator should immediately archive
                     exports.waitForArchivedDatasets(headers, datasetCount, task, verbose, (err, datasets)=>{
                         return cb(err, task, datasets);
-                    });
+                    }, api);
                 }
 
                 return;
@@ -652,7 +653,7 @@ exports.waitForFinish = function(headers, task, verbose, cb) {
         }
 
         setTimeout(function() {
-            exports.waitForFinish(headers, task, verbose, cb);
+            exports.waitForFinish(headers, task, verbose, cb, api);
         }, 3000);
     }).catch(err=>{
         return cb(err, null);
