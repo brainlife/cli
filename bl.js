@@ -15,6 +15,7 @@ commander
     .command('pub', 'query brainlife publications')
     .command('data', 'view, query, and download stored data objects (datasets and S3 project files)').alias('dataset')
     .command('bids', 'bids upload / download')
-    .command('app', 'query and run brainlife apps');
+    .command('app', 'query and run brainlife apps')
+    .command('aimport', 'map a local DICOM/NIfTI folder to BIDS, de-identify, validate and upload it');
 
 commander.parse(process.argv);
