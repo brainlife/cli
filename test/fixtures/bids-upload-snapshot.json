@@ -1,0 +1,188 @@
+{
+  "datasets": [
+    {
+      "dataset": {
+        "datatype": "neuro/anat/t1w",
+        "desc": "sub-01_T1w.nii.gz",
+        "datatype_tags": [],
+        "tags": [],
+        "meta": {
+          "EchoTime": 0.003,
+          "subject": "01"
+        }
+      },
+      "files": {
+        "t1.nii.gz": "sub-01/anat/sub-01_T1w.nii.gz"
+      }
+    },
+    {
+      "dataset": {
+        "datatype": "neuro/func/task",
+        "desc": "sub-01_task-rest_run-1_bold.nii.gz",
+        "datatype_tags": [
+          "rest"
+        ],
+        "tags": [
+          "task-rest",
+          "run-1"
+        ],
+        "meta": {
+          "RepetitionTime": 2,
+          "TaskName": "rest",
+          "subject": "01",
+          "task": "rest",
+          "run": "1"
+        }
+      },
+      "files": {
+        "bold.nii.gz": "sub-01/func/sub-01_task-rest_run-1_bold.nii.gz",
+        "events.tsv": "sub-01/func/sub-01_task-rest_run-1_events.tsv"
+      }
+    },
+    {
+      "dataset": {
+        "datatype": "neuro/dwi",
+        "desc": "sub-01_dwi.nii.gz",
+        "datatype_tags": [],
+        "tags": [],
+        "meta": {
+          "subject": "01"
+        }
+      },
+      "files": {
+        "dwi.nii.gz": "sub-01/dwi/sub-01_dwi.nii.gz",
+        "dwi.bvecs": "sub-01/dwi/sub-01_dwi.bvec",
+        "dwi.bvals": "sub-01/dwi/sub-01_dwi.bval"
+      }
+    },
+    {
+      "dataset": {
+        "datatype": "neuro/anat/t1w",
+        "desc": "sub-02_ses-1_T1w.nii.gz",
+        "datatype_tags": [],
+        "tags": [],
+        "meta": {
+          "subject": "02",
+          "session": "1"
+        }
+      },
+      "files": {
+        "t1.nii.gz": "sub-02/ses-1/anat/sub-02_ses-1_T1w.nii.gz"
+      }
+    },
+    {
+      "dataset": {
+        "datatype": "neuro/anat/t2w",
+        "desc": "sub-02_ses-1_T2w.nii.gz",
+        "datatype_tags": [],
+        "tags": [],
+        "meta": {
+          "subject": "02",
+          "session": "1"
+        }
+      },
+      "files": {
+        "t2.nii.gz": "sub-02/ses-1/anat/sub-02_ses-1_T2w.nii.gz"
+      }
+    }
+  ],
+  "finds": [
+    {
+      "url": "https://brainlife.io/api/warehouse/dataset",
+      "find": {
+        "project": "p1",
+        "removed": false,
+        "datatype": "dt-t1w",
+        "desc": "sub-01_T1w.nii.gz",
+        "meta.subject": "01"
+      }
+    },
+    {
+      "url": "https://brainlife.io/api/warehouse/dataset",
+      "find": {
+        "project": "p1",
+        "removed": false,
+        "datatype": "dt-func",
+        "desc": "sub-01_task-rest_run-1_bold.nii.gz",
+        "meta.subject": "01",
+        "meta.task": "rest",
+        "meta.run": "1"
+      }
+    },
+    {
+      "url": "https://brainlife.io/api/warehouse/dataset",
+      "find": {
+        "project": "p1",
+        "removed": false,
+        "datatype": "dt-dwi",
+        "desc": "sub-01_dwi.nii.gz",
+        "meta.subject": "01"
+      }
+    },
+    {
+      "url": "https://brainlife.io/api/warehouse/dataset",
+      "find": {
+        "project": "p1",
+        "removed": false,
+        "datatype": "dt-t1w",
+        "desc": "sub-02_ses-1_T1w.nii.gz",
+        "meta.subject": "02",
+        "meta.session": "1"
+      }
+    },
+    {
+      "url": "https://brainlife.io/api/warehouse/dataset",
+      "find": {
+        "project": "p1",
+        "removed": false,
+        "datatype": "dt-t2w",
+        "desc": "sub-02_ses-1_T2w.nii.gz",
+        "meta.subject": "02",
+        "meta.session": "1"
+      }
+    }
+  ],
+  "participants_put": [
+    {
+      "url": "https://brainlife.io/api/warehouse/participant/p1",
+      "body": {
+        "subjects": [
+          {
+            "subject": "01",
+            "age": "30"
+          },
+          {
+            "subject": "02",
+            "age": "40"
+          }
+        ],
+        "columns": {
+          "age": {
+            "Description": "age in years"
+          }
+        }
+      }
+    }
+  ],
+  "lines": [
+    "no derivatives directory found, or not accessible",
+    "done loading derivatives 0",
+    "updating participants/column data",
+    "uploading an object...",
+    "{\n  dataset: {\n    datatype: 'neuro/anat/t1w',\n    desc: 'sub-01_T1w.nii.gz',\n    datatype_tags: [],\n    tags: [],\n    meta: { EchoTime: 0.003, subject: '01' }\n  },\n  files: {\n    't1.nii.gz': '<root>/sub-01/anat/sub-01_T1w.nii.gz'\n  }\n}",
+    "already uploaded.. skipping",
+    "uploading an object...",
+    "{\n  dataset: {\n    datatype: 'neuro/func/task',\n    desc: 'sub-01_task-rest_run-1_bold.nii.gz',\n    datatype_tags: [ 'rest' ],\n    tags: [ 'task-rest', 'run-1' ],\n    meta: {\n      RepetitionTime: 2,\n      TaskName: 'rest',\n      subject: '01',\n      task: 'rest',\n      run: '1'\n    }\n  },\n  files: {\n    'bold.nii.gz': '<root>/sub-01/func/sub-01_task-rest_run-1_bold.nii.gz',\n    'events.tsv': '<root>/sub-01/func/sub-01_task-rest_run-1_events.tsv'\n  }\n}",
+    "already uploaded.. skipping",
+    "uploading an object...",
+    "{\n  dataset: {\n    datatype: 'neuro/dwi',\n    desc: 'sub-01_dwi.nii.gz',\n    datatype_tags: [],\n    tags: [],\n    meta: { subject: '01' }\n  },\n  files: {\n    'dwi.nii.gz': '<root>/sub-01/dwi/sub-01_dwi.nii.gz',\n    'dwi.bvecs': '<root>/sub-01/dwi/sub-01_dwi.bvec',\n    'dwi.bvals': '<root>/sub-01/dwi/sub-01_dwi.bval'\n  }\n}",
+    "already uploaded.. skipping",
+    "uploading an object...",
+    "{\n  dataset: {\n    datatype: 'neuro/anat/t1w',\n    desc: 'sub-02_ses-1_T1w.nii.gz',\n    datatype_tags: [],\n    tags: [],\n    meta: { subject: '02', session: '1' }\n  },\n  files: {\n    't1.nii.gz': '<root>/sub-02/ses-1/anat/sub-02_ses-1_T1w.nii.gz'\n  }\n}",
+    "already uploaded.. skipping",
+    "uploading an object...",
+    "{\n  dataset: {\n    datatype: 'neuro/anat/t2w',\n    desc: 'sub-02_ses-1_T2w.nii.gz',\n    datatype_tags: [],\n    tags: [],\n    meta: { subject: '02', session: '1' }\n  },\n  files: {\n    't2.nii.gz': '<root>/sub-02/ses-1/anat/sub-02_ses-1_T2w.nii.gz'\n  }\n}",
+    "already uploaded.. skipping",
+    "BIDS data uploaded to https://brainlife.io/project/p1"
+  ]
+}

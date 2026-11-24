@@ -1,0 +1,20 @@
+{
+  "target": "datatypes",
+  "version": 1,
+  "approved": false,
+  "dataset_name": "Synthetic example dataset",
+  "deface_method": "pydeface",
+  "warnings": ["Series 4 could not be classified", "Session labels were renumbered"],
+  "entries": [
+    {"id": "e1", "subject": "01", "session": "1", "datatype": "anat", "suffix": "T1w", "entities": {}, "brainlife_datatype": "neuro/anat/t1w", "brainlife_tags": [], "source": "agent", "confidence": 0.92, "reason": "", "deface": true, "exclude": false, "status": "ok", "description": "T1 MPRAGE", "agent_note": "", "deface_opt_out": true, "brainlife_by_person": false},
+    {"id": "e2", "subject": "01", "session": "1", "datatype": "func", "suffix": "bold", "entities": {"run": "1", "task": "rest"}, "brainlife_datatype": "neuro/func/task", "brainlife_tags": [], "source": "heuristic", "confidence": 0.8, "reason": "", "deface": false, "exclude": false, "status": "ok", "description": "rest bold", "agent_note": "Agent suggests task-rest over task-resting", "deface_opt_out": false, "brainlife_by_person": false},
+    {"id": "e3", "subject": "01", "session": "1", "datatype": "fmap", "suffix": "magnitude1", "entities": {}, "brainlife_datatype": null, "brainlife_tags": [], "source": "heuristic", "confidence": 0.7, "reason": "field map magnitude not needed", "deface": false, "exclude": true, "status": "excluded_by_default", "description": "gre_field_mapping", "agent_note": "", "deface_opt_out": false, "brainlife_by_person": false},
+    {"id": "e4", "subject": "01", "session": "1", "datatype": null, "suffix": null, "entities": {}, "brainlife_datatype": null, "brainlife_tags": [], "source": "none", "confidence": 0, "reason": "", "deface": false, "exclude": false, "status": "unknown", "description": "localizer", "agent_note": "", "deface_opt_out": false, "brainlife_by_person": false}
+  ],
+  "ancillary": [
+    {"id": "a1", "path": "participants.tsv", "kind": "table", "action": "edit", "columns": {"age": "keep", "notes": "drop"}, "flags": ["free text column"], "locked": false},
+    {"id": "a2", "path": "README", "kind": "core", "action": "keep", "columns": {}, "flags": [], "locked": false},
+    {"id": "a3", "path": "sub-01/ses-1/sub-01_ses-1_scans.tsv", "kind": "table", "action": "drop", "columns": {}, "flags": ["dates"], "locked": false}
+  ],
+  "readme": ""
+}
