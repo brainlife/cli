@@ -334,6 +334,21 @@ async function run(opts, deps = {}) {
             }
         }
 
+        // bad channels marked in the viewer rewrite channels.tsv and validate the output again: upload
+        // only if it is still valid (a save in progress is waited for)
+        if (opts.qa) {
+            let after = await engine.request('GET', '/status');
+            if (after.stage === 'executing') {
+                await engine.follow(() => {});
+                after = await engine.request('GET', '/status');
+            }
+            if (after.stage !== 'validated') {
+                error('aimport: after the QA review the output is ' + after.stage +
+                    (after.message ? ' (' + after.message + ')' : '') + '; nothing was uploaded');
+                return 1;
+            }
+        }
+
         // everything below works on the host side of the engine's /work mount; the engine is done
         await stopEngine();
         const bidsDir = path.join(work, 'output', 'bids');
@@ -348,6 +363,7 @@ async function run(opts, deps = {}) {
         const micr = micrDatasets(bidsDir, plan, manifest, datatypesByName);
         applied.datasets.push(...micr.datasets);
         for (const w of applied.warnings.concat(micr.warnings)) log('! ' + w);
+        for (const n of applied.notes || []) log(n);
 
         // host datatype validators; a failure keeps that object out of the upload
         const good = [];

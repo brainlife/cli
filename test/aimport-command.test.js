@@ -264,6 +264,38 @@ describe('bl aimport --qa', () => {
         assert.deepStrictEqual(t.prompts, []);
     });
 
+    // bad channels saved in the viewer validate the output again: /status is read once more before upload
+    function statusAfterViewer(t, stages) {
+        let gets = 0;
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            if (m + ' ' + p !== 'GET /status') return r;
+            gets++;
+            return gets === 1 ? r : {...r, stage: stages[Math.min(gets - 2, stages.length - 1)], message: 'after marks'};
+        };
+    }
+
+    it('y after channel marks that made the output invalid: exit 1, nothing uploaded', async () => {
+        const t = qaSetup(['y']);
+        statusAfterViewer(t, ['invalid']);
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(t.out.some(l => l === 'aimport: after the QA review the output is invalid (after marks); nothing was uploaded'),
+            t.out.join('\n'));
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('y while a channel save is still validating: waits for it, then uploads', async () => {
+        const t = qaSetup(['y']);
+        statusAfterViewer(t, ['executing', 'validated']);
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.strictEqual(t.eng.state.follows, 3); // scan, execute, the channel save
+        assert.ok(t.up.rec.datasets.length > 0);
+        const p = paths(t.eng.calls);
+        assert.strictEqual(p.filter(c => c === 'GET /status').length, 3);
+    });
+
     it('without --qa there is no session call', async () => {
         const t = setup({});
         await run(t.opts, t.deps);
