@@ -27,6 +27,15 @@ describe('aimport plan table', () => {
         for (const l of text.split('\n')) assert.ok(l.length <= 160);
     });
 
+    it('shows the chosen deface method, not the plan default', () => {
+        assert.ok(renderPlan(plan, {target: 'bids', deface: 'quickshear'}).includes('Deface method: quickshear'));
+        const p = Object.assign({}, plan, {deface_method: undefined, dataset_name: undefined});
+        const text = renderPlan(p, {target: 'bids'});
+        assert.ok(text.includes('Deface method: pydeface'));
+        assert.ok(text.includes('Dataset name: -'));
+        assert.ok(!text.includes('undefined'));
+    });
+
     it('shows the brainlife column only for datatypes', () => {
         assert.ok(!renderPlan(plan, {target: 'bids'}).includes('neuro/anat/t1w'));
     });

@@ -34,8 +34,10 @@ function fakeEngine(script = {}) {
             calls.push({method, path: p, body});
             const key = method + ' ' + p;
             if (script.errors && script.errors[key]) throw script.errors[key];
+            if (script.onRequest) await script.onRequest(key);
             if (key === 'GET /plan') return PLAN;
             if (key === 'GET /status') {
+                if (script.status) return script.status;
                 return {stage: script.execStage || 'validated', message: script.execMessage || null,
                     output_dir: '/work/output/bids', manifest: {e1: ['sub-01/anat/sub-01_T1w.nii.gz', 'sub-01/anat/sub-01_T1w.json']},
                     validation: {ok: true, error_count: 0, warning_count: 0, errors: [], warnings: []}};
@@ -75,6 +77,7 @@ function fakeUpload() {
         rec,
         upload: {
             async uploadDatasets(headers, project, datasets, opts) {
+                if (rec.onUpload) rec.onUpload();
                 rec.datasets = datasets;
                 rec.tags = opts.tags;
                 return {uploaded: datasets.map(d => d.dataset.desc), skipped: []};
@@ -160,6 +163,64 @@ describe('bl aimport run', () => {
         assert.strictEqual(t.prompts.length, 0);
     });
 
+    it('stops the engine after the last engine request and before the upload', async () => {
+        const t = setup({onRequest: () => assert.strictEqual(t.eng.state.stops, 0, 'engine stopped before a request')});
+        let stopsAtUpload = null;
+        t.up.rec.onUpload = () => { stopsAtUpload = t.eng.state.stops; };
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.strictEqual(stopsAtUpload, 1);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('an engine without a manifest in /status is too old: exit 1, nothing uploaded', async () => {
+        const t = setup({status: {stage: 'validated', output_dir: '/work/output/bids', validation: {ok: true}}});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(t.out.includes('aimport: the engine image is too old (its /status has no manifest); rebuild it'));
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.up.rec.participants, 0);
+        assert.strictEqual(t.up.rec.files, null);
+    });
+
+    it('the approval screen shows the chosen --deface method', async () => {
+        const t = setup({}, {opts: {yes: false, deface: 'quickshear'}, answers: ['n']});
+        assert.strictEqual(await run(t.opts, t.deps), 0);
+        const text = t.out.join('\n');
+        assert.ok(text.includes('Deface method: quickshear'));
+        assert.ok(!text.includes('Deface method: pydeface'));
+    });
+
+    it('refuses a bad --image or folder paths with : or , (exit 2, before docker)', async () => {
+        for (const extra of [{image: '-v /:/host'}, {image: 'img; rm -rf /'}, {work: path.join(tmp, 'w:x')}, {keys: path.join(tmp, 'k,ro')}]) {
+            const t = setup({}, {opts: extra});
+            assert.strictEqual(await run(t.opts, t.deps), 2, JSON.stringify(extra));
+            assert.strictEqual(t.eng.state.started, null);
+        }
+        const ok = setup({scanStage: 'failed'}, {opts: {image: 'ghcr.io/brainlife/aimport:1.0@sha256:abc'}});
+        await run(ok.opts, ok.deps);
+        assert.strictEqual(ok.eng.state.started.image, 'ghcr.io/brainlife/aimport:1.0@sha256:abc');
+    });
+
+    it('refuses an existing keys folder that others can read', async () => {
+        fs.mkdirSync(keys, {mode: 0o755});
+        fs.chmodSync(keys, 0o755);
+        const t = setup({});
+        assert.strictEqual(await run(t.opts, t.deps), 2);
+        assert.ok(t.out.some(l => l.includes('chmod 700 ' + keys)));
+        assert.strictEqual(t.eng.state.started, null);
+        assert.strictEqual(fs.statSync(keys).mode & 0o777, 0o755);
+    });
+
+    it('leaves an existing work folder and a private keys folder as they are', async () => {
+        fs.chmodSync(work, 0o755);
+        fs.mkdirSync(keys, {mode: 0o700});
+        fs.chmodSync(keys, 0o700);
+        const t = setup({scanStage: 'failed'});
+        await run(t.opts, t.deps);
+        assert.ok(t.eng.state.started);
+        assert.strictEqual(fs.statSync(work).mode & 0o777, 0o755);
+        assert.strictEqual(fs.statSync(keys).mode & 0o777, 0o700);
+    });
+
     it('creates the work and keys folders with mode 0700', async () => {
         fs.rmSync(work, {recursive: true});
         const t = setup({scanStage: 'failed'});
@@ -185,6 +246,7 @@ describe('bl aimport run', () => {
         const text = t.out.join('\n');
         assert.ok(text.includes('http://127.0.0.1:9999'));
         assert.ok(text.includes('tok123'));
+        assert.ok(text.includes('valid only while this engine runs'));
         assert.ok(text.includes('PATCH /plan'));
         assert.ok(text.includes('README.md'));
         assert.deepStrictEqual(paths(t.eng.calls).slice(0, 4), ['POST /scan', 'GET /plan', 'GET /plan', 'POST /approve']);
@@ -296,6 +358,25 @@ describe('bl aimport run', () => {
         assert.ok(t.eng.state.stops >= 1);
         assert.strictEqual(process.listenerCount('SIGINT'), before);
     });
+
+    for (const [sig, code] of [['SIGTERM', 143], ['SIGHUP', 129]]) {
+        it(sig + ' stops the engine, exits ' + code + ' and does not print the in-flight error', async () => {
+            const exits = [];
+            const counts = ['SIGINT', 'SIGTERM', 'SIGHUP'].map(s => process.listenerCount(s));
+            const t = setup({onRequest: async key => {
+                if (key !== 'POST /execute') return;
+                process.emit(sig);
+                await new Promise(r => setImmediate(r));
+                throw new Error('socket hang up');
+            }}, {exit: c => exits.push(c)});
+            assert.strictEqual(await run(t.opts, t.deps), 1);
+            assert.deepStrictEqual(exits, [code]);
+            assert.strictEqual(t.eng.state.stops, 1);
+            assert.ok(!t.out.some(l => l.includes('socket hang up')), t.out.join('\n'));
+            assert.ok(t.out.includes('aimport: interrupted; stopping the engine'));
+            assert.deepStrictEqual(['SIGINT', 'SIGTERM', 'SIGHUP'].map(s => process.listenerCount(s)), counts);
+        });
+    }
 });
 
 describe('projectSubjects', () => {
@@ -323,6 +404,7 @@ describe('projectSubjects', () => {
             assert.strictEqual(queries[0].path, '/warehouse/dataset');
             assert.deepStrictEqual(JSON.parse(queries[0].find), {project: 'p1', removed: false});
             assert.strictEqual(queries[0].select, 'meta.subject meta.session');
+            assert.strictEqual(queries[0].sort, '_id');
             assert.strictEqual(queries[0].auth, 'Bearer a.b.c');
             assert.deepStrictEqual(queries.map(q => q.skip), ['0', '2', '4']);
         } finally {

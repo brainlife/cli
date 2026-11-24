@@ -61,8 +61,9 @@ function renderPlan(plan, opts = {}) {
         if (e.agent_note) out.push(clip('      note: ' + e.agent_note));
     });
     out.push('');
-    out.push('Dataset name: ' + plan.dataset_name);
-    out.push('Deface method: ' + plan.deface_method);
+    out.push('Dataset name: ' + (plan.dataset_name || '-'));
+    // the method that will be sent with the approval (--deface), not the engine's default
+    out.push('Deface method: ' + ((opts && opts.deface) || plan.deface_method || 'pydeface'));
     const warnings = plan.warnings || [];
     if (warnings.length) {
         out.push('');
