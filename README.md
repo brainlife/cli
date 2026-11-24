@@ -27,6 +27,7 @@ bl aimport <folder> --project <id> [options]
 | `--image <ref>` | engine image |
 | `-y, --yes` | approve the plan without asking (for scripts) |
 | `-t, --tag <tag>` | add a tag to every uploaded object (repeatable) |
+| `--qa` | after validation, open the output in the engine's local QA viewer (printed as `http://127.0.0.1:<port>/viewer/open?code=...`, a one-time code, no token) and ask `Upload this dataset? [y/N]`; `--yes` does not skip this question, and anything but `y` uploads nothing and exits 0 |
 | `--no-upload` | stop after validation; nothing is uploaded |
 
 The work and keys folders are created private to you (mode 0700) and must not be inside each other or inside the input folder (symlinks are followed). An existing keys folder that other users can read is refused; fix it with `chmod 700 <dir>`. Folder paths must not contain `:` or `,`. Keep the keys folder safe and backed up: the pseudonym key in it is the only way back from the new subject IDs to the real people, it lets a later import of the same person reuse their ID, and it is never uploaded.

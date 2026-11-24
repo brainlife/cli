@@ -98,12 +98,28 @@ function privateDir(dir, {refuseOpen = false} = {}) {
     }
 }
 
+// open a URL with the OS opener; a failure only prints, the URL is on screen anyway
+function openUrl(url) {
+    const cmd = process.platform === 'darwin' ? ['open', [url]]
+        : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
+            : ['xdg-open', [url]];
+    return new Promise((resolve, reject) => {
+        const child = require('child_process').spawn(cmd[0], cmd[1], {stdio: 'ignore', detached: true});
+        child.on('error', reject);
+        child.on('spawn', () => {
+            child.unref();
+            resolve();
+        });
+    });
+}
+
 const IMAGE_RE = /^[A-Za-z0-9][\w.\/:@-]*$/;
 const SIGNAL_EXIT = {SIGINT: 130, SIGTERM: 143, SIGHUP: 129};
 
 const DEFAULT_DEPS = {
     Engine,
     prompt,
+    openUrl,
     upload: {
         uploadDatasets: bidsUpload.uploadDatasets,
         updateParticipants: bidsUpload.updateParticipants,
@@ -242,6 +258,28 @@ async function run(opts, deps = {}) {
         }
         plan = await engine.request('GET', '/plan');
 
+        // the viewer is served by the engine, so it is opened and the question answered before the engine stops
+        if (opts.qa) {
+            const session = await engine.request('POST', '/viewer/session');
+            const url = engine.base + session.url;
+            log('QA viewer: ' + url);
+            try {
+                await deps.openUrl(url);
+            } catch (err) {
+                log('(could not open a browser; open the address above yourself)');
+            }
+            if (opts.upload !== false) {
+                const answer = String(await deps.prompt('Upload this dataset? [y/N] ')).trim().toLowerCase();
+                if (answer !== 'y' && answer !== 'yes') {
+                    log('Not uploaded. The output stays in ' + path.join(work, 'output', 'bids'));
+                    return 0;
+                }
+            } else {
+                // nothing to upload: keep the engine (and so the viewer) up until the person is done
+                await deps.prompt('Press Enter to close the viewer and stop the engine. ');
+            }
+        }
+
         // everything below works on the host side of the engine's /work mount; the engine is done
         await stopEngine();
         const bidsDir = path.join(work, 'output', 'bids');
@@ -316,6 +354,7 @@ if (require.main === module) {
         .option('--image <ref>', 'aimport engine image', ENGINE_IMAGE)
         .option('-y, --yes', 'approve the plan without asking (for scripts)')
         .option('-t, --tag <tag>', 'add a tag to every uploaded data object', util.collect, [])
+        .option('--qa', 'open the output in the local QA viewer after validation and ask before uploading')
         .option('--no-upload', 'stop after validation')
         .parse(process.argv);
 
@@ -331,5 +370,6 @@ if (require.main === module) {
         yes: commander.yes,
         tag: commander.tag,
         upload: commander.upload,
+        qa: commander.qa,
     }).then(code => process.exit(code));
 }
