@@ -36,6 +36,7 @@ async function projectSubjects(headers, projectId, {api = config.api, limit = 10
         const res = await axios.get(api.warehouse + '/dataset', {headers, params: {
             find: JSON.stringify({project: projectId, removed: false}),
             select: 'meta.subject meta.session',
+            sort: '_id', // a stable order, so paging does not skip or repeat
             limit, skip,
         }});
         const list = res.data.datasets || [];
@@ -80,11 +81,25 @@ function prompt(question) {
     });
 }
 
-// create (or tighten) a folder so only this user can read it
-function privateDir(dir) {
-    fs.mkdirSync(dir, {recursive: true, mode: 0o700});
-    fs.chmodSync(dir, 0o700);
+// create a folder only this user can read; folders that already exist keep their mode,
+// but an existing keys folder others can read is refused
+function privateDir(dir, {refuseOpen = false} = {}) {
+    if (fs.existsSync(dir)) {
+        if (refuseOpen && (fs.statSync(dir).mode & 0o077)) {
+            throw new UsageError('the keys folder ' + dir + ' can be read by other users; run: chmod 700 ' + dir);
+        }
+        return;
+    }
+    const first = fs.mkdirSync(dir, {recursive: true, mode: 0o700});
+    // chmod only what was created here (mkdir's mode is masked by the umask)
+    for (let d = dir; first; d = path.dirname(d)) {
+        fs.chmodSync(d, 0o700);
+        if (d === first || path.dirname(d) === d) break;
+    }
 }
+
+const IMAGE_RE = /^[A-Za-z0-9][\w.\/:@-]*$/;
+const SIGNAL_EXIT = {SIGINT: 130, SIGTERM: 143, SIGHUP: 129};
 
 const DEFAULT_DEPS = {
     Engine,
@@ -114,6 +129,7 @@ async function run(opts, deps = {}) {
     let engine = null;
     let name = null;
     let stopping = null;
+    let interrupted = false;
 
     const stopEngine = () => {
         if (!stopping) {
@@ -122,10 +138,14 @@ async function run(opts, deps = {}) {
         }
         return stopping;
     };
-    const onSigint = () => {
-        error('aimport: interrupted; stopping the engine');
-        stopEngine().then(() => deps.exit(130));
-    };
+    const handlers = {};
+    for (const sig of Object.keys(SIGNAL_EXIT)) {
+        handlers[sig] = () => {
+            interrupted = true;
+            error('aimport: interrupted; stopping the engine');
+            stopEngine().then(() => deps.exit(SIGNAL_EXIT[sig]));
+        };
+    }
 
     try {
         // flags and folders
@@ -134,6 +154,8 @@ async function run(opts, deps = {}) {
         if (!['bids', 'datatypes'].includes(target)) throw new UsageError('--target must be bids or datatypes');
         const deface = opts.deface || 'pydeface';
         if (!['pydeface', 'quickshear'].includes(deface)) throw new UsageError('--deface must be pydeface or quickshear');
+        const image = opts.image || ENGINE_IMAGE;
+        if (!IMAGE_RE.test(image)) throw new UsageError('--image is not a docker image reference: ' + image);
         if (!opts.folder) throw new UsageError('please give the folder to import');
         const folder = path.resolve(opts.folder);
         let st = null;
@@ -157,15 +179,15 @@ async function run(opts, deps = {}) {
         const keys = path.resolve(opts.keys || path.join(os.homedir(), '.config', 'brainlife', 'aimport', 'keys'));
         checkFolders({folder, work, keys});
         privateDir(work);
-        privateDir(keys);
+        privateDir(keys, {refuseOpen: true});
 
         const existing = await deps.projectSubjects(headers, project._id, {api});
 
         // start the engine; from here on every exit path stops it
         name = 'bl-aimport-' + crypto.randomBytes(4).toString('hex');
-        process.on('SIGINT', onSigint);
-        log('Starting the aimport engine (' + (opts.image || ENGINE_IMAGE) + ')...');
-        engine = await deps.Engine.start({image: opts.image || ENGINE_IMAGE, folder, work, keys, name});
+        for (const sig of Object.keys(handlers)) process.on(sig, handlers[sig]);
+        log('Starting the aimport engine (' + image + ')...');
+        engine = await deps.Engine.start({image, folder, work, keys, name});
         const onEvent = ev => log('  ' + ev.stage + (ev.message ? ': ' + ev.message : ''));
 
         // scan
@@ -179,7 +201,7 @@ async function run(opts, deps = {}) {
 
         // review
         let plan = await engine.request('GET', '/plan');
-        log(renderPlan(plan, {target}));
+        log(renderPlan(plan, {target, deface}));
         if (!opts.yes) {
             for (;;) {
                 const answer = String(await deps.prompt('Approve this plan? [y/N/e(dit)] ')).trim().toLowerCase();
@@ -187,12 +209,12 @@ async function run(opts, deps = {}) {
                 if (answer === 'e' || answer === 'edit') {
                     log('Edit the plan with PATCH /plan, as described in ' + README_URL);
                     log('  engine: ' + engine.base);
-                    log('  token:  ' + engine.token);
+                    log('  token:  ' + engine.token + ' (valid only while this engine runs)');
                     log('  for example: curl -s -X PATCH ' + engine.base + '/plan -H "Authorization: Bearer ' + engine.token +
                         '" -H \'Content-Type: application/json\' -d \'{"edits": [{"id": "<entry id>", "exclude": true}]}\'');
                     await deps.prompt('Press Enter when you are done editing ');
                     plan = await engine.request('GET', '/plan');
-                    log(renderPlan(plan, {target}));
+                    log(renderPlan(plan, {target, deface}));
                     continue;
                 }
                 log('The plan was not approved. Nothing was written or uploaded.');
@@ -212,14 +234,22 @@ async function run(opts, deps = {}) {
             return 1;
         }
 
-        // the host side of the engine's /work mount (status.output_dir is a container path)
+        // older engine images have no manifest; without it objects cannot be matched to plan entries
+        const manifest = status.manifest;
+        if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+            error('aimport: the engine image is too old (its /status has no manifest); rebuild it');
+            return 1;
+        }
+        plan = await engine.request('GET', '/plan');
+
+        // everything below works on the host side of the engine's /work mount; the engine is done
+        await stopEngine();
         const bidsDir = path.join(work, 'output', 'bids');
         preflight(bidsDir);
-        plan = await engine.request('GET', '/plan');
         const bids = await deps.walk(bidsDir);
         const datatypesByName = {};
         for (const dt of await deps.queryAllDatatypes(headers, api)) datatypesByName[dt.name] = dt;
-        const applied = applyPlan(bids, plan, status.manifest || {}, datatypesByName, bidsDir);
+        const applied = applyPlan(bids, plan, manifest, datatypesByName, bidsDir);
         for (const w of applied.warnings) log('! ' + w);
 
         // host datatype validators; a failure keeps that object out of the upload
@@ -257,6 +287,8 @@ async function run(opts, deps = {}) {
         log('https://' + deps.host + '/project/' + project._id);
         return blocked.length ? 1 : 0;
     } catch (err) {
+        // after a signal the in-flight request fails because the engine stops; say nothing more
+        if (interrupted) return 1;
         if (err instanceof UsageError) {
             error(err.message);
             return 2;
@@ -266,7 +298,7 @@ async function run(opts, deps = {}) {
         return 1;
     } finally {
         if (name) await stopEngine();
-        process.removeListener('SIGINT', onSigint);
+        for (const sig of Object.keys(handlers)) process.removeListener(sig, handlers[sig]);
     }
 }
 

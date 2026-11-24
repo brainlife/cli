@@ -3,6 +3,9 @@
 const {describe, it, before, after} = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const EventEmitter = require('events');
 const engine = require('../aimport/engine');
 
@@ -27,6 +30,12 @@ describe('dockerArgs', () => {
         assert.strictEqual(a[a.indexOf('--name') + 1], 'bl-x');
         assert.strictEqual(a[a.indexOf('AIMPORT_TOKEN') - 1], '-e');
         assert.ok(!a.some(x => x.includes(token)));
+    });
+
+    it('runs aimport with the venv python, not the image python', () => {
+        const a = dockerArgs(opts);
+        assert.deepStrictEqual(a.slice(a.indexOf('img:1') + 1, a.indexOf('img:1') + 5),
+            ['/opt/aimport-venv/bin/python', '-m', 'aimport', 'serve']);
     });
 
     it('forwards ANTHROPIC_API_KEY by name only when set', () => {
@@ -56,6 +65,30 @@ describe('checkFolders', () => {
         assert.throws(() => checkFolders({folder: '/in', work: '/in/work', keys: '/k'}), /work folder/);
         assert.throws(() => checkFolders({folder: '/w/in', work: '/w', keys: '/k'}), /work folder/);
         assert.throws(() => checkFolders({folder: '/same', work: '/same', keys: '/k'}), UsageError);
+    });
+    it('refuses a keys folder that is a symlink into work', () => {
+        const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aimport-folders-'));
+        try {
+            fs.mkdirSync(path.join(tmp, 'work', 'k'), {recursive: true});
+            fs.mkdirSync(path.join(tmp, 'in'));
+            fs.symlinkSync(path.join(tmp, 'work', 'k'), path.join(tmp, 'keys'));
+            assert.throws(() => checkFolders({folder: path.join(tmp, 'in'), work: path.join(tmp, 'work'), keys: path.join(tmp, 'keys')}),
+                UsageError);
+            // a missing folder under the symlink is resolved too
+            assert.throws(() => checkFolders({folder: path.join(tmp, 'in'), work: path.join(tmp, 'work'),
+                keys: path.join(tmp, 'keys', 'new')}), UsageError);
+        } finally {
+            fs.rmSync(tmp, {recursive: true, force: true});
+        }
+    });
+    it('counts a child named ..foo as inside', () => {
+        assert.throws(() => checkFolders({folder: '/in', work: '/in/..foo', keys: '/k'}), /work folder/);
+        assert.throws(() => checkFolders({folder: '/in', work: '/w', keys: '/w/..keys'}), /keys folder/);
+    });
+    it('refuses paths with : or , (docker mount syntax)', () => {
+        assert.throws(() => checkFolders({folder: '/in:x', work: '/w', keys: '/k'}), /must not contain/);
+        assert.throws(() => checkFolders({folder: '/in', work: '/w,ro', keys: '/k'}), /must not contain/);
+        assert.throws(() => checkFolders({folder: '/in', work: '/w', keys: '/k:/etc'}), /must not contain/);
     });
     it('accepts separate folders', () => {
         checkFolders({folder: '/in', work: '/w', keys: '/k'});
@@ -108,31 +141,98 @@ describe('Engine api', () => {
     });
 });
 
-describe('Engine.start', () => {
-    it('spawns docker, waits ready, stops by name', async () => {
-        const calls = [];
-        let srv;
-        const spawn = (cmd, args, o) => {
-            calls.push({cmd, args, o});
-            const ee = new EventEmitter();
-            ee.kill = () => {};
-            if(args[0] === 'run') {
+// a fake spawn for Engine.start: `run` answers on its port unless told otherwise
+function fakeDocker({imagePresent = true, run = 'serve', stopHangs = false} = {}) {
+    const calls = [];
+    const servers = [];
+    const children = [];
+    const spawn = (cmd, args, o) => {
+        calls.push({cmd, args, o});
+        const ee = new EventEmitter();
+        ee.kills = [];
+        ee.kill = sig => { ee.kills.push(sig); };
+        if(args[0] === 'run') {
+            ee.exitCode = null;
+            ee.stderr = new EventEmitter();
+            children.push(ee);
+            if(run === 'serve') {
                 const port = parseInt(args[args.indexOf('-p') + 1].split(':')[1]);
-                http.createServer((req, res) => { res.end('{"stage":"idle"}'); }).listen(port, '127.0.0.1', function() { srv = this; });
-            } else {
-                setImmediate(() => ee.emit('exit', 0));
+                servers.push(http.createServer((req, res) => { res.end('{"stage":"idle"}'); }).listen(port, '127.0.0.1'));
+            } else if(run === 'fail') {
+                setImmediate(() => {
+                    ee.stderr.emit('data', 'line 1\nline 2\nline 3\n');
+                    ee.stderr.emit('data', 'line 4\nline 5\ndocker: Error response from daemon: port is already allocated.\n');
+                    ee.exitCode = 125;
+                    ee.emit('exit', 125, null);
+                    ee.emit('close', 125, null);
+                });
             }
-            return ee;
-        };
-        const eng = await Engine.start({image: 'img', folder: '/in', work: '/w', keys: '/k', spawn, name: 'bl-test'});
+        } else if(args[0] === 'image') {
+            setImmediate(() => ee.emit('exit', imagePresent ? 0 : 1));
+        } else if(args[0] === 'stop' && stopHangs) {
+            // never exits
+        } else {
+            setImmediate(() => ee.emit('exit', 0));
+        }
+        return ee;
+    };
+    const close = () => servers.forEach(s => s.close());
+    return {spawn, calls, children, close};
+}
+
+describe('Engine.start', () => {
+    it('checks the image, spawns docker, waits ready, stops by name', async () => {
+        const d = fakeDocker();
+        const eng = await Engine.start({image: 'img', folder: '/in', work: '/w', keys: '/k', spawn: d.spawn, name: 'bl-test'});
         try {
-            assert.strictEqual(calls[0].cmd, 'docker');
-            assert.strictEqual(calls[0].o.env.AIMPORT_TOKEN, eng.token);
-            assert.ok(!calls[0].args.some(a => a.includes(eng.token)));
+            assert.deepStrictEqual(d.calls[0].args, ['image', 'inspect', 'img']);
+            assert.strictEqual(d.calls[1].cmd, 'docker');
+            assert.strictEqual(d.calls[1].args[0], 'run');
+            assert.strictEqual(d.calls[1].o.env.AIMPORT_TOKEN, eng.token);
+            assert.deepStrictEqual(d.calls[1].o.stdio, ['ignore', 'ignore', 'pipe']);
+            assert.ok(!d.calls[1].args.some(a => a.includes(eng.token)));
             await eng.stop();
-            assert.deepStrictEqual(calls[1].args, ['stop', 'bl-test']);
+            assert.deepStrictEqual(d.calls[2].args, ['stop', '-t', '10', 'bl-test']);
+            // the docker run child is still alive in the fake, so it gets SIGTERM
+            assert.deepStrictEqual(d.children[0].kills, ['SIGTERM']);
         } finally {
-            srv.close();
+            d.close();
+        }
+    });
+
+    it('pulls a missing image with progress shown before docker run', async () => {
+        const d = fakeDocker({imagePresent: false});
+        const eng = await Engine.start({image: 'img', folder: '/in', work: '/w', keys: '/k', spawn: d.spawn, name: 'bl-test'});
+        try {
+            assert.deepStrictEqual(d.calls.map(c => c.args.slice(0, 2)), [['image', 'inspect'], ['pull', 'img'], ['run', '--rm']]);
+            assert.strictEqual(d.calls[1].o.stdio, 'inherit');
+            await eng.stop();
+        } finally {
+            d.close();
+        }
+    });
+
+    it('reports docker\'s last stderr lines when docker run exits', async () => {
+        const d = fakeDocker({run: 'fail'});
+        await assert.rejects(Engine.start({image: 'img', folder: '/in', work: '/w', keys: '/k', spawn: d.spawn, name: 'bl-test'}), err => {
+            assert.match(err.message, /^docker exited with code 125:/);
+            assert.ok(err.message.includes('port is already allocated'));
+            assert.ok(err.message.includes('line 2') && !err.message.includes('line 1'));
+            return true;
+        });
+        assert.deepStrictEqual(d.calls[d.calls.length - 1].args, ['stop', '-t', '10', 'bl-test']);
+        assert.deepStrictEqual(d.children[0].kills, []); // already exited
+    });
+
+    it('stop gives up on a hung docker stop and kills the docker run child', async () => {
+        const d = fakeDocker({stopHangs: true});
+        const eng = await Engine.start({image: 'img', folder: '/in', work: '/w', keys: '/k', spawn: d.spawn, name: 'bl-test',
+            stopTimeoutMs: 50});
+        try {
+            await eng.stop();
+            assert.deepStrictEqual(d.children[0].kills, ['SIGTERM']);
+        } finally {
+            d.close();
         }
     });
 });

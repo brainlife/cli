@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const http = require('http');
 const net = require('net');
 const path = require('path');
@@ -8,6 +9,9 @@ const child_process = require('child_process');
 
 // pinned until maintainers publish a tag
 exports.ENGINE_IMAGE = 'brainlife/aimport:dev';
+
+// the image's own python is 2.7; aimport lives in this venv
+exports.ENGINE_PYTHON = '/opt/aimport-venv/bin/python';
 
 // forwarded by name only (-e NAME) so values never show in the process list
 exports.MODEL_ENV = ['AIMPORT_MODEL', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OLLAMA_BASE_URL', 'DASHSCOPE_API_KEY'];
@@ -46,7 +50,7 @@ exports.dockerArgs = function({image, folder, work, keys, port, name}) {
         '-v', `${work}:/work`,
         '-v', `${keys}:/keys`,
         image || exports.ENGINE_IMAGE,
-        'python', '-m', 'aimport', 'serve',
+        exports.ENGINE_PYTHON, '-m', 'aimport', 'serve',
         '--input', '/data', '--work', '/work', '--keys', '/keys',
         '--host', '0.0.0.0', '--port', '8765',
         '--host-allow', `127.0.0.1:${port}`,
@@ -55,14 +59,35 @@ exports.dockerArgs = function({image, folder, work, keys, port, name}) {
     return args;
 }
 
+// the real path of p, following symlinks in the part that exists
+function real(p) {
+    p = path.resolve(p);
+    const rest = [];
+    for(;;) {
+        try {
+            return path.join(fs.realpathSync(p), ...rest);
+        } catch(err) {
+            const parent = path.dirname(p);
+            if(parent === p) return path.join(p, ...rest);
+            rest.unshift(path.basename(p));
+            p = parent;
+        }
+    }
+}
+
 function inside(child, parent) {
-    const rel = path.relative(path.resolve(parent), path.resolve(child));
-    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    const rel = path.relative(real(parent), real(child));
+    if(rel === '') return true;
+    return !(rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel));
 }
 
 // the keys folder must be separate from the work and input folders (either direction),
 // and so must work and input (a re-scan would ingest the staged originals)
 exports.checkFolders = function({folder, work, keys}) {
+    // docker -v splits on ':' (and --mount on ',')
+    for(const [name, dir] of [['input', folder], ['work', work], ['keys', keys]]) {
+        if(/[:,]/.test(dir)) throw new UsageError(`the ${name} folder path must not contain ':' or ',': ${dir}`);
+    }
     for(const [name, other] of [['work', work], ['input', folder]]) {
         if(inside(keys, other) || inside(other, keys)) {
             throw new UsageError(`the keys folder (${keys}) must not be inside or contain the ${name} folder (${other})`);
@@ -96,6 +121,32 @@ function errorMessage(text) {
     return text;
 }
 
+// run a docker command to the end; resolves its exit code
+function docker(spawn, args, stdio) {
+    return new Promise((resolve, reject) => {
+        let done = false;
+        const finish = (fn, v) => {
+            if(done) return;
+            done = true;
+            fn(v);
+        };
+        const p = spawn('docker', args, {stdio});
+        p.on('error', err => finish(reject, err));
+        p.on('exit', code => finish(resolve, code));
+        p.on('close', code => finish(resolve, code));
+    });
+}
+
+// pull the image first (with docker's own progress) so the ready timeout covers startup only
+async function ensureImage(spawn, image) {
+    if(await docker(spawn, ['image', 'inspect', image], 'ignore') === 0) return;
+    console.error(`Pulling ${image} (first run; this can take a while)...`);
+    const code = await docker(spawn, ['pull', image], 'inherit');
+    if(code !== 0) throw new Error(`docker pull ${image} failed (code ${code})`);
+}
+
+const STDERR_KEEP = 20;
+
 class Engine {
     constructor({base, token, spawn = child_process.spawn, name}) {
         this.base = base;
@@ -103,22 +154,39 @@ class Engine {
         this.spawn = spawn;
         this.name = name;
         this.child = null;
+        this.stderr = '';
+        this.exitCode = null;
+        this.spawnError = null;
+        this.stopTimeoutMs = 30000;
     }
 
     static async start(opts) {
+        const spawn = opts.spawn || child_process.spawn;
+        const image = opts.image || exports.ENGINE_IMAGE;
+        try {
+            await ensureImage(spawn, image);
+        } catch(err) {
+            throw new Error('docker could not get the engine image: ' + err.message);
+        }
         const port = await freePort();
         const token = crypto.randomBytes(32).toString('hex');
         const name = opts.name || 'bl-aimport-' + crypto.randomBytes(4).toString('hex');
-        const spawn = opts.spawn || child_process.spawn;
-        const args = exports.dockerArgs({...opts, port, name});
+        const args = exports.dockerArgs({...opts, image, port, name});
         const engine = new Engine({base: `http://127.0.0.1:${port}`, token, spawn, name});
+        if(opts.stopTimeoutMs) engine.stopTimeoutMs = opts.stopTimeoutMs;
         engine.child = spawn('docker', args, {
             env: {...process.env, AIMPORT_TOKEN: token},
-            stdio: opts.stdio || 'ignore',
+            stdio: ['ignore', 'ignore', 'pipe'],
         });
-        engine.exited = null;
-        engine.child.on('error', err => { engine.exited = err; });
-        engine.child.on('exit', code => { engine.exited = new Error(`docker exited with code ${code}`); });
+        engine.child.on('error', err => { engine.spawnError = err; });
+        // 'close' comes after stderr is read to the end
+        engine.child.on('close', (code, signal) => { engine.exitCode = code !== null && code !== undefined ? code : (signal || 'unknown'); });
+        if(engine.child.stderr) {
+            // keep the last lines only (docker's own errors, e.g. a port or mount problem)
+            engine.child.stderr.on('data', d => {
+                engine.stderr = (engine.stderr + d).split('\n').slice(-STDERR_KEEP - 1).join('\n');
+            });
+        }
         try {
             await engine.waitReady(opts.timeoutMs);
         } catch(err) {
@@ -126,6 +194,14 @@ class Engine {
             throw err;
         }
         return engine;
+    }
+
+    // why the docker run child is gone, or null while it runs
+    exitError() {
+        if(this.spawnError) return this.spawnError;
+        if(this.exitCode === null) return null;
+        const last = this.stderr.split('\n').filter(l => l.trim()).slice(-5).join('\n');
+        return new Error(`docker exited with code ${this.exitCode}` + (last ? ':\n' + last : ''));
     }
 
     request(method, path, body) {
@@ -207,7 +283,8 @@ class Engine {
         const start = Date.now();
         let last;
         while(Date.now() - start < timeoutMs) {
-            if(this.exited) throw this.exited;
+            const exited = this.exitError();
+            if(exited) throw exited;
             try {
                 await this.request('GET', '/status');
                 return;
@@ -220,18 +297,40 @@ class Engine {
         throw new Error('the engine did not become ready' + (last ? ': ' + last.message : ''));
     }
 
+    // docker stop (10 s grace) with a watchdog, then make sure the docker run child is gone
     async stop() {
         if(!this.name) return;
         await new Promise(resolve => {
-            try {
-                const p = this.spawn('docker', ['stop', this.name], {stdio: 'ignore'});
-                p.on('error', resolve);
-                p.on('exit', resolve);
-                p.on && p.on('close', resolve);
-            } catch(err) {
+            let timer = null;
+            let p = null;
+            const finish = () => {
+                clearTimeout(timer);
                 resolve();
+            };
+            timer = setTimeout(() => {
+                try {
+                    if(p && p.kill) p.kill('SIGKILL');
+                } catch(err) {
+                    //already gone
+                }
+                finish();
+            }, this.stopTimeoutMs);
+            try {
+                p = this.spawn('docker', ['stop', '-t', '10', this.name], {stdio: 'ignore'});
+                p.on('error', finish);
+                p.on('exit', finish);
+                p.on('close', finish);
+            } catch(err) {
+                finish();
             }
         });
+        if(this.child && this.child.exitCode === null && this.child.kill) {
+            try {
+                this.child.kill('SIGTERM');
+            } catch(err) {
+                //already gone
+            }
+        }
     }
 }
 
