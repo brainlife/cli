@@ -98,12 +98,28 @@ function privateDir(dir, {refuseOpen = false} = {}) {
     }
 }
 
+// open a URL with the OS opener; a failure only prints, the URL is on screen anyway
+function openUrl(url) {
+    const cmd = process.platform === 'darwin' ? ['open', [url]]
+        : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]]
+            : ['xdg-open', [url]];
+    return new Promise((resolve, reject) => {
+        const child = require('child_process').spawn(cmd[0], cmd[1], {stdio: 'ignore', detached: true});
+        child.on('error', reject);
+        child.on('spawn', () => {
+            child.unref();
+            resolve();
+        });
+    });
+}
+
 const IMAGE_RE = /^[A-Za-z0-9][\w.\/:@-]*$/;
 const SIGNAL_EXIT = {SIGINT: 130, SIGTERM: 143, SIGHUP: 129};
 
 const DEFAULT_DEPS = {
     Engine,
     prompt,
+    openUrl,
     upload: {
         uploadDatasets: bidsUpload.uploadDatasets,
         updateParticipants: bidsUpload.updateParticipants,
@@ -131,6 +147,27 @@ async function run(opts, deps = {}) {
     let stopping = null;
     let interrupted = false;
 
+    // a one-time viewer link (the engine's /viewer/session); null when the engine has no viewer
+    const openViewer = async () => {
+        let session;
+        try {
+            session = await engine.request('POST', '/viewer/session');
+        } catch (err) {
+            if (err instanceof engineMod.EngineError && err.status === 404) {
+                error('aimport: the engine image is too old for --qa; rebuild it');
+                return null;
+            }
+            throw err;
+        }
+        const url = engine.base + session.url;
+        log('QA viewer: ' + url);
+        try {
+            await deps.openUrl(url);
+        } catch (err) {
+            log('(could not open a browser; open the address above yourself)');
+        }
+        return url;
+    };
     const stopEngine = () => {
         if (!stopping) {
             const e = engine || (name ? new deps.Engine({name}) : null);
@@ -231,6 +268,11 @@ async function run(opts, deps = {}) {
         if (executed.stage !== 'validated' || status.stage !== 'validated') {
             const msg = status.message || executed.message;
             error('aimport: the output is ' + status.stage + (msg ? ' (' + msg + ')' : '') + '; nothing was uploaded');
+            // an invalid output was written: it can still be looked at, to see what to fix
+            if (opts.qa && status.stage === 'invalid') {
+                if (await openViewer() === null) return 1;
+                await deps.prompt('Press Enter to close the viewer and stop the engine. ');
+            }
             return 1;
         }
 
@@ -241,6 +283,27 @@ async function run(opts, deps = {}) {
             return 1;
         }
         plan = await engine.request('GET', '/plan');
+
+        // the viewer is served by the engine, so it is opened and the question answered before the engine stops
+        if (opts.qa) {
+            if (await openViewer() === null) return 1;
+            if (opts.upload !== false) {
+                for (;;) {
+                    const answer = String(await deps.prompt('Upload this dataset? [y/N/v(iewer link again)] '))
+                        .trim().toLowerCase();
+                    if (answer === 'y' || answer === 'yes') break;
+                    if (answer === 'v') {  // the one-time code expires after 60 s: a fresh one
+                        if (await openViewer() === null) return 1;
+                        continue;
+                    }
+                    log('Not uploaded. The output stays in ' + path.join(work, 'output', 'bids'));
+                    return 0;
+                }
+            } else {
+                // nothing to upload: keep the engine (and so the viewer) up until the person is done
+                await deps.prompt('Press Enter to close the viewer and stop the engine. ');
+            }
+        }
 
         // everything below works on the host side of the engine's /work mount; the engine is done
         await stopEngine();
@@ -316,6 +379,7 @@ if (require.main === module) {
         .option('--image <ref>', 'aimport engine image', ENGINE_IMAGE)
         .option('-y, --yes', 'approve the plan without asking (for scripts)')
         .option('-t, --tag <tag>', 'add a tag to every uploaded data object', util.collect, [])
+        .option('--qa', 'open the output in the local QA viewer after validation and ask before uploading')
         .option('--no-upload', 'stop after validation')
         .parse(process.argv);
 
@@ -331,5 +395,6 @@ if (require.main === module) {
         yes: commander.yes,
         tag: commander.tag,
         upload: commander.upload,
+        qa: commander.qa,
     }).then(code => process.exit(code));
 }

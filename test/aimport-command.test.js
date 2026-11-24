@@ -93,12 +93,14 @@ function fakeUpload() {
     };
 }
 
+let t_opened = [];
 let tmp;
 let input;
 let work;
 let keys;
 
 beforeEach(() => {
+    t_opened = [];
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bl-aimport-cmd-'));
     input = path.join(tmp, 'input');
     work = path.join(tmp, 'work');
@@ -132,6 +134,7 @@ function setup(script, extra = {}) {
         queryProjects: async (headers, q) => q.id === PROJECT._id ? [PROJECT] : [],
         queryAllDatatypes: async () => DATATYPES,
         projectSubjects: async () => ({existing_subjects: ['07'], existing_sessions: {'07': ['1']}}),
+        openUrl: extra.openUrl || (async u => { t_opened.push(u); }),
         exit: extra.exit || (() => {}),
     };
     const opts = Object.assign({folder: input, project: PROJECT._id, work, keys, yes: true, upload: true,
@@ -140,6 +143,134 @@ function setup(script, extra = {}) {
 }
 
 const paths = calls => calls.map(c => c.method + ' ' + c.path);
+
+const QA_PROMPT = 'Upload this dataset? [y/N/v(iewer link again)] ';
+
+describe('bl aimport --qa', () => {
+    function qaSetup(answers, extra = {}) {
+        const t = setup({onRequest: key => {
+            if (key === 'POST /viewer/session') assert.strictEqual(t.eng.state.stops, 0);
+        }}, {opts: {qa: true, ...extra}, answers});
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            return m + ' ' + p === 'POST /viewer/session' ? {code: 'abc123', url: '/viewer/open?code=abc123'} : r;
+        };
+        return t;
+    }
+
+    it('y: opens the viewer after validation, prints a tokenless URL, uploads', async () => {
+        const t = qaSetup(['y']);
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        const p = paths(t.eng.calls);
+        assert.ok(p.indexOf('POST /viewer/session') > p.indexOf('POST /execute'));
+        const url = 'http://127.0.0.1:9999/viewer/open?code=abc123';
+        assert.ok(t.out.includes('QA viewer: ' + url));
+        assert.ok(!t.out.join('\n').includes('tok123'));
+        assert.deepStrictEqual(t_opened, [url]);
+        assert.deepStrictEqual(t.prompts, [QA_PROMPT]);
+        assert.ok(t.up.rec.datasets.length > 0);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('n or empty: exit 0, nothing uploaded, engine stopped', async () => {
+        for (const a of ['n', '']) {
+            const t = qaSetup([a]);
+            assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+            assert.strictEqual(t.up.rec.datasets, null);
+            assert.strictEqual(t.up.rec.participants, 0);
+            assert.strictEqual(t.eng.state.stops, 1);
+        }
+    });
+
+    it('--yes does not skip the question', async () => {
+        const t = qaSetup(['n'], {yes: true});
+        await run(t.opts, t.deps);
+        assert.strictEqual(t.prompts.length, 1);
+        assert.strictEqual(t.up.rec.datasets, null);
+    });
+
+    it('a failing opener only prints', async () => {
+        const t = qaSetup(['y']);
+        t.deps.openUrl = async () => { throw new Error('no opener'); };
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.ok(t.out.some(l => l.includes('could not open')));
+        assert.ok(t.up.rec.datasets.length > 0);
+    });
+
+    it('--no-upload keeps the engine up until Enter, then stops it', async () => {
+        const t = qaSetup([''], {upload: false});
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.deepStrictEqual(t.prompts, ['Press Enter to close the viewer and stop the engine. ']);
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('v: a fresh one-time link, then the question again', async () => {
+        const t = qaSetup(['v', 'V', 'y']);
+        let n = 0;
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            if (m + ' ' + p !== 'POST /viewer/session') return r;
+            n++;
+            return {code: 'c' + n, url: '/viewer/open?code=c' + n};
+        };
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.strictEqual(paths(t.eng.calls).filter(c => c === 'POST /viewer/session').length, 3);
+        assert.deepStrictEqual(t_opened, [1, 2, 3].map(i => 'http://127.0.0.1:9999/viewer/open?code=c' + i));
+        assert.ok(t.out.includes('QA viewer: http://127.0.0.1:9999/viewer/open?code=c3'));
+        assert.deepStrictEqual(t.prompts, [QA_PROMPT, QA_PROMPT, QA_PROMPT]);
+        assert.ok(t.up.rec.datasets.length > 0);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('an engine without /viewer/session: too old for --qa, exit 1, nothing uploaded', async () => {
+        const t = setup({errors: {'POST /viewer/session': new EngineError('Not Found', 404)}},
+            {opts: {qa: true}, answers: ['y']});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(t.out.includes('aimport: the engine image is too old for --qa; rebuild it'), t.out.join('\n'));
+        assert.deepStrictEqual(t.prompts, []);
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('another engine error on the session is not reported as too old', async () => {
+        const t = setup({errors: {'POST /viewer/session': new EngineError('boom', 500)}}, {opts: {qa: true}});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(!t.out.some(l => l.includes('too old for --qa')));
+        assert.strictEqual(t.up.rec.datasets, null);
+    });
+
+    it('invalid: the viewer still opens, Enter stops the engine, exit 1, nothing uploaded', async () => {
+        const t = setup({execStage: 'invalid', execMessage: 'validator errors'}, {opts: {qa: true}, answers: ['']});
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            return m + ' ' + p === 'POST /viewer/session' ? {code: 'abc123', url: '/viewer/open?code=abc123'} : r;
+        };
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.deepStrictEqual(t_opened, ['http://127.0.0.1:9999/viewer/open?code=abc123']);
+        assert.deepStrictEqual(t.prompts, ['Press Enter to close the viewer and stop the engine. ']);
+        assert.ok(t.out.some(l => l.includes('the output is invalid') && l.includes('nothing was uploaded')));
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('failed (no output): no viewer', async () => {
+        const t = setup({execStage: 'failed'}, {opts: {qa: true}});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(!paths(t.eng.calls).includes('POST /viewer/session'));
+        assert.deepStrictEqual(t.prompts, []);
+    });
+
+    it('without --qa there is no session call', async () => {
+        const t = setup({});
+        await run(t.opts, t.deps);
+        assert.ok(!paths(t.eng.calls).includes('POST /viewer/session'));
+        assert.deepStrictEqual(t_opened, []);
+    });
+});
 
 describe('bl aimport run', () => {
     it('scans, approves, executes, validates and uploads', async () => {
