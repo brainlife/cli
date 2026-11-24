@@ -11,6 +11,7 @@ const archiver = require('archiver');
 const terminalOverwrite = require('terminal-overwrite');
 const config = require('./config');
 const util = require('./util');
+const chunks = require('./aimport/chunks');
 
 //need to append any bids entities that make this object unique
 //https://github.com/bids-standard/bids-specification/blob/master/src/schema/entities.yaml
@@ -23,7 +24,10 @@ const ENTITIES = [
 
 //upload each {dataset, files} unless the project already has it.
 //returns the desc of each uploaded and skipped dataset
-exports.uploadDatasets = async function(headers, project, datasets, {tags = [], api = config.api, log = console.log} = {}) {
+//chunkMap (bl aimport reference datasets, see aimport/chunks.js): the chunks of each referenced
+//array inside an uploaded folder are streamed from their source into the object's tar
+exports.uploadDatasets = async function(headers, project, datasets, {tags = [], api = config.api, log = console.log,
+    chunkMap = null, openSource = chunks.openSource} = {}) {
     let instanceName = 'upload.'+project.group_id; //same for bl data upload and web upload
     let instance = await util.findOrCreateInstance(headers, instanceName, {project, api});
 
@@ -58,7 +62,7 @@ exports.uploadDatasets = async function(headers, project, datasets, {tags = [], 
         }});
         if(body.count == 0) {
             let noop = await submit_noop(headers, instance, datatypes, dataset_and_files.dataset, api, log);
-            await do_upload(headers, noop, project, dataset_and_files, tags, api, log);
+            await do_upload(headers, noop, project, dataset_and_files, tags, api, log, {chunkMap, openSource});
             uploaded.push(dataset_and_files.dataset.desc);
         } else {
             log("already uploaded.. skipping");
@@ -116,10 +120,38 @@ async function walkDir(dir) {
     return files.reduce((all, folderContents) => all.concat(folderContents), []);
 }
 
-async function do_upload(headers, noop, project, dataset_and_files, tags, api, log) {
+//append a stream of known size and wait until the archive has taken it in, so only one
+//chunk source is open at a time. With stats, archiver's tar plugin pipes the stream into
+//the tar entry instead of collecting it in memory.
+function appendAndWait(archive, stream, data) {
+    return new Promise((resolve, reject)=>{
+        const cleanup = ()=>{
+            archive.removeListener('entry', onEntry);
+            archive.removeListener('error', onError);
+            stream.removeListener('error', onError);
+        };
+        const onEntry = entry=>{
+            if(entry.name !== data.name) return;
+            cleanup();
+            resolve();
+        };
+        const onError = err=>{
+            cleanup();
+            stream.destroy();
+            reject(err);
+        };
+        archive.on('entry', onEntry);
+        archive.on('error', onError);
+        stream.on('error', onError);
+        archive.append(stream, data);
+    });
+}
 
-    //create tar ball with all files
+//the tar.gz of one object: its files now, and feed() streams the chunks of the referenced
+//arrays inside its folders (one at a time; a chunk missing at its source is the fill value)
+async function buildArchive(dataset_and_files, {chunkMap = null, openSource = chunks.openSource, log = console.log} = {}) {
     let archive = archiver('tar', { gzip: true });
+    const refs = [];
     for(let name in dataset_and_files.files) {
         let fullpath = dataset_and_files.files[name];
 
@@ -132,11 +164,38 @@ async function do_upload(headers, noop, project, dataset_and_files, tags, api, l
                 log(entry, name+subpath);
                 archive.append(fs.createReadStream(entry), {name: name+subpath});
             });
+            for(const ref of chunks.arraysUnder(chunkMap, fullpath)) refs.push({name, ...ref});
         } else {
             //regular file
             archive.file(fs.realpathSync(fullpath), { name });
         }
     }
+
+    const feed = async ()=>{
+        for(const {name, sub, meta} of refs) {
+            let streamed = 0, missing = 0;
+            for(const key of chunks.chunkKeys(meta)) {
+                const src = await openSource(meta.source, key, {inputDir: chunkMap.inputDir});
+                if(!src) {
+                    missing++;
+                    continue;
+                }
+                await appendAndWait(archive, src.stream, {name: name+'/'+sub+'/'+key,
+                    stats: {size: src.size, mode: 0o644, mtime: src.mtime || new Date()}});
+                streamed++;
+            }
+            //the array path is BIDS-named (no identifiers); its source is never printed
+            log("streamed "+streamed+" chunk(s) of "+name+'/'+sub+(missing ? " ("+missing+" missing at the source: fill value)" : ""));
+        }
+    };
+    return {archive, feed};
+}
+exports.buildArchive = buildArchive;
+
+async function do_upload(headers, noop, project, dataset_and_files, tags, api, log, {chunkMap = null, openSource = chunks.openSource} = {}) {
+
+    //create tar ball with all files
+    const {archive, feed} = await buildArchive(dataset_and_files, {chunkMap, openSource, log});
 
     return new Promise((resolve, reject)=>{
         let progress = null;
@@ -156,7 +215,11 @@ async function do_upload(headers, noop, project, dataset_and_files, tags, api, l
         req.catch(()=>{}); //errors are handled by the 'error' and 'response' events
         req.on('error', fail);
         archive.pipe(req);
-        archive.finalize();
+        feed().then(()=>archive.finalize(), err=>{
+            archive.abort();
+            req.abort();
+            fail(err);
+        });
 
         let total = 0;
         archive.on('data', data=>{

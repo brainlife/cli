@@ -22,6 +22,8 @@ const engineMod = require('./aimport/engine');
 const {renderPlan, renderResult} = require('./aimport/plan-table');
 const {applyPlan, preflight, projectFiles, uploadProjectFiles} = require('./aimport/upload');
 const {validateDataset} = require('./aimport/validators');
+const {loadChunkMap, streamedBytes} = require('./aimport/chunks');
+const {micrDatasets} = require('./aimport/micr-walk');
 
 const {Engine, EngineError, UsageError, checkFolders, ENGINE_IMAGE} = engineMod;
 
@@ -114,6 +116,21 @@ function openUrl(url) {
 }
 
 const IMAGE_RE = /^[A-Za-z0-9][\w.\/:@-]*$/;
+const REMOTE_RE = /^(https|s3):\/\/[^\s]+$/i;
+
+// bytes of the written files (and folders) that go up from the output
+function localBytes(root, rels) {
+    let total = 0;
+    const add = full => {
+        const st = fs.lstatSync(full);
+        if (st.isDirectory()) for (const c of fs.readdirSync(full)) add(path.join(full, c));
+        else if (st.isFile()) total += st.size;
+    };
+    for (const r of rels) add(path.resolve(root, r));
+    return total;
+}
+
+const gb = bytes => (bytes / 1e9).toFixed(2) + ' GB';
 const SIGNAL_EXIT = {SIGINT: 130, SIGTERM: 143, SIGHUP: 129};
 
 const DEFAULT_DEPS = {
@@ -204,6 +221,12 @@ async function run(opts, deps = {}) {
         if (!st || !st.isDirectory()) throw new UsageError('not a folder: ' + folder);
         if (!opts.project) throw new UsageError('please give the brainlife project id (--project)');
         if (!util.isValidObjectId(opts.project)) throw new UsageError('--project must be a brainlife project id: ' + opts.project);
+        // remote sources for the microscopy modules; the engine checks them again. Never echoed:
+        // a URL can name the donor
+        const remote = opts.remote || [];
+        for (const url of remote) {
+            if (typeof url !== 'string' || !REMOTE_RE.test(url)) throw new UsageError('--remote must be an https:// or s3:// URL');
+        }
 
         // the project must exist; aimport never creates one
         const jwt = await deps.loadJwt();
@@ -228,8 +251,10 @@ async function run(opts, deps = {}) {
         const onEvent = ev => log('  ' + ev.stage + (ev.message ? ': ' + ev.message : ''));
 
         // scan
-        await engine.request('POST', '/scan', {project_id: project._id, existing_subjects: existing.existing_subjects,
-            existing_sessions: existing.existing_sessions, target});
+        const scanBody = {project_id: project._id, existing_subjects: existing.existing_subjects,
+            existing_sessions: existing.existing_sessions, target};
+        if (remote.length) scanBody.remote = remote;
+        await engine.request('POST', '/scan', scanBody);
         const scanned = await engine.follow(onEvent);
         if (scanned.stage !== 'planned') {
             error('aimport: the scan ' + scanned.stage + (scanned.message ? ': ' + scanned.message : ''));
@@ -285,13 +310,17 @@ async function run(opts, deps = {}) {
         plan = await engine.request('GET', '/plan');
 
         // the viewer is served by the engine, so it is opened and the question answered before the engine stops
+        let confirmed = false;
         if (opts.qa) {
             if (await openViewer() === null) return 1;
             if (opts.upload !== false) {
                 for (;;) {
                     const answer = String(await deps.prompt('Upload this dataset? [y/N/v(iewer link again)] '))
                         .trim().toLowerCase();
-                    if (answer === 'y' || answer === 'yes') break;
+                    if (answer === 'y' || answer === 'yes') {
+                        confirmed = true;
+                        break;
+                    }
                     if (answer === 'v') {  // the one-time code expires after 60 s: a fresh one
                         if (await openViewer() === null) return 1;
                         continue;
@@ -308,12 +337,17 @@ async function run(opts, deps = {}) {
         // everything below works on the host side of the engine's /work mount; the engine is done
         await stopEngine();
         const bidsDir = path.join(work, 'output', 'bids');
-        preflight(bidsDir);
+        // reference datasets: where their chunks are (input paths and URLs: local only, never printed)
+        const chunkMap = loadChunkMap(work, bidsDir, folder, manifest, status.chunk_map);
+        preflight(bidsDir, {chunkMap, manifest, inputDir: folder});
         const bids = await deps.walk(bidsDir);
         const datatypesByName = {};
         for (const dt of await deps.queryAllDatatypes(headers, api)) datatypesByName[dt.name] = dt;
         const applied = applyPlan(bids, plan, manifest, datatypesByName, bidsDir);
-        for (const w of applied.warnings) log('! ' + w);
+        // micr images: the walker does not know micr/; one object per written .ome.zarr
+        const micr = micrDatasets(bidsDir, plan, manifest, datatypesByName);
+        applied.datasets.push(...micr.datasets);
+        for (const w of applied.warnings.concat(micr.warnings)) log('! ' + w);
 
         // host datatype validators; a failure keeps that object out of the upload
         const good = [];
@@ -331,7 +365,15 @@ async function run(opts, deps = {}) {
             good.push(item);
         }
         // blocked objects' files are not sent as project files either
-        const files = projectFiles(bidsDir, applied.datasets);
+        const files = projectFiles(bidsDir, applied.datasets, micr.held);
+
+        // what goes up: from the output folder, and streamed from the reference datasets' sources
+        const objectRels = [];
+        for (const item of good) for (const full of Object.values(item.files)) objectRels.push(path.relative(bidsDir, full));
+        const streamed = streamedBytes(chunkMap, good);
+        log(good.length + ' objects, ' + gb(localBytes(bidsDir, objectRels.concat(files))) + ' from local output, ' +
+            gb(streamed.bytes) + ' streamed from sources' +
+            (streamed.upperBound ? ' (at most: remote chunk sizes are known only when they are read)' : ''));
 
         if (opts.upload === false) {
             log('--no-upload: stopping here. ' + good.length + ' object(s) and ' + files.length +
@@ -339,10 +381,19 @@ async function run(opts, deps = {}) {
             return blocked.length ? 1 : 0;
         }
 
+        // streaming from the sources can be long: ask, unless --yes or the --qa question was answered
+        if (streamed.arrays > 0 && !opts.yes && !confirmed) {
+            const answer = String(await deps.prompt('Upload? [y/N] ')).trim().toLowerCase();
+            if (answer !== 'y' && answer !== 'yes') {
+                log('Not uploaded. The output stays in ' + bidsDir);
+                return 0;
+            }
+        }
+
         if (bids.participants.length || bids.participants_json) {
             await deps.upload.updateParticipants(headers, project, bids, {api});
         }
-        const result = await deps.upload.uploadDatasets(headers, project, good, {tags: opts.tag || [], api, log});
+        const result = await deps.upload.uploadDatasets(headers, project, good, {tags: opts.tag || [], api, log, chunkMap});
         await deps.upload.uploadProjectFiles(headers, project, bidsDir, files, {api});
         log('Uploaded ' + result.uploaded.length + ' object(s), skipped ' + result.skipped.length +
             ' already in the project, ' + files.length + ' project file(s)');
@@ -380,6 +431,7 @@ if (require.main === module) {
         .option('-y, --yes', 'approve the plan without asking (for scripts)')
         .option('-t, --tag <tag>', 'add a tag to every uploaded data object', util.collect, [])
         .option('--qa', 'open the output in the local QA viewer after validation and ask before uploading')
+        .option('--remote <url>', 'a remote microscopy source (https:// or s3://, anonymous reads; repeatable)', util.collect, [])
         .option('--no-upload', 'stop after validation')
         .parse(process.argv);
 
@@ -396,5 +448,6 @@ if (require.main === module) {
         tag: commander.tag,
         upload: commander.upload,
         qa: commander.qa,
+        remote: commander.remote,
     }).then(code => process.exit(code));
 }

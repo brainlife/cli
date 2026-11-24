@@ -9,6 +9,7 @@ const path = require('path');
 const axios = require('axios');
 const config = require('../config');
 const {bidsName} = require('./plan-table');
+const {checkChunkMap} = require('./chunks');
 
 // participants.tsv/json go to the participants API (bids-upload.updateParticipants)
 const PARTICIPANT_FILES = new Set(['participants.tsv', 'participants.json']);
@@ -42,8 +43,11 @@ function applyPlan(bids, plan, manifest, datatypesByName, outputDir) {
 }
 
 // whole-output check before any upload: no symlinks (they could point anywhere),
-// no pseudonym key files and nothing under sourcedata/
-function preflight(outputDir) {
+// no pseudonym key files, no chunk maps and nothing under sourcedata/. With a chunk map
+// (reference datasets), it is the only other source list: every array must lie strictly
+// inside a written .ome.zarr directory of the manifest, and every source inside inputDir
+// (no symlink on the way) or at an allowed https URL (chunks.checkChunkMap).
+function preflight(outputDir, {chunkMap = null, manifest = null, inputDir = null} = {}) {
     const root = path.resolve(outputDir);
     const check = rel => {
         const full = rel ? path.join(root, rel) : root;
@@ -53,6 +57,7 @@ function preflight(outputDir) {
         const name = path.basename(full);
         if (rel && name === 'sourcedata') throw new Error('refusing to upload ' + shown + ' (sourcedata never leaves this machine)');
         if (name.endsWith('.aimport-key.json')) throw new Error('refusing to upload ' + shown + ' (key files never leave this machine)');
+        if (name.endsWith('.chunks.json')) throw new Error('refusing to upload ' + shown + ' (chunk maps never leave this machine)');
         if (st.isDirectory()) {
             for (const child of fs.readdirSync(full).sort()) check(rel ? rel + '/' + child : child);
         } else if (!st.isFile()) {
@@ -60,6 +65,7 @@ function preflight(outputDir) {
         }
     };
     check('');
+    if (chunkMap) checkChunkMap(root, chunkMap, manifest, inputDir);
 }
 
 function listFiles(dir, rel = '') {
@@ -72,7 +78,8 @@ function listFiles(dir, rel = '') {
     return out;
 }
 
-function projectFiles(outputDir, datasets) {
+// held: more written files or folders (full paths) that are not sent as project files
+function projectFiles(outputDir, datasets, held = []) {
     const root = path.resolve(outputDir);
     const all = listFiles(root);
     for (const f of all) {
@@ -85,6 +92,7 @@ function projectFiles(outputDir, datasets) {
     for (const item of datasets) {
         for (const full of Object.values(item.files)) used.push(path.relative(root, path.resolve(full)).split(path.sep).join('/'));
     }
+    for (const full of held) used.push(path.relative(root, path.resolve(full)).split(path.sep).join('/'));
     const isUsed = f => used.some(u => f === u || f.startsWith(u + '/'));
     return all.filter(f => !PARTICIPANT_FILES.has(f) && !isUsed(f));
 }
