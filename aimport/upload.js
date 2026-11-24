@@ -13,6 +13,27 @@ const {checkChunkMap} = require('./chunks');
 
 // participants.tsv/json go to the participants API (bids-upload.updateParticipants)
 const PARTICIPANT_FILES = new Set(['participants.tsv', 'participants.json']);
+// electrophysiology objects: their channels.tsv (bad channels marked in the QA viewer: status,
+// status_description) and channels.json go up inside the object
+const EPHYS_DATATYPE = /^neuro\/(eeg|meg|ieeg)\//;
+const CHANNEL_FILES = [['_channels.tsv', 'channels.tsv'], ['_channels.json', 'channels.json']];
+
+// put the recording's _channels.tsv (and _channels.json, if written) in an electrophysiology object:
+// under the datatype's file id whose filename it is (brainlife.io: `channels` -> channels.tsv),
+// else as an extra file of the object; returns a note for each extra file
+function keepChannels(item, entry, manifest, datatype, outputDir) {
+    const notes = [];
+    const rels = manifest[entry.id] || [];
+    for (const [suffix, name] of CHANNEL_FILES) {
+        const rel = rels.find(r => r.endsWith(suffix));
+        const full = rel ? path.resolve(outputDir, rel) : null;
+        if (!full || !fs.existsSync(full)) continue;
+        item.files[name] = full;
+        const mapped = (datatype.files || []).find(f => f.filename === name);
+        if (!mapped) notes.push(name + ' kept with ' + bidsName(entry) + ' as an extra file (' + datatype.name + ' has no ' + name + ' file)');
+    }
+    return notes;
+}
 
 function applyPlan(bids, plan, manifest, datatypesByName, outputDir) {
     // full path of each written file -> plan entry
@@ -22,6 +43,7 @@ function applyPlan(bids, plan, manifest, datatypesByName, outputDir) {
     }
     const datasets = [];
     const warnings = [];
+    const notes = [];
     for (const item of bids.datasets) {
         let entry = null;
         for (const full of Object.values(item.files)) {
@@ -36,10 +58,11 @@ function applyPlan(bids, plan, manifest, datatypesByName, outputDir) {
             }
             item.dataset.datatype = name;
             item.dataset.datatype_tags = [...(entry.brainlife_tags || [])];
+            if (EPHYS_DATATYPE.test(name)) notes.push(...keepChannels(item, entry, manifest, datatypesByName[name], outputDir));
         }
         datasets.push(item);
     }
-    return {datasets, warnings};
+    return {datasets, warnings, notes};
 }
 
 // whole-output check before any upload: no symlinks (they could point anywhere),
@@ -110,4 +133,4 @@ async function uploadProjectFiles(headers, project, outputDir, files, {api = con
     }
 }
 
-module.exports = {applyPlan, preflight, projectFiles, uploadProjectFiles};
+module.exports = {applyPlan, keepChannels, preflight, projectFiles, uploadProjectFiles};
