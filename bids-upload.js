@@ -139,7 +139,13 @@ async function do_upload(headers, noop, project, dataset_and_files, tags, api, l
     }
 
     return new Promise((resolve, reject)=>{
-        archive.on('error', reject);
+        let progress = null;
+        //stop the progress timer on any error, or it keeps the process alive
+        const fail = err=>{
+            clearInterval(progress);
+            reject(err);
+        };
+        archive.on('error', fail);
 
         //then pipe to the noop
         //TODO - replace with axios, and use upload2 API which uses muti-part
@@ -148,7 +154,7 @@ async function do_upload(headers, noop, project, dataset_and_files, tags, api, l
             headers,
         });
         req.catch(()=>{}); //errors are handled by the 'error' and 'response' events
-        req.on('error', reject);
+        req.on('error', fail);
         archive.pipe(req);
         archive.finalize();
 
@@ -156,7 +162,7 @@ async function do_upload(headers, noop, project, dataset_and_files, tags, api, l
         archive.on('data', data=>{
             total += data.length;
         });
-        let progress = setInterval(()=>{
+        progress = setInterval(()=>{
             terminalOverwrite.clear();
             terminalOverwrite("Uploading .. "+(total/(1024*1024)).toFixed(1)+"MB");
         }, 5000);

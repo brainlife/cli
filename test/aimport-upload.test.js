@@ -8,7 +8,7 @@ const os = require('os');
 const path = require('path');
 
 const bidsUpload = require('../bids-upload');
-const {applyPlan, projectFiles, uploadProjectFiles} = require('../aimport/upload');
+const {applyPlan, preflight, projectFiles, uploadProjectFiles} = require('../aimport/upload');
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'bids-mini');
 const headers = {Authorization: 'Bearer a.b.c'};
@@ -40,7 +40,7 @@ function stub(opts = {}) {
             if (r === 'GET /warehouse/dataset') return send({count: opts.count === undefined ? 1 : opts.count});
             if (r === 'POST /amaretti/task') return send({task: {_id: 't1', name: 'upload.7'}});
             if (r === 'GET /amaretti/task') return send({tasks: [{_id: 't1', status: 'finished', config: {_outputs: [{id: 'output'}]}}]});
-            if (r === 'POST /amaretti/task/upload/t1') return send({});
+            if (r === 'POST /amaretti/task/upload/t1') return opts.dropUpload ? req.socket.destroy() : send({});
             if (r === 'POST /warehouse/dataset') return send({_id: 'd' + calls.length});
             if (r === 'PUT /warehouse/participant/p1') return send({});
             if (r === 'POST /warehouse/files/p1/upload/presigned') {
@@ -110,6 +110,64 @@ describe('uploadDatasets', () => {
         } finally {
             s.srv.close();
         }
+    });
+
+    it('clears the progress timer when the upload fails', async () => {
+        const s = await stub({count: 0, dropUpload: true});
+        const realSet = global.setInterval;
+        const realClear = global.clearInterval;
+        const live = new Set();
+        global.setInterval = (...a) => {
+            const t = realSet(...a);
+            live.add(t);
+            return t;
+        };
+        global.clearInterval = t => {
+            live.delete(t);
+            return realClear(t);
+        };
+        try {
+            const bids = await walk(FIXTURE);
+            const t1 = bids.datasets.filter(d => d.dataset.desc === 'sub-01_T1w.nii.gz');
+            await assert.rejects(bidsUpload.uploadDatasets(headers, project, t1, {api: s.api, log: quiet}));
+            assert.strictEqual(live.size, 0);
+        } finally {
+            global.setInterval = realSet;
+            global.clearInterval = realClear;
+            for (const t of live) realClear(t);
+            s.srv.close();
+        }
+    });
+});
+
+describe('preflight', () => {
+    it('accepts a plain BIDS tree', () => {
+        preflight(FIXTURE);
+    });
+
+    it('refuses symlinks, key files and sourcedata anywhere', () => {
+        const dir = copyFixture();
+        try {
+            fs.symlinkSync('/etc/hosts', path.join(dir, 'sub-01', 'anat', 'link.nii.gz'));
+            assert.throws(() => preflight(dir), /symbolic link/);
+            fs.rmSync(path.join(dir, 'sub-01', 'anat', 'link.nii.gz'));
+            fs.symlinkSync(path.join(dir, 'sub-02'), path.join(dir, 'sub-03'));
+            assert.throws(() => preflight(dir), /sub-03.*symbolic link/);
+            fs.rmSync(path.join(dir, 'sub-03'));
+            fs.writeFileSync(path.join(dir, 'sub-01', 'anat', 'p.aimport-key.json'), '{}');
+            assert.throws(() => preflight(dir), /aimport-key/);
+            fs.rmSync(path.join(dir, 'sub-01', 'anat', 'p.aimport-key.json'));
+            fs.mkdirSync(path.join(dir, 'sub-01', 'sourcedata'));
+            assert.throws(() => preflight(dir), /sourcedata/);
+            fs.rmSync(path.join(dir, 'sub-01', 'sourcedata'), {recursive: true});
+            preflight(dir);
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+
+    it('refuses a missing output folder', () => {
+        assert.throws(() => preflight(path.join(os.tmpdir(), 'bl-aimport-no-such-dir')), /ENOENT/);
     });
 });
 

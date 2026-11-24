@@ -52,6 +52,11 @@ describe('checkFolders', () => {
         assert.throws(() => checkFolders({folder: '/in', work: '/w', keys: '/in/keys'}), UsageError);
         assert.throws(() => checkFolders({folder: '/in/sub', work: '/w', keys: '/in'}), UsageError);
     });
+    it('refuses work inside the input folder and the input folder inside work', () => {
+        assert.throws(() => checkFolders({folder: '/in', work: '/in/work', keys: '/k'}), /work folder/);
+        assert.throws(() => checkFolders({folder: '/w/in', work: '/w', keys: '/k'}), /work folder/);
+        assert.throws(() => checkFolders({folder: '/same', work: '/same', keys: '/k'}), UsageError);
+    });
     it('accepts separate folders', () => {
         checkFolders({folder: '/in', work: '/w', keys: '/k'});
         checkFolders({folder: '/in', work: '/w', keys: '/w2'});

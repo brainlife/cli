@@ -60,12 +60,16 @@ function inside(child, parent) {
     return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-// the keys folder must be separate from the work and input folders (either direction)
+// the keys folder must be separate from the work and input folders (either direction),
+// and so must work and input (a re-scan would ingest the staged originals)
 exports.checkFolders = function({folder, work, keys}) {
     for(const [name, other] of [['work', work], ['input', folder]]) {
         if(inside(keys, other) || inside(other, keys)) {
             throw new UsageError(`the keys folder (${keys}) must not be inside or contain the ${name} folder (${other})`);
         }
+    }
+    if(inside(work, folder) || inside(folder, work)) {
+        throw new UsageError(`the work folder (${work}) must not be inside or contain the input folder (${folder})`);
     }
 }
 

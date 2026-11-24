@@ -41,6 +41,27 @@ function applyPlan(bids, plan, manifest, datatypesByName, outputDir) {
     return {datasets, warnings};
 }
 
+// whole-output check before any upload: no symlinks (they could point anywhere),
+// no pseudonym key files and nothing under sourcedata/
+function preflight(outputDir) {
+    const root = path.resolve(outputDir);
+    const check = rel => {
+        const full = rel ? path.join(root, rel) : root;
+        const st = fs.lstatSync(full);
+        const shown = rel || root;
+        if (st.isSymbolicLink()) throw new Error('refusing to upload ' + shown + ': it is a symbolic link');
+        const name = path.basename(full);
+        if (rel && name === 'sourcedata') throw new Error('refusing to upload ' + shown + ' (sourcedata never leaves this machine)');
+        if (name.endsWith('.aimport-key.json')) throw new Error('refusing to upload ' + shown + ' (key files never leave this machine)');
+        if (st.isDirectory()) {
+            for (const child of fs.readdirSync(full).sort()) check(rel ? rel + '/' + child : child);
+        } else if (!st.isFile()) {
+            throw new Error('refusing to upload ' + shown + ': not a regular file');
+        }
+    };
+    check('');
+}
+
 function listFiles(dir, rel = '') {
     let out = [];
     for (const name of fs.readdirSync(path.join(dir, rel)).sort()) {
@@ -81,4 +102,4 @@ async function uploadProjectFiles(headers, project, outputDir, files, {api = con
     }
 }
 
-module.exports = {applyPlan, projectFiles, uploadProjectFiles};
+module.exports = {applyPlan, preflight, projectFiles, uploadProjectFiles};
