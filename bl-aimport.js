@@ -147,6 +147,27 @@ async function run(opts, deps = {}) {
     let stopping = null;
     let interrupted = false;
 
+    // a one-time viewer link (the engine's /viewer/session); null when the engine has no viewer
+    const openViewer = async () => {
+        let session;
+        try {
+            session = await engine.request('POST', '/viewer/session');
+        } catch (err) {
+            if (err instanceof engineMod.EngineError && err.status === 404) {
+                error('aimport: the engine image is too old for --qa; rebuild it');
+                return null;
+            }
+            throw err;
+        }
+        const url = engine.base + session.url;
+        log('QA viewer: ' + url);
+        try {
+            await deps.openUrl(url);
+        } catch (err) {
+            log('(could not open a browser; open the address above yourself)');
+        }
+        return url;
+    };
     const stopEngine = () => {
         if (!stopping) {
             const e = engine || (name ? new deps.Engine({name}) : null);
@@ -247,6 +268,11 @@ async function run(opts, deps = {}) {
         if (executed.stage !== 'validated' || status.stage !== 'validated') {
             const msg = status.message || executed.message;
             error('aimport: the output is ' + status.stage + (msg ? ' (' + msg + ')' : '') + '; nothing was uploaded');
+            // an invalid output was written: it can still be looked at, to see what to fix
+            if (opts.qa && status.stage === 'invalid') {
+                if (await openViewer() === null) return 1;
+                await deps.prompt('Press Enter to close the viewer and stop the engine. ');
+            }
             return 1;
         }
 
@@ -260,17 +286,16 @@ async function run(opts, deps = {}) {
 
         // the viewer is served by the engine, so it is opened and the question answered before the engine stops
         if (opts.qa) {
-            const session = await engine.request('POST', '/viewer/session');
-            const url = engine.base + session.url;
-            log('QA viewer: ' + url);
-            try {
-                await deps.openUrl(url);
-            } catch (err) {
-                log('(could not open a browser; open the address above yourself)');
-            }
+            if (await openViewer() === null) return 1;
             if (opts.upload !== false) {
-                const answer = String(await deps.prompt('Upload this dataset? [y/N] ')).trim().toLowerCase();
-                if (answer !== 'y' && answer !== 'yes') {
+                for (;;) {
+                    const answer = String(await deps.prompt('Upload this dataset? [y/N/v(iewer link again)] '))
+                        .trim().toLowerCase();
+                    if (answer === 'y' || answer === 'yes') break;
+                    if (answer === 'v') {  // the one-time code expires after 60 s: a fresh one
+                        if (await openViewer() === null) return 1;
+                        continue;
+                    }
                     log('Not uploaded. The output stays in ' + path.join(work, 'output', 'bids'));
                     return 0;
                 }

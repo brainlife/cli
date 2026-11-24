@@ -144,6 +144,8 @@ function setup(script, extra = {}) {
 
 const paths = calls => calls.map(c => c.method + ' ' + c.path);
 
+const QA_PROMPT = 'Upload this dataset? [y/N/v(iewer link again)] ';
+
 describe('bl aimport --qa', () => {
     function qaSetup(answers, extra = {}) {
         const t = setup({onRequest: key => {
@@ -166,7 +168,7 @@ describe('bl aimport --qa', () => {
         assert.ok(t.out.includes('QA viewer: ' + url));
         assert.ok(!t.out.join('\n').includes('tok123'));
         assert.deepStrictEqual(t_opened, [url]);
-        assert.deepStrictEqual(t.prompts, ['Upload this dataset? [y/N] ']);
+        assert.deepStrictEqual(t.prompts, [QA_PROMPT]);
         assert.ok(t.up.rec.datasets.length > 0);
         assert.strictEqual(t.eng.state.stops, 1);
     });
@@ -202,6 +204,64 @@ describe('bl aimport --qa', () => {
         assert.deepStrictEqual(t.prompts, ['Press Enter to close the viewer and stop the engine. ']);
         assert.strictEqual(t.up.rec.datasets, null);
         assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('v: a fresh one-time link, then the question again', async () => {
+        const t = qaSetup(['v', 'V', 'y']);
+        let n = 0;
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            if (m + ' ' + p !== 'POST /viewer/session') return r;
+            n++;
+            return {code: 'c' + n, url: '/viewer/open?code=c' + n};
+        };
+        assert.strictEqual(await run(t.opts, t.deps), 0, t.out.join('\n'));
+        assert.strictEqual(paths(t.eng.calls).filter(c => c === 'POST /viewer/session').length, 3);
+        assert.deepStrictEqual(t_opened, [1, 2, 3].map(i => 'http://127.0.0.1:9999/viewer/open?code=c' + i));
+        assert.ok(t.out.includes('QA viewer: http://127.0.0.1:9999/viewer/open?code=c3'));
+        assert.deepStrictEqual(t.prompts, [QA_PROMPT, QA_PROMPT, QA_PROMPT]);
+        assert.ok(t.up.rec.datasets.length > 0);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('an engine without /viewer/session: too old for --qa, exit 1, nothing uploaded', async () => {
+        const t = setup({errors: {'POST /viewer/session': new EngineError('Not Found', 404)}},
+            {opts: {qa: true}, answers: ['y']});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(t.out.includes('aimport: the engine image is too old for --qa; rebuild it'), t.out.join('\n'));
+        assert.deepStrictEqual(t.prompts, []);
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('another engine error on the session is not reported as too old', async () => {
+        const t = setup({errors: {'POST /viewer/session': new EngineError('boom', 500)}}, {opts: {qa: true}});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(!t.out.some(l => l.includes('too old for --qa')));
+        assert.strictEqual(t.up.rec.datasets, null);
+    });
+
+    it('invalid: the viewer still opens, Enter stops the engine, exit 1, nothing uploaded', async () => {
+        const t = setup({execStage: 'invalid', execMessage: 'validator errors'}, {opts: {qa: true}, answers: ['']});
+        const orig = t.eng.engine.request;
+        t.eng.engine.request = async (m, p, b) => {
+            const r = await orig(m, p, b);
+            return m + ' ' + p === 'POST /viewer/session' ? {code: 'abc123', url: '/viewer/open?code=abc123'} : r;
+        };
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.deepStrictEqual(t_opened, ['http://127.0.0.1:9999/viewer/open?code=abc123']);
+        assert.deepStrictEqual(t.prompts, ['Press Enter to close the viewer and stop the engine. ']);
+        assert.ok(t.out.some(l => l.includes('the output is invalid') && l.includes('nothing was uploaded')));
+        assert.strictEqual(t.up.rec.datasets, null);
+        assert.strictEqual(t.eng.state.stops, 1);
+    });
+
+    it('failed (no output): no viewer', async () => {
+        const t = setup({execStage: 'failed'}, {opts: {qa: true}});
+        assert.strictEqual(await run(t.opts, t.deps), 1);
+        assert.ok(!paths(t.eng.calls).includes('POST /viewer/session'));
+        assert.deepStrictEqual(t.prompts, []);
     });
 
     it('without --qa there is no session call', async () => {
