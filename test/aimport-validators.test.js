@@ -65,6 +65,10 @@ describe('parseMain', () => {
         assert.strictEqual(parseMain('singularity exec docker://a/b:1 ./run.py\nrm -rf x\n'), null);
         assert.strictEqual(parseMain('singularity exec docker://a/b:1 ./run.py; rm x\n'), null);
     });
+    it('refuses option-like images and commands', () => {
+        assert.strictEqual(parseMain('singularity exec docker://-v/:/host ./run.py\n'), null);
+        assert.strictEqual(parseMain('singularity exec docker://a/b:1 --privileged\n'), null);
+    });
 });
 
 describe('validateDataset', () => {
@@ -136,6 +140,56 @@ describe('validateDataset', () => {
             await validateDataset(dataset, datatype, {spawn: f.spawn, cacheDir});
             assert.ok(f.calls[0].args.includes('fetch'));
             assert.ok(f.calls[1].args.includes('reset'));
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('refuses option-like branch or repo without spawning', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            for (const dt of [Object.assign({}, datatype, {validator_branch: '--upload-pack=x'}), Object.assign({}, datatype, {validator: '../x'})]) {
+                const f = fake();
+                const r = await validateDataset(dataset, dt, {spawn: f.spawn, cacheDir});
+                assert.ok(r.skipped);
+                assert.strictEqual(f.calls.length, 0);
+            }
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('is skipped when docker cannot run', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            const f = fake();
+            const spawn = (cmd, args) => {
+                if (cmd !== 'docker') return f.spawn(cmd, args);
+                const ee = new EventEmitter();
+                setImmediate(() => ee.emit('error', new Error('spawn docker ENOENT')));
+                return ee;
+            };
+            const r = await validateDataset(dataset, datatype, {spawn, cacheDir});
+            assert.strictEqual(r.skipped, 'docker could not be run: spawn docker ENOENT');
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('ignores a stale product.json from the repo', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            const clone = path.join(cacheDir, 'brainlife_validator-neuro-anat@1.0');
+            fs.mkdirSync(path.join(clone, '.git'), {recursive: true});
+            fs.writeFileSync(path.join(clone, 'main'), REAL_MAIN);
+            fs.writeFileSync(path.join(clone, 'product.json'), '{"errors": []}');
+            const r = await validateDataset(dataset, datatype, {spawn: fake().spawn, cacheDir});
+            assert.strictEqual(r.ok, false);
+            assert.match(r.errors[0], /no product.json/);
+        } finally { fs.rmSync(root, {recursive: true, force: true}); }
+    });
+
+    it('is skipped when a datatype file has no filename or dirname', async () => {
+        const {root, dataset, cacheDir} = setup();
+        try {
+            const f = fake();
+            const r = await validateDataset(dataset, Object.assign({}, datatype, {files: [{id: 'zz'}]}), {spawn: f.spawn, cacheDir});
+            assert.strictEqual(r.skipped, 'datatype file zz has no filename');
+            assert.strictEqual(f.calls.length, 0);
         } finally { fs.rmSync(root, {recursive: true, force: true}); }
     });
 });

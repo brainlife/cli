@@ -34,7 +34,8 @@ function parseMain(text) {
     const command = m[2].trim();
     // the command is passed to docker as plain words, so no shell syntax
     if (/[;&|<>$`'"\\(){}*?]/.test(command)) return null;
-    if (!/^[\w./:@-]+$/.test(image)) return null;
+    if (!/^[A-Za-z0-9][\w./:@-]*$/.test(image)) return null;
+    if (command.startsWith('-')) return null;
     return {image, command};
 }
 
@@ -79,6 +80,13 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
     const skip = reason => ({ok: true, skipped: reason, errors: [], warnings: []});
     if (!datatype || !datatype.validator) return skip('datatype has no validator');
 
+    // values that go to git as plain arguments must not look like options or paths
+    if (!/^[A-Za-z0-9][\w.-]*\/[A-Za-z0-9][\w.-]*$/.test(datatype.validator)) return skip('validator repo name is not a plain org/repo');
+    if (datatype.validator_branch && !/^[A-Za-z0-9][\w./-]*$/.test(datatype.validator_branch)) return skip('validator branch name is not plain');
+    for (const f of datatype.files || []) {
+        if (!f.filename && !f.dirname) return skip('datatype file ' + f.id + ' has no filename');
+    }
+
     let clone;
     try {
         clone = await fetchValidator(datatype, cacheDir, spawn);
@@ -100,6 +108,7 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
         const inputDir = path.join(tmp, 'input');
         fs.cpSync(clone, work, {recursive: true, filter: src => path.basename(src) !== '.git'});
         fs.mkdirSync(inputDir);
+        fs.rmSync(path.join(work, 'product.json'), {force: true}); // never trust one from the repo
 
         const config = {};
         for (const f of datatype.files || []) config[f.id] = '/input/' + (f.filename || f.dirname);
@@ -111,7 +120,12 @@ async function validateDataset(dataset, datatype, {spawn = child_process.spawn, 
         const args = ['run', '--rm', '--platform', 'linux/amd64',
             '-v', work + ':/validator', '-v', inputDir + ':/input:ro', '-w', '/validator',
             parsed.image].concat(parsed.command.split(/\s+/));
-        const r = await run(spawn, 'docker', args);
+        let r;
+        try {
+            r = await run(spawn, 'docker', args);
+        } catch (err) {
+            return skip('docker could not be run: ' + err.message);
+        }
 
         const productPath = path.join(work, 'product.json');
         let product = null;
