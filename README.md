@@ -1,3 +1,13 @@
+> [!CAUTION]
+> **This Node.js CLI (`npm install -g brainlife`) is no longer supported.** Use the Python CLI in [brainlife/pybrainlife](https://github.com/brainlife/pybrainlife/tree/enh/cli) (branch `enh/cli`), which provides `bl login`, `bl data`, `bl datatype` and `bl aimport`:
+>
+> ```bash
+> pip install "git+https://github.com/brainlife/pybrainlife@enh/cli"
+> bl login
+> ```
+>
+> This repository is kept for reference only.
+
 Please read [documentation](https://brainlife.io/docs/cli/install/) on brainlife.io
 
 ## bl aimport
