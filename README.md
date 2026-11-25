@@ -6,7 +6,7 @@
 > bl login
 > ```
 >
-> This repository is kept for reference only; issues and pull requests here are not reviewed.
+> This repository is kept for reference only.
 
 Please read [documentation](https://brainlife.io/docs/cli/install/) on brainlife.io
 
