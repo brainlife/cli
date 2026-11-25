@@ -7,7 +7,7 @@ Please read [documentation](https://brainlife.io/docs/cli/install/) on brainlife
 Requirements:
 
 - Node.js 18 or newer.
-- Docker. The engine runs as a container from the image `brainlife/aimport:dev` (change it with `--image`). It is not published yet; build it from the [ezBIDS repository](https://github.com/brainlife/ezbids/tree/master/aimport) (`docker build --platform linux/amd64 -t brainlife/aimport:dev -f aimport/Dockerfile .`). From a checkout of ezBIDS `master` with submodules (`git submodule update --init`), build the base image first (`docker build --platform linux/amd64 -t ezbids-handler:local handler/`). An image built before the file manifest was added to the engine's `/status` (ezBIDS #179) stops with "the engine image is too old"; rebuild it. If the image is not on your computer, the first run pulls it (with Docker's progress shown) before the engine starts; the datatype validators are images too and are pulled on first use.
+- Docker. The engine runs as a container from the image `brainlife/aimport:1.9.0` (change it with `--image`), pulled from Docker Hub on first run. To build it yourself instead, build it from the [ezBIDS repository](https://github.com/brainlife/ezbids/tree/master/aimport) (`docker build --platform linux/amd64 -t brainlife/aimport:1.9.0 -f aimport/Dockerfile .`). From a checkout of ezBIDS `master` with submodules (`git submodule update --init`), build the base image first (`docker build --platform linux/amd64 -t ezbids-handler:local handler/`). An image built before the file manifest was added to the engine's `/status` (ezBIDS #179) stops with "the engine image is too old"; rebuild it. If the image is not on your computer, the first run pulls it (with Docker's progress shown) before the engine starts; the datatype validators are images too and are pulled on first use.
 - On Colima (macOS), Docker can only mount folders under your home folder: the input, work and keys folders must all be under `$HOME`.
 - Logged in (`bl login`) and an existing project; aimport never creates one.
 - Optional, an AI model to help name the series. Without one the engine uses its built-in heuristics only. Set `AIMPORT_MODEL` and the key for your provider in your environment: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DASHSCOPE_API_KEY`, or `OLLAMA_BASE_URL` for a local model. They are passed to the container by name; the model only sees a de-identified summary of each series, never images or raw headers.
@@ -37,7 +37,7 @@ An example session:
 
 ```
 $ bl aimport ~/scans/pilot --project 5f1c0a2b9d3e4a0012345678 --deface quickshear
-Starting the aimport engine (brainlife/aimport:dev)...
+Starting the aimport engine (brainlife/aimport:1.9.0)...
   scanning: running ezBIDS
   planned: plan ready for review
 #   BIDS name                deface  status

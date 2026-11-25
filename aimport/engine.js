@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const child_process = require('child_process');
 
 // pinned until maintainers publish a tag
-exports.ENGINE_IMAGE = 'brainlife/aimport:dev';
+exports.ENGINE_IMAGE = 'brainlife/aimport:1.9.0';
 
 // the image's own python is 2.7; aimport lives in this venv
 exports.ENGINE_PYTHON = '/opt/aimport-venv/bin/python';
