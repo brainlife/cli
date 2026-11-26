@@ -8,6 +8,7 @@ const jsonwebtoken = require('jsonwebtoken');
 
 const bids_walker = require('./bids-walker');
 const bids_upload = require('./bids-upload');
+const bids_tables = require('./bids-tables');
 
 commander
     .usage('[options] (path to the root of bids directory - where you have dataset_description.json)')
@@ -62,6 +63,10 @@ util.loadJwt().then(async jwt => {
         }
 
         await bids_upload.uploadDatasets(headers, project, bids.datasets, {tags: commander.tag});
+
+        //phenotype/, samples, sessions and scans tables become project tables (rows linked to subjects)
+        const tables = await bids_tables.uploadTables(headers, project, commander.directory);
+        if(tables) console.log(tables+" table(s) uploaded");
         console.log("BIDS data uploaded to https://"+config.host+"/project/"+project._id);
     });
 
